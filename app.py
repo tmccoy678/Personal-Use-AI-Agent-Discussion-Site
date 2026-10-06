@@ -212,7 +212,7 @@ def create_app(env=None):
         else:
             response = await call_next(request)
         response.headers.update({"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
-            "Referrer-Policy": "no-referrer", "X-Frame-Options": "DENY",
+            "Referrer-Policy": "same-origin", "X-Frame-Options": "DENY",
             "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"})
         if secure:
             response.headers["Strict-Transport-Security"] = "max-age=31536000"

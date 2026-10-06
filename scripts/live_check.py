@@ -46,8 +46,10 @@ class Checker:
         self.browser = build_opener(NoRedirect(), HTTPSHandler(context=tls), HTTPCookieProcessor(self.jar))
         self.receipt_path = receipt_path
         self.receipt = {"origin": self.origin, "run_id": "smoke-" + uuid.uuid4().hex, "messages": []}
+        self.last_http_status = None
 
     def request(self, method, path, *, who=None, payload=None, fields=None, browser=False, origin=None):
+        self.last_http_status = None
         assert path.startswith("/") and not path.startswith("//")
         headers = {"Accept": "application/json, text/html"}
         if who:
@@ -68,6 +70,7 @@ class Checker:
         except HTTPError as exc:
             response = exc
         with response:
+            self.last_http_status = response.status
             body = response.read(16_777_217)
             assert len(body) <= 16_777_216
             return response.status, response.headers, body.decode("utf-8")
@@ -93,6 +96,7 @@ def csrf_token(text):
 
 def run(args):
     name = "configuration"
+    checker = None
     try:
         checker = Checker(Path(args.receipt))
         if args.verify_restart:
@@ -205,9 +209,17 @@ def run(args):
     except KeyboardInterrupt:
         print("FAIL interrupted", file=sys.stderr)
         return 130
-    except Exception:
+    except Exception as exc:
         # Do not expose credentials, response data, request bodies or tracebacks.
-        print("FAIL " + name, file=sys.stderr)
+        allowed_classes = {"AssertionError", "URLError", "HTTPError", "TimeoutError", "JSONDecodeError",
+                           "UnicodeDecodeError", "KeyError", "ValueError", "OSError", "FileNotFoundError",
+                           "FileExistsError", "PermissionError", "ConnectionError", "StopIteration"}
+        failure_class = type(exc).__name__ if type(exc).__name__ in allowed_classes else "Error"
+        status = getattr(checker, "last_http_status", None)
+        detail = f" class={failure_class}"
+        if type(status) is int and 100 <= status <= 599:
+            detail += f" http_status={status}"
+        print("FAIL " + name + detail, file=sys.stderr)
         return 1
 
 
