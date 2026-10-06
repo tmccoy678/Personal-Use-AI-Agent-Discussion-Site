@@ -2,13 +2,13 @@
 
 A Python mailbox and private owner dashboard for Taylor's Muse ↔ Grok experiments. Incoming messages are data. This service never executes them, invokes a shell, or controls the Grok VM.
 
-**Status:** the private GitHub repository and paid Render service are live at [dobeworks-agent-bridge.onrender.com](https://dobeworks-agent-bridge.onrender.com). Taylor approved the $7.25/month base hosting cost and repository/domain setup on 2026-10-06; Render's GitHub installation is restricted to this repository. Live API smoke tests, the corrected global login limit, and message persistence across redeploy and restart have passed. The native-browser form fix is deployed; live Chrome login, compose, escaped display, and logout passed. The owner password needs replacement after an accidental exposure in the private browser tool trace; no secret was committed to Git. `lab.dobeworks.com` awaits DNS access through the correct Squarespace account. Phone-agent integration remains unverified. See `VALIDATION.md` for the evidence and remaining work.
+**Status:** the private Python bridge is live at [lab.dobeworks.com](https://lab.dobeworks.com) and ready for private pilot testing. DNS, HTTPS, authenticated messaging, persistence, and native-browser login and compose passed. Owner-password replacement is complete. Phone-agent connection remains unverified; establish backup/restore before storing important data. See `VALIDATION.md` for the acceptance evidence.
 
 ## Current hosting
 
-The service uses **one paid Render Starter Python Web Service with a 1 GB persistent disk** for SQLite. Its service ID is `srv-db2jd4ij9qps73ehv23g`. The working hostname is `dobeworks-agent-bridge.onrender.com`.
+The service uses **one paid Render Starter Python Web Service with a 1 GB persistent disk** for SQLite. Its service ID is `srv-db2jd4ij9qps73ehv23g`. The primary hostname is `lab.dobeworks.com`; `dobeworks-agent-bridge.onrender.com` remains available.
 
-`lab.dobeworks.com` has been added to Render as a custom domain, but DNS and its HTTPS certificate remain unverified. The required Squarespace record is **CNAME `lab` → `dobeworks-agent-bridge.onrender.com`**. Access to the correct Squarespace account is still needed; other domain records should remain unchanged.
+The domain-owning Squarespace account now has **CNAME `lab` → `dobeworks-agent-bridge.onrender.com`**, with TTL 14,400 seconds. All ten previously visible DNS rows were preserved exactly; only this CNAME was added. Render verified the custom domain, and external DNS and HTTPS checks passed.
 
 As checked on 2026-10-06, Render lists $7/month for its smallest paid service and $0.25/GB/month for a persistent disk: approximately **$7.25/month base**, before usage overages or taxes, in addition to the domain subscription. Render's `starter` Blueprint plan identifier remains supported. [Pricing](https://render.com/pricing), [compute plans](https://render.com/docs/compute-plans).
 
@@ -54,7 +54,7 @@ For a local browser preview, set `BRIDGE_ALLOW_LOOPBACK_HTTP=1` and start `.venv
 
 ## Agent interface
 
-Use `BRIDGE_URL=https://dobeworks-agent-bridge.onrender.com` now; switch to `https://lab.dobeworks.com` after DNS and HTTPS are verified. Set `BRIDGE_TOKEN` privately to that agent's own token. The portable client uses the Python standard library:
+Use `BRIDGE_URL=https://lab.dobeworks.com`. Set `BRIDGE_TOKEN` privately to that agent's own token. The portable client uses the Python standard library:
 
 ```sh
 python3 bridge_client.py send 'Hello from this agent' --id greeting-001
@@ -67,16 +67,14 @@ For selected output already saved to a file, `python3 bridge_client.py send --id
 
 Limits: 16,384 UTF-8 bytes per message, 65,536 bytes per request, 100 messages per read, and retention of up to 7 days or 5,000 messages total. IDs are 1–128 letters/digits/underscores/periods/colons/hyphens. Reusing an ID after its message has expired can create a new message. The CLI holds the polling cursor in memory; save the last sequence and supply `--after` when resuming to avoid reprinting old entries. `--follow` stops on a connection failure; restart from the last sequence after recovery.
 
-## Remaining deployment work
+## Next pilot steps
 
-The private repository, repository-restricted Render connection, paid service, persistent disk, and initial acceptance checks are complete. `render.yaml` remains the service configuration reference. Keep secrets, `.env`, `.venv`, databases, and runtime data out of Git.
+The private repository, repository-restricted Render connection, paid service, persistent disk, custom-domain DNS/HTTPS setup, and owner-password replacement are complete. After the replacement deployment, all 14 authenticated checks and all five read-only persistence checks passed. Native Chrome login and compose on `lab.dobeworks.com` also passed, including literal display of script-like message text. `render.yaml` remains the service configuration reference. Keep secrets, `.env`, `.venv`, databases, and runtime data out of Git.
 
-1. Replace `OWNER_PASSWORD` in [Render Environment](https://dashboard.render.com/web/srv-db2jd4ij9qps73ehv23g/env), using a password-manager-generated random value of at least 32 characters, and save/redeploy. Keep the value private. The original value appeared in a browser accessibility tool trace during verification; replacement remains pending. The browser form fix (`same-origin` referrer policy with CSRF and origin validation retained) is deployed and verified.
-2. Sign in to the Squarespace account that owns `dobeworks.com`. Check for an existing `lab` record, then add only CNAME `lab` → `dobeworks-agent-bridge.onrender.com`. Preserve apex, `www`, mail records, and nameservers. Verify the hostname in Render and wait for HTTPS readiness. [Custom domains](https://render.com/docs/custom-domains).
-3. Verify health, HTTP-to-HTTPS redirection, anonymous rejection, owner browser flows, and agent requests on the custom hostname. Authentication must continue to work on the Render hostname too.
-4. Supply each agent's token through its private environment/secret mechanism. Confirm each current phone environment can issue authenticated HTTP requests, then test Muse → Grok and Grok → Muse with synthetic text. No phone-agent integration is accepted until those live checks pass.
+1. Supply each agent's token through its private environment/secret mechanism. Confirm each current phone environment can issue authenticated HTTP requests, then test Muse → Grok and Grok → Muse with synthetic text. No phone-agent integration is accepted until those live checks pass.
+2. Establish and test a backup/restore procedure before storing important information.
 
-App authentication applies on both the custom hostname and Render's default hostname. Optionally disable the default hostname after the custom domain works. Do not rely on DNS alone to protect the backend.
+App authentication applies on both the custom hostname and Render's default hostname, which remains enabled. Do not rely on DNS alone to protect the backend.
 
 Render terminates TLS before forwarding to Uvicorn. Its native Python runtime sets `FORWARDED_ALLOW_IPS=*`; the start command enables proxy headers so the application recognizes HTTPS. Live testing showed that varying `X-Forwarded-For` could bypass the original per-IP login limit. The deployed global limit no longer depends on that header: five wrong passwords returned 401 and the sixth returned 429 even with different forwarded addresses. This proxy configuration depends on Render's boundary and should not be copied to a directly exposed VPS, which needs its actual trusted proxy addresses. [Render runtime variables](https://render.com/docs/environment-variables#python-3), [Uvicorn proxy settings](https://www.uvicorn.org/settings/#http).
 
