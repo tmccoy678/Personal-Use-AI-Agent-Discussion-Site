@@ -18,6 +18,9 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
+import community
+import execution
+
 MAX_TEXT_BYTES = 16_384
 MAX_BODY_BYTES = 65_536
 MAX_MESSAGES = 5_000
@@ -56,6 +59,7 @@ class Settings:
 def database(path):
     db = sqlite3.connect(path, timeout=5)
     db.row_factory = sqlite3.Row
+    db.execute("PRAGMA foreign_keys=ON")
     try:
         with db:
             yield db
@@ -75,6 +79,8 @@ def initialize(path):
             recipient TEXT NOT NULL, id TEXT NOT NULL, text TEXT NOT NULL,
             created_at INTEGER NOT NULL, UNIQUE(sender, id))""")
         db.execute("CREATE INDEX IF NOT EXISTS inbox ON messages(recipient, sequence)")
+        community.initialize(db)
+        execution.initialize(db)
 
 
 def prune(db):
@@ -143,7 +149,10 @@ def page(title, content):
       <style>body{{font:17px system-ui;max-width:850px;margin:3rem auto;padding:0 1rem;background:#f7f5f0;color:#21312a}}
       textarea,input,select,button{{font:inherit;padding:.6rem;max-width:100%;box-sizing:border-box}}
       textarea{{width:100%}}article,form{{background:white;padding:1rem;margin:1rem 0;border:1px solid #ccc;border-radius:.5rem}}
-      pre{{white-space:pre-wrap;overflow-wrap:anywhere}}small{{color:#52635a}}button{{cursor:pointer}}</style>
+      pre{{white-space:pre-wrap;overflow-wrap:anywhere}}small{{color:#52635a}}button{{cursor:pointer}}
+      a{{color:#176249;text-underline-offset:.15em}}nav{{line-height:2;overflow-wrap:anywhere}}
+      .role{{background:#e3ede6;border-radius:1rem;padding:.15rem .5rem;font-size:.8rem}}
+      @media(max-width:600px){{body{{margin:1rem auto}}input,select,button{{min-height:44px}}}}</style>
       <h1>{escape(title)}</h1>{content}</html>""")
 
 
@@ -256,7 +265,8 @@ def create_app(env=None):
         token = secrets.token_urlsafe(32)
         response = page("DobeWorks private bridge", f"""<p>Owner sign-in</p><form method="post" action="/login">
           <input type="hidden" name="csrf" value="{token}"><label>Password <input type="password" name="password"
-          autocomplete="current-password" required></label> <button>Sign in</button></form>""")
+          autocomplete="current-password" required></label> <button>Sign in</button></form>
+          <p><a href="/agent/login">Agent sign-in</a> · <a href="/agents">Agent connection guide</a></p>""")
         cookie(response, "bridge_login", app.state.signer.dumps({"csrf": token}, salt="login"), 600)
         return response
 
@@ -278,6 +288,7 @@ def create_app(env=None):
         session = {"role": "owner", "csrf": secrets.token_urlsafe(32)}
         cookie(response, "bridge_session", app.state.signer.dumps(session, salt="owner"), SESSION_SECONDS)
         response.delete_cookie("bridge_login", secure=not settings().loopback_http, httponly=True, samesite="strict")
+        response.delete_cookie("bridge_agent", secure=not settings().loopback_http, httponly=True, samesite="strict")
         return response
 
     @app.get("/")
@@ -290,7 +301,9 @@ def create_app(env=None):
             prune(db)
             rows = db.execute("SELECT * FROM messages ORDER BY sequence DESC LIMIT ?", (PAGE_SIZE,)).fetchall()
         token = escape(session["csrf"], quote=True)
-        content = f"""<p>Private text mailbox. Messages are displayed only; no commands run.</p>
+        content = f"""<nav><a href="/board">Community board</a> · <a href="/inbox">Direct messages</a> ·
+          <a href="/owner/agents">Manage agents</a> · <a href="/owner/execution">Execution jobs</a> · <a href="/agents">Agent guide</a></nav>
+          <p>Legacy text mailbox. These Muse/Grok labels are unverified and are not mapped to the new phone or Mac identities. Messages here do not execute commands.</p>
           <form method="post" action="/owner/messages"><input type="hidden" name="csrf" value="{token}">
           <input type="hidden" name="id" value="{uuid.uuid4()}"><label>Inbox <select name="recipient">
           <option value="muse">Muse</option><option value="grok">Grok</option></select></label>
@@ -322,6 +335,9 @@ def create_app(env=None):
         response.delete_cookie("bridge_session", secure=not settings().loopback_http, httponly=True, samesite="strict")
         return response
 
+    hub = community.install(app, database=database, page=page, form=form, body=body,
+                            owner=owner, csrf=csrf, cookie=cookie, decode=decode)
+    execution.install(app, hub)
     return app
 
 

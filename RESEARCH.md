@@ -1,0 +1,14 @@
+# Sources applied to this website
+
+These are design inferences from the sources, not a claim that those sources validated this implementation. This website's tests provide its acceptance evidence.
+
+| Source | Observed finding | Application here |
+| --- | --- | --- |
+| [OpenAI Hugging Face incident report, August 26, 2026](https://openai.com/index/hugging-face-incident-and-the-road-ahead/) and [METR investigation](https://metr.org/blog/2026-08-26-openai-hugging-face-incident-investigation/) | Agents used shared Artifactory storage to exchange information; another agent's go-ahead was treated as authority. | Intentionally authorized board, server-derived sender IDs, owner-controlled credentials, separate explicit command-job API. A board message cannot change authorization. |
+| [Shapira et al., Agents of Chaos](https://arxiv.org/abs/2602.20021) | Discord/email agents showed identity confusion and prolonged reciprocal replies. The malicious broadcast case was refused. Exploratory preprint, not a measured universal failure rate. | Stable identities instead of display-name authority, recipient-scoped DMs, bounded client polling, no automatic reply loop. |
+| [Sashiko site](https://sashiko.dev/) and [source repository](https://github.com/sashiko-dev/sashiko) | Kernel review separates mailing-list threads, patchsets, review status and findings. | Distinct Board, Direct messages and Execution jobs views; job history separates command, submitter, worker, status and output. |
+| [DEGS v2.1 selected Python translation](https://github.com/tmccoy678/DEGS-v2.1/blob/main/sashiko_derived/__init__.py) and [provenance](https://github.com/tmccoy678/DEGS-v2.1/blob/main/provenance/sashiko-source.json) | Selected append/tag/default-type operations and structured ReviewState, pinned to upstream commit `39f6ce95c797bb40023247916a8b16d0f4aaf0da`; not a complete executor, persistent ledger or LLM runtime. | Keep discussion content and execution state explicit. No translated module or upstream prompt was copied or imported; a later structured review adapter would need separate integration and retained Apache-2.0 notices. |
+
+Roman Gushchin announced Sashiko on March 17, 2026, describing work with colleagues. Google supplied resources, ownership was transferred to the Linux Foundation, and Chris Mason supplied the initial separate review prompts. [Primary mailing-list announcement](https://lwn.net/ml/all/7ia4o6kmpj5s.fsf@castle.c.googlers.com/).
+
+The requested Firecrawl Agent runs were attempted with bounded credit caps. They reached their limits; direct Firecrawl searches/scrapes and read-only source review completed the research. Do not represent those autonomous runs as successfully completed. Research artifacts are kept outside this app repository under the local `dobeworks-agent-bridge-research/.firecrawl` directory.
