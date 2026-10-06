@@ -355,3 +355,60 @@ def test_owner_lands_in_full_inbox_and_can_message_codex_and_blu(system, env, re
     assert 'Legacy text mailbox' in client.get('/legacy').text
     client.cookies.clear()
     assert client.get('/legacy', follow_redirects=False).headers['location'] == '/login'
+
+
+def test_blu_cannot_submit_even_to_enabled_workers_but_keeps_communication(system, env):
+    import execution
+    from fastapi import HTTPException
+    client, tokens = system
+    blu = headers(tokens['codex-blu-private'])
+    codex = headers(tokens['codex'])
+    assert client.get('/api/agents/me', headers=blu).json()['can_submit_jobs'] is False
+    assert client.get('/api/agents/me', headers=codex).json()['can_submit_jobs'] is True
+    nonce = csrf(client.get('/owner/agents'))
+    assert client.post('/owner/execution/workers', data={
+        'csrf':nonce,'worker_id':'grok-phone','enabled':'1'}, follow_redirects=False).status_code == 303
+    payload = {'id':'permission-test','worker_id':'grok-phone','command':':','timeout_seconds':1}
+    blocked = client.post('/api/jobs', headers=blu, json=payload)
+    assert blocked.status_code == 403
+    assert client.post('/api/jobs', headers=blu, json={**payload,'can_submit_jobs':True}).status_code == 422
+    with bridge.database(env['BRIDGE_DB_PATH']) as db:
+        assert db.execute('SELECT COUNT(*) FROM execution_jobs').fetchone()[0] == 0
+        actor = client.app.state.community.agent(db, 'codex-blu-private')
+    actor['can_submit_jobs'] = True  # A stale/forged actor snapshot cannot grant permission.
+    with pytest.raises(HTTPException) as error:
+        execution.submit(client.app.state.community, actor, payload)
+    assert error.value.status_code == 403
+    assert client.post('/api/jobs', headers=codex, json=payload).status_code == 201
+    assert client.post('/owner/execution/jobs', data={'csrf':nonce, **payload}, follow_redirects=False).status_code == 303
+    assert client.post('/api/stream', headers=blu, json={'id':'public','text':'Public work update'}).status_code == 201
+    assert post(client, tokens['codex-blu-private']).status_code == 201
+    assert dm(client, tokens['codex-blu-private'], 'owner').status_code == 201
+    assert len(client.get('/api/dms', headers=blu).json()['dms']) == 1
+    agent_login(client, tokens['codex-blu-private'])
+    assert client.post('/owner/execution/jobs', data={'csrf':csrf(client.get('/inbox')), **payload}).status_code == 401
+    assert client.get('/stream').status_code == 200
+
+
+def test_job_permission_migration_preserves_existing_keys_and_other_restrictions(env):
+    # The schema deployed before this change, with an already-provisioned Blu key.
+    with sqlite3.connect(env['BRIDGE_DB_PATH']) as db:
+        db.execute('''CREATE TABLE community_agents (
+            id TEXT PRIMARY KEY, display_name TEXT NOT NULL, role TEXT NOT NULL CHECK(role IN ('owner','agent')),
+            token_hash TEXT UNIQUE, token_version INTEGER NOT NULL DEFAULT 0,
+            issued_at INTEGER, first_used_at INTEGER, last_used_at INTEGER, revoked_at INTEGER,
+            CHECK(role='agent' OR token_hash IS NULL))''')
+        db.execute("""INSERT INTO community_agents VALUES
+            ('codex-blu-private','Blu Private','agent','preserve-this-hash',3,11,12,13,NULL)""")
+    bridge.initialize(env['BRIDGE_DB_PATH'])
+    with bridge.database(env['BRIDGE_DB_PATH']) as db:
+        row = db.execute("SELECT * FROM community_agents WHERE id='codex-blu-private'").fetchone()
+        assert row['can_submit_jobs'] == 0
+        assert (row['token_hash'],row['token_version'],row['issued_at'],row['first_used_at'],row['last_used_at']) == ('preserve-this-hash',3,11,12,13)
+        assert db.execute("SELECT can_submit_jobs FROM community_agents WHERE id='codex'").fetchone()[0] == 1
+        db.execute("UPDATE community_agents SET can_submit_jobs=0 WHERE id='codex'")
+    bridge.initialize(env['BRIDGE_DB_PATH'])
+    with bridge.database(env['BRIDGE_DB_PATH']) as db:
+        assert db.execute("SELECT can_submit_jobs FROM community_agents WHERE id='codex'").fetchone()[0] == 0
+        assert db.execute("SELECT can_submit_jobs FROM community_agents WHERE id='codex-blu-private'").fetchone()[0] == 0
+        assert db.execute("SELECT token_hash FROM community_agents WHERE id='codex-blu-private'").fetchone()[0] == 'preserve-this-hash'

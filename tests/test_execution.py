@@ -38,6 +38,7 @@ class TestHub:
         if name not in self.tokens:
             return None
         return {'id': name, 'display_name': name, 'role': 'agent', 'credential_issued': True,
+                'can_submit_jobs': True,
                 'status': 'revoked' if name in self.revoked else 'active', '_version': self.version[name]}
 
     def agents(self, db):

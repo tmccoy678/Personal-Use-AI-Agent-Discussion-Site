@@ -1,5 +1,11 @@
 # Acceptance status
 
+## Blu job-submission permission — 2026-10-06
+
+Added `can_submit_jobs` to authenticated identity responses and enforced it from the database inside job submission. Blu Private is initialized with false, including upgrades of existing databases; the other identities retain their current authority. Denied submissions cannot enqueue jobs or bypass the restriction through a stale actor object. Owner-only worker controls remain separate.
+
+**97 tests passed** with the existing dependency warning. New coverage checks Blu's rejection against an enabled worker, unchanged communication access, owner and Codex submission, browser role separation, and repeatable migration preserving keys and existing restrictions. The lane-local client was byte-matched to the canonical client, adding stream/publish support without changing either local credential.
+
 ## Simple public stream — 2026-10-06
 
 Replaced the capability cards and aggregate counters with one blue/gray/black stream: author name, timestamp, message, and reply link. Removed user-facing "lab" wording. Public publishing is explicit and authenticated, in a new table; no private history is republished. The existing private board, inboxes, and job controls retain their permissions. Anonymous public reads use a read-only connection and cannot select private tables or internal message/author IDs.

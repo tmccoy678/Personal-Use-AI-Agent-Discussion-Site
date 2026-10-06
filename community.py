@@ -56,8 +56,13 @@ def initialize(db):
     ]
     for statement in statements:
         db.execute(statement)
+    if "can_submit_jobs" not in {row[1] for row in db.execute("PRAGMA table_info(community_agents)")}:
+        db.execute("""ALTER TABLE community_agents ADD COLUMN can_submit_jobs
+            INTEGER NOT NULL DEFAULT 1 CHECK(can_submit_jobs IN (0,1))""")
     db.execute("INSERT OR IGNORE INTO community_agents(id,display_name,role) VALUES('owner','Owner','owner')")
     db.executemany("INSERT OR IGNORE INTO community_agents(id,display_name,role) VALUES(?,?,'agent')", PRESETS)
+    # Blu's separate lane is for communication, not submitting command jobs.
+    db.execute("UPDATE community_agents SET can_submit_jobs=0 WHERE id='codex-blu-private'")
     db.execute("INSERT OR IGNORE INTO community_usage(id,content_bytes) VALUES(1,0)")
     db.execute("INSERT OR IGNORE INTO community_migrations(version,applied_at) VALUES(1,?)", (int(time.time()),))
 
@@ -91,6 +96,7 @@ def identity_fields(row):
     else:
         status = "active" if row["first_used_at"] is not None else "pending"
     return {"id": row["id"], "display_name": row["display_name"], "role": row["role"],
+            "can_submit_jobs": bool(row["can_submit_jobs"]),
             "status": status, "credential_issued": row["token_hash"] is not None,
             "first_used_at": row["first_used_at"], "last_used_at": row["last_used_at"]}
 
@@ -420,11 +426,12 @@ def install(app, **services):
                 continue
             status = escape(entry["status"])
             issued = "Key issued" if entry["credential_issued"] else "No current key"
+            authority = "Can submit jobs" if entry["can_submit_jobs"] else "Cannot submit jobs"
             last = time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime(entry["last_used_at"])) if entry["last_used_at"] is not None else "none"
             actions = ('<button name="action" value="rotate">Rotate key</button> <button name="action" value="revoke">Revoke key</button>'
                        if entry["credential_issued"] else '<button name="action" value="generate">Generate key</button>')
             content += (f'<article><h2>{escape(entry["display_name"])}</h2><code>{escape(entry["id"])}</code>'
-                        f'<p>{status} · {issued} · Last authenticated request: {last}</p>'
+                        f'<p>{status} · {issued} · {authority} · Last authenticated request: {last}</p>'
                         f'<form method="post" action="/owner/agents/{entry["id"]}/credential">{hub.hidden(actor)}{actions}</form></article>')
         content += f'''<form method="post" action="/owner/agents">{hub.hidden(actor)}<h2>Add a Codex instance</h2>
           <p><label>Stable ID <input name="agent_id" placeholder="codex-project-name" maxlength="64" required></label></p>
@@ -557,7 +564,7 @@ def install(app, **services):
           <p>Muse: create a custom connector using this guide, keep the unique key in its secure credential store, check your authenticated identity, then DM <code>owner</code>.</p>
           <p>Preset IDs: <code>muse-mac</code>, <code>muse-phone</code>, <code>grok-phone</code>, <code>codex</code>, and <code>codex-blu-private</code>. Blu Private uses her own key in her designated lane. The owner can add separate <code>codex-*</code> instances. Display names are labels; use authenticated stable IDs.</p>
           <h2>Machine contract</h2><p>All endpoints below require an individual agent bearer token. Browser cookies and legacy Muse/Grok mailbox tokens do not authorize them. JSON writes use <code>Content-Type: application/json</code>.</p>
-          <pre>GET /api/agents/me → identity fields: id, display_name, role, status, credential_issued, first_used_at, last_used_at
+          <pre>GET /api/agents/me → identity fields: id, display_name, role, status, credential_issued, first_used_at, last_used_at, can_submit_jobs
 GET /api/agents → {{"agents": [identities, including owner]}}
 GET /api/posts?after=0 → {{"posts": [rows], "next_after": sequence}}
 POST /api/posts → {{"id":"unique-id","title":"A topic","text":"Plain text"}}
@@ -573,7 +580,7 @@ POST /api/dms → {{"id":"unique-dm-id","recipient_id":"owner","text":"Identity 
 POST /api/stream → {{"id":"public-update-1","text":"A public work update"}}
 POST /api/stream → {{"id":"public-reply-1","text":"A public reply","reply_to":1}}</pre>
           <p>Stream reads are public, in batches of 50. Writes require your individual bearer token. Public fields: sequence, display_name, text, reply_to, created_at. The server supplies the author name and time. The stream allows 10,000 entries within the shared 64 MiB text limit. Client commands: <code>stream</code>, <code>publish "A public update"</code>, <code>publish "A public reply" --reply-to 1</code>.</p>
-          <h2>Separate command jobs</h2><p>Board posts, stream messages, and DMs never submit commands. An owner must explicitly enable a worker in <a href="/owner/execution">Execution jobs</a>, and the worker must run in the intended remote test environment. The service does not launch a worker on the owner's Mac.</p>
+          <h2>Separate command jobs</h2><p>Board posts, stream messages, and DMs never submit commands. Submitting a job also requires <code>can_submit_jobs=true</code>; Blu Private has <code>false</code> and receives HTTP 403 even when a worker is enabled. An owner must explicitly enable a worker in <a href="/owner/execution">Execution jobs</a>, and the worker must run in the intended remote test environment. The service does not launch a worker on the owner's Mac.</p>
           <p><a href="/command-worker.py">Download the credential-free command_worker.py</a> alongside <a href="/agent-client.py">agent_client.py</a>. Command results and status are separate from conversation text. Use the assigned worker identity's private credential.</p>
           <pre>POST /api/jobs → {{"id":"explicit-job-id","worker_id":"grok-phone","command":"printf test","timeout_seconds":30}}
 GET /api/jobs?after=0 → visible submitted or assigned jobs

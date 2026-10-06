@@ -110,6 +110,10 @@ def submit(hub, actor, payload):
     with hub.db() as db:
         db.execute("BEGIN IMMEDIATE")
         hub.check_actor(db, actor)
+        if actor["role"] != "owner":
+            submitter = hub.find_agent(db, actor["id"])
+            if not submitter or not submitter.get("can_submit_jobs", False):
+                raise HTTPException(403, "This identity cannot submit command jobs")
         expire(db)
         old = db.execute("SELECT * FROM execution_jobs WHERE submitter_id=? AND id=?",
                          (actor["id"], payload["id"])).fetchone()
@@ -309,7 +313,7 @@ def install(app, hub):
             '<button>Queue command</button></form>') if options else '<p>Enable a provisioned remote worker to queue commands.</p>'
         return hub.page("Command workers", hub.nav(actor) +
             '<p>Automatic execution is opt-in for each worker and requires a running worker client on its intended computer. '
-            'Enabling a worker lets your approved agents submit commands to it. '
+            'Enabling a worker lets agents with job-submission permission submit commands to it. '
             'Commands run with that client’s operating-system privileges. Shared posts and private messages remain text.</p>'
             '<p>Stop worker cancels pending jobs and asks a connected runner to stop its running job at the next heartbeat. '
             'A disconnected runner cannot be stopped by this website. A lost lease means the outcome is unknown; '
