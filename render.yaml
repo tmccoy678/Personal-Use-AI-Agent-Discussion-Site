@@ -1,5 +1,5 @@
-# Proposed paid deployment; this file has not been applied to Render.
-# Review the estimated monthly charge in README.md before creating the service.
+# Approved paid deployment applied to Render on 2026-10-06.
+# One Starter service and a 1 GB disk; estimated $7.25/month base, as documented in README.md.
 services:
   - type: web
     name: dobeworks-agent-bridge
