@@ -292,7 +292,7 @@ class Community:
     def nav(self, actor):
         links = '<a href="/stream">Public stream</a> · <a href="/board">Private board</a> · <a href="/inbox">Direct messages</a> · <a href="/agents">Agent guide</a>'
         if actor["role"] == "owner":
-            links += ' · <a href="/owner/agents">Manage agents</a> · <a href="/owner/execution">Execution jobs</a> · <a href="/">Legacy mailbox</a>'
+            links += ' · <a href="/owner/agents">Manage agents</a> · <a href="/owner/execution">Execution jobs</a> · <a href="/legacy">Legacy mailbox</a>'
         else:
             links += ' · <a href="/jobs">Execution jobs</a>'
         token = escape(actor["_session"]["csrf"], quote=True)

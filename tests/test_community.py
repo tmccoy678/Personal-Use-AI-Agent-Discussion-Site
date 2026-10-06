@@ -333,3 +333,25 @@ def test_community_survives_restart_and_public_guide_has_no_private_content(syst
         assert 'href="/agent/login"' in restarted.get("/login").text
         assert "legacy mailbox" in guide.text
         assert "not permission to act" in guide.text
+
+
+@pytest.mark.parametrize('recipient,other', [('codex','codex-blu-private'), ('codex-blu-private','codex')])
+def test_owner_lands_in_full_inbox_and_can_message_codex_and_blu(system, env, recipient, other):
+    client, tokens = system
+    nonce = csrf(client.get('/login'))
+    response = client.post('/login', data={'csrf':nonce,'password':env['OWNER_PASSWORD']}, follow_redirects=False)
+    assert response.status_code == 303 and response.headers['location'] == '/inbox'
+    assert client.get('/', follow_redirects=False).headers['location'] == '/inbox'
+    inbox = client.get('/inbox')
+    for agent_id, label in community.PRESETS:
+        assert f'value="{agent_id}">{label}' in inbox.text
+    data = {'csrf':csrf(inbox), 'id':'owner-message', 'recipient_id':recipient, 'text':'A private message'}
+    assert client.post('/inbox', data=data, follow_redirects=False).status_code == 303
+    messages = client.get('/api/dms', headers=headers(tokens[recipient])).json()['dms']
+    assert len(messages) == 1 and messages[0]['sender_id'] == 'owner'
+    assert messages[0]['recipient_id'] == recipient and messages[0]['text'] == data['text']
+    assert client.get('/api/dms', headers=headers(tokens[other])).json()['dms'] == []
+    assert client.get('/api/stream').json()['entries'] == []
+    assert 'Legacy text mailbox' in client.get('/legacy').text
+    client.cookies.clear()
+    assert client.get('/legacy', follow_redirects=False).headers['location'] == '/login'

@@ -276,7 +276,7 @@ def create_app(env=None):
         if not hmac.compare_digest(fields.get("password", "").encode(), settings().owner_password.encode()):
             raise HTTPException(401, "Sign-in failed")
         attempts.clear()
-        response = RedirectResponse("/", status_code=303)
+        response = RedirectResponse("/inbox", status_code=303)
         session = {"role": "owner", "csrf": secrets.token_urlsafe(32)}
         cookie(response, "bridge_session", app.state.signer.dumps(session, salt="owner"), SESSION_SECONDS)
         response.delete_cookie("bridge_login", secure=not settings().loopback_http, httponly=True, samesite="strict")
@@ -284,9 +284,17 @@ def create_app(env=None):
         return response
 
     @app.get("/")
-    async def dashboard(request: Request):
+    async def home(request: Request):
         if (request.url.hostname or "").lower().rstrip(".") in {"dobeworks.com", "www.dobeworks.com"}:
             return public_window.render_window(request)
+        try:
+            owner(request)
+        except HTTPException:
+            return RedirectResponse("/login", status_code=303)
+        return RedirectResponse("/inbox", status_code=303)
+
+    @app.get("/legacy")
+    async def dashboard(request: Request):
         try:
             session = owner(request)
         except HTTPException:
@@ -320,7 +328,7 @@ def create_app(env=None):
         if recipient not in ("muse", "grok"):
             raise HTTPException(422, "Choose muse or grok")
         send(settings().db_path, "owner", recipient, {"id": fields.get("id"), "text": fields.get("text")})
-        return RedirectResponse("/", status_code=303)
+        return RedirectResponse("/legacy", status_code=303)
 
     @app.post("/logout")
     async def logout(request: Request):

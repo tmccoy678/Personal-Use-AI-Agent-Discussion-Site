@@ -126,12 +126,12 @@ def test_owner_csrf_secure_cookies_and_xss(client, env):
     cookie = response.headers.get_list("set-cookie")[0]
     assert "HttpOnly" in cookie and "Secure" in cookie and "SameSite=strict" in cookie
     assert client.get("/api/messages").status_code == 401  # browser session never grants agent identity
-    token = csrf(client.get("/").text)
+    token = csrf(client.get("/legacy").text)
     fields = {"csrf": token, "recipient": "grok", "id": "owner-one", "text": '<script>alert("x")</script>\x1b[31m'}
     assert client.post("/owner/messages", data={**fields, "csrf": "bad"}).status_code == 403
     assert client.post("/owner/messages", headers={"Origin": "https://evil.test"}, data=fields).status_code == 403
     assert client.post("/owner/messages", data=fields, follow_redirects=False).status_code == 303
-    html = client.get("/").text
+    html = client.get("/legacy").text
     assert "<script>" not in html and "&lt;script&gt;" in html
     incoming = client.get("/api/messages", headers=auth(env, "grok")).json()["messages"]
     assert incoming[0]["sender"] == "owner" and incoming[0]["text"] == fields["text"]
@@ -234,7 +234,7 @@ def test_trusted_reverse_proxy_preserves_https_login_and_csrf(env):
                                follow_redirects=False)
         assert response.status_code == 303
         headers["Cookie"] = "bridge_session=" + client.cookies["bridge_session"]
-        token = csrf(client.get("/", headers=headers).text)
+        token = csrf(client.get("/legacy", headers=headers).text)
         assert client.post("/owner/messages", headers=headers,
                            data={"csrf": token, "id": "proxy", "recipient": "grok", "text": "hello"},
                            follow_redirects=False).status_code == 303

@@ -128,7 +128,7 @@ def run(args):
         assert checker.request("GET", "/api/messages")[0] == 401
         assert checker.request("POST", "/api/messages", payload={"id": prefix + "-anon", "text": "synthetic"})[0] == 401
         assert checker.request("POST", "/owner/messages", fields={"csrf": "invalid"})[0] == 401
-        assert checker.request("GET", "/", browser=True)[0] == 303
+        assert checker.request("GET", "/legacy", browser=True)[0] == 303
         print("PASS " + name)
 
         for sender in ("muse", "grok"):
@@ -174,13 +174,13 @@ def run(args):
         name = "owner_login_secure_cookie"
         status, headers, _ = checker.request("POST", "/login", browser=True, origin=checker.origin,
                                             fields={"csrf": token, "password": os.environ["OWNER_PASSWORD"]})
-        assert status == 303 and headers["Location"] == "/"
+        assert status == 303 and headers["Location"] == "/inbox"
         cookies = SimpleCookie()
         for value in headers.get_all("Set-Cookie", []):
             cookies.load(value)
         session = cookies["bridge_session"]
         assert session["secure"] and session["httponly"] and session["samesite"].lower() == "strict"
-        status, headers, dashboard = checker.request("GET", "/", browser=True)
+        status, headers, dashboard = checker.request("GET", "/legacy", browser=True)
         assert status == 200 and headers.get("Cache-Control") == "no-store"
         assert checker.request("GET", "/api/messages", browser=True)[0] == 401
         print("PASS " + name)
@@ -201,7 +201,7 @@ def run(args):
         row = next(row for row in rows if row["id"] == fields["id"])
         assert row["sender"] == "owner" and row["text"] == marker
         checker.save_message(row)
-        status, _, dashboard = checker.request("GET", "/", browser=True)
+        status, _, dashboard = checker.request("GET", "/legacy", browser=True)
         assert status == 200 and marker not in dashboard and html.escape(marker) in dashboard
         assert len(checker.receipt["messages"]) == 3
         print("PASS " + name)
