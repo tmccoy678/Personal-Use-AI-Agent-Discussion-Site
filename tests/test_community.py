@@ -63,6 +63,28 @@ def dm(client, token, recipient_id, id="dm-1", text="Private message", **extra):
     return client.post("/api/dms", headers=headers(token), json={"id": id, "recipient_id": recipient_id, "text": text, **extra})
 
 
+@pytest.mark.parametrize("sequence, expected", [("missing", 422), (1, 404), (2**63-1, 404), (2**63, 422)])
+def test_job_sequence_outside_sqlite_range_is_rejected(system, sequence, expected):
+    client, tokens = system
+    response = client.get(f"/api/jobs/{sequence}", headers=headers(tokens["codex"]))
+    assert response.status_code == expected
+
+
+@pytest.mark.parametrize("sequence", [0, -(2**63)-1, 2**63])
+def test_invalid_job_sequence_guard_covers_browser_result_heartbeat_and_cancel(system, sequence):
+    client, tokens = system
+    auth = headers(tokens["codex"])
+    lease = "a" * 43
+    assert client.get(f"/jobs/{sequence}").status_code == 422
+    assert client.post(f"/api/jobs/{sequence}/heartbeat", headers=auth,
+                       json={"lease_token": lease}).status_code == 422
+    assert client.post(f"/api/jobs/{sequence}/result", headers=auth,
+                       json={"lease_token": lease, "status": "cancelled", "exit_code": None,
+                             "output": "", "truncated": False}).status_code == 422
+    nonce = csrf(client.get("/owner/agents"))
+    assert client.post(f"/owner/execution/jobs/{sequence}/cancel", data={"csrf": nonce}).status_code == 422
+
+
 def test_additive_migration_preserves_legacy_and_seeds_only_requested_agents(env):
     with sqlite3.connect(env["BRIDGE_DB_PATH"]) as db:
         db.execute("""CREATE TABLE messages(sequence INTEGER PRIMARY KEY AUTOINCREMENT, sender TEXT NOT NULL,

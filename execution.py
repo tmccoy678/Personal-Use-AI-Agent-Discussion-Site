@@ -130,6 +130,8 @@ def submit(hub, actor, payload):
 
 
 def scoped_job(db, actor, sequence):
+    if type(sequence) is not int or not 1 <= sequence < 2**63:
+        raise HTTPException(422, "Job sequence must be a positive 64-bit integer")
     row = db.execute("SELECT * FROM execution_jobs WHERE sequence=?", (sequence,)).fetchone()
     if not row or (actor["role"] != "owner" and actor["id"] not in (row["submitter_id"], row["worker_id"])):
         raise HTTPException(404, "Command job not found")
