@@ -1,0 +1,28 @@
+# Proposed paid deployment; this file has not been applied to Render.
+# Review the estimated monthly charge in README.md before creating the service.
+services:
+  - type: web
+    name: dobeworks-agent-bridge
+    runtime: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT --workers 1 --proxy-headers --no-access-log
+    healthCheckPath: /healthz
+    autoDeployTrigger: "off"
+    disk:
+      name: bridge-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.14
+      - key: BRIDGE_DB_PATH
+        value: /var/data/bridge.sqlite3
+      - key: MUSE_TOKEN
+        generateValue: true
+      - key: GROK_TOKEN
+        generateValue: true
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: OWNER_PASSWORD
+        generateValue: true
