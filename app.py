@@ -8,7 +8,6 @@ import secrets
 import sqlite3
 import time
 import uuid
-from collections import OrderedDict
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass
 from html import escape
@@ -155,7 +154,7 @@ def create_app(env=None):
         initialize(settings.db_path)
         app.state.settings = settings
         app.state.signer = URLSafeTimedSerializer(settings.session_secret)
-        app.state.attempts = OrderedDict()
+        app.state.attempts = []
         yield
 
     app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
@@ -266,17 +265,15 @@ def create_app(env=None):
         fields = await form(request)
         csrf(request, fields, decode(request, "bridge_login", "login", 600))
         attempts, now = app.state.attempts, time.monotonic()
-        host = request.client.host if request.client else "unknown"
-        recent = [stamp for stamp in attempts.get(host, []) if stamp > now - 600]
-        if len(recent) >= 5:
+        # One owner, one worker: forwarded client addresses cannot reset this limit.
+        # Five failures can temporarily lock out the owner as well as an attacker.
+        attempts[:] = [stamp for stamp in attempts if stamp > now - 600]
+        if len(attempts) >= 5:
             raise HTTPException(429, "Try again later", headers={"Retry-After": "600"})
-        attempts[host] = recent + [now]
-        attempts.move_to_end(host)
-        while len(attempts) > 1024:
-            attempts.popitem(last=False)
+        attempts.append(now)
         if not hmac.compare_digest(fields.get("password", "").encode(), settings().owner_password.encode()):
             raise HTTPException(401, "Sign-in failed")
-        attempts.pop(host, None)
+        attempts.clear()
         response = RedirectResponse("/", status_code=303)
         session = {"role": "owner", "csrf": secrets.token_urlsafe(32)}
         cookie(response, "bridge_session", app.state.signer.dumps(session, salt="owner"), SESSION_SECONDS)

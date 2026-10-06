@@ -149,6 +149,36 @@ def test_login_rate_limit(client, env):
     assert response.status_code == 429 and response.headers["Retry-After"] == "600"
 
 
+def test_login_rate_limit_cannot_be_bypassed_by_rotating_forwarded_ips(env):
+    app = ProxyHeadersMiddleware(bridge.create_app(env), trusted_hosts=["10.0.0.1"])
+    with TestClient(app, base_url="https://bridge.example", client=("10.0.0.1", 80)) as client:
+        token = csrf(client.get("/login").text)
+        for index in range(6):
+            response = client.post("/login", headers={"X-Forwarded-For": f"192.0.2.{10 + index}",
+                                                       "X-Forwarded-Proto": "https"},
+                                   data={"csrf": token, "password": "wrong"})
+            assert response.status_code == (401 if index < 5 else 429)
+        assert response.headers["Retry-After"] == "600"
+
+
+def test_login_rate_limit_resets_after_success_and_window_expiry(client, env, monkeypatch):
+    from types import SimpleNamespace
+    clock = [1_000.0]
+    monkeypatch.setattr(bridge, "time", SimpleNamespace(monotonic=lambda: clock[0]))
+    token = csrf(client.get("/login").text)
+    for _ in range(4):
+        assert client.post("/login", data={"csrf": token, "password": "wrong"}).status_code == 401
+    assert client.post("/login", data={"csrf": token, "password": env["OWNER_PASSWORD"]},
+                       follow_redirects=False).status_code == 303
+    token = csrf(client.get("/login").text)
+    for _ in range(5):
+        assert client.post("/login", data={"csrf": token, "password": "wrong"}).status_code == 401
+    assert client.post("/login", data={"csrf": token, "password": "wrong"}).status_code == 429
+    clock[0] += 600
+    assert client.post("/login", data={"csrf": token, "password": env["OWNER_PASSWORD"]},
+                       follow_redirects=False).status_code == 303
+
+
 def test_https_and_explicit_loopback_only(env):
     with TestClient(bridge.create_app(env), base_url="http://127.0.0.1", client=("127.0.0.1", 80)) as client:
         assert client.get("/login").status_code == 400

@@ -2,7 +2,7 @@
 
 A Python mailbox and private owner dashboard for Taylor's Muse ↔ Grok experiments. Incoming messages are data. This service never executes them, invokes a shell, or controls the Grok VM.
 
-**Status:** local implementation complete, awaiting hosting setup. Taylor approved the proposed $7.25/month base hosting cost on 2026-10-06 and created a Render account on the Hobby workspace plan. No Render service, GitHub repository, DNS record, account permission, or running phone bridge has been changed by this project. See `VALIDATION.md` for local checks and remaining live acceptance.
+**Status:** published in a private GitHub repository and deployed on Render. Taylor approved the $7.25/month base hosting cost and the repository/domain setup on 2026-10-06. Render's GitHub installation is restricted to this repository. The initial live checks passed and exposed a login-throttle issue, fixed in this source revision. `lab.dobeworks.com` is registered with Render but awaits Squarespace DNS. Phone-agent integration remains unverified. See `VALIDATION.md` for acceptance results and remaining work.
 
 ## Recommended hosting
 
@@ -45,6 +45,8 @@ uv pip install --python .venv/bin/python -r requirements-dev.txt
 ```
 
 The browser session cookie is Secure by default and needs HTTPS. See `.env.example` for any explicit local development setting; never disable secure cookies on a deployed service. The CLI accepts plain HTTP only on a loopback address for local checks.
+
+The sole owner's login has a global limit of five failed attempts within ten minutes, independent of forwarded IP addresses. A successful login clears the counter. Five failures can temporarily prevent the owner from signing in too; sustained hostile attempts can repeat that lockout. Existing sessions and the agent API remain usable. The counter is in memory and clears on a service restart; this pilot uses one worker/instance.
 
 For a local browser preview, set `BRIDGE_ALLOW_LOOPBACK_HTTP=1` and start `.venv/bin/uvicorn app:app --host 127.0.0.1 --port 8787 --no-access-log`. This option is for loopback use only and is omitted from the production Blueprint.
 
