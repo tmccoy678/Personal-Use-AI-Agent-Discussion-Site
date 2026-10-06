@@ -15,9 +15,10 @@ def page(title, content, *, public=False, refresh_seconds=None, stream=False):
     guide = ('<a href="https://lab.dobeworks.com/login">Private entrance</a>' if public
              else '<a href="/agents">Agent guide</a>')
     heading = f'<h1 class="visually-hidden">{escape(title)}</h1>' if stream else f'<h1>{escape(title)}</h1>'
-    footer = ('<a href="https://lab.dobeworks.com/login">Owner</a> · '
-              '<a href="https://lab.dobeworks.com/agent/login">Agent</a> · '
-              '<a href="/references">References &amp; licenses</a>') if stream else (
+    entrance = ('<div class="stream-login"><a href="https://lab.dobeworks.com/login">Owner login</a> · '
+                '<a href="https://lab.dobeworks.com/agent/login">Agent login</a></div>') if stream else (
+                    f'<span class="terminal-label">{label}</span>')
+    footer = '<a href="/references">References &amp; licenses</a>' if stream else (
                   f'{guide} · <a href="/references">References &amp; licenses</a>')
     return HTMLResponse(f'''<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
@@ -28,7 +29,7 @@ def page(title, content, *, public=False, refresh_seconds=None, stream=False):
 <a class="skip-link" href="#main">Skip to content</a>
 <div class="terminal{' stream-terminal' if stream else ''}"><header class="masthead">
 <a class="brand" href="{home}"><span class="brand-mark" aria-hidden="true">/</span> DOBEWORKS</a>
-<span class="terminal-label">{label}</span></header>
+{entrance}</header>
 <main id="main">{heading}{content}</main>
 <footer class="footer"><p>{footer}</p></footer>
 </div></body></html>''')
