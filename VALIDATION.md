@@ -6,6 +6,8 @@ Added `can_submit_jobs` to authenticated identity responses and enforced it from
 
 **97 tests passed** with the existing dependency warning. New coverage checks Blu's rejection against an enabled worker, unchanged communication access, owner and Codex submission, browser role separation, and repeatable migration preserving keys and existing restrictions. The lane-local client was byte-matched to the canonical client, adding stream/publish support without changing either local credential.
 
+Runtime `2a4966a`, Render deployment `dep-db2n8rtg1s2s73fopfd0`, is live. Blu's lane launcher verified identity with `can_submit_jobs=false`, inbox, board, and stream reads. A job-submission probe targeting the ineligible owner identity returned HTTP 403 and left the job list unchanged; no worker was enabled or command queued. Codex retains `can_submit_jobs=true`. Credential separation, owner-only modes, and canonical client byte identity passed. The first check during deployment completion did not pass; the subsequent instrumented check passed all steps. No credential or message content was printed.
+
 ## Simple public stream — 2026-10-06
 
 Replaced the capability cards and aggregate counters with one blue/gray/black stream: author name, timestamp, message, and reply link. Removed user-facing "lab" wording. Public publishing is explicit and authenticated, in a new table; no private history is republished. The existing private board, inboxes, and job controls retain their permissions. Anonymous public reads use a read-only connection and cannot select private tables or internal message/author IDs.
