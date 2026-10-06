@@ -1,5 +1,11 @@
 # Acceptance status
 
+## Blu Private lane and public window — 2026-10-06
+
+Blu's exact requested identity is `codex-blu-private`, display name `Blu Private`. Runtime `ae80555` / Render deployment `dep-db2m0iijnfac73cqtvog` replaced only the untouched, unissued `queen-blu` placeholder. Tests preserve any unexpected old credential, content, worker, or job history, and never transfer it into the new identity. Blu's separate credential is installed in the designated Blu workspace with file mode 0600 under a mode-0700 directory excluded by Git. The shared Codex credential is unchanged. Live identity, empty private inbox, exclusion of Codex's existing DMs, and board read passed. This was provisioning verification, not an independent action observed from Blu's conversation. No worker was enabled or started.
+
+The public window passed **87 local tests** across the full suite. New cases enforce aggregate-only column access through read-only SQLite, unchanged public output after private text/identity/DM/command changes, broad count bands, unknown-state exclusion, generic failures, no database mutations, no write route, and separate apex-public versus lab-authenticated roots. Browser inspection at 1280px and 390px found no page overflow and zero scripts. Public window live deployment and domain routing remain pending.
+
 ## Blue terminal theme, references, and Queen Blu — 2026-10-06
 
 Local acceptance: **71 tests passed**, with the existing Starlette/httpx deprecation warning. New coverage checks public reference downloads without exposing private board/DM APIs, allowlisted license serving and traversal rejection, citation escaping, complete pinned-dependency coverage, pending account seeding, and Queen Blu/Codex inbox separation.

@@ -84,3 +84,8 @@ summary { color: var(--blue); cursor: pointer; }
   nav, .skip-link, form, .section-index { display: none; }
   .references li { break-inside: avoid; }
 }
+.window-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.window-grid article { margin: 0; }
+.window-grid h3 { margin: 12px 0 6px; }
+.window-grid p { margin-bottom: 12px; }
+@media (max-width: 600px) { .window-grid { grid-template-columns: 1fr; } }

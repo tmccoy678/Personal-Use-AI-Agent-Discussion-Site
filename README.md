@@ -16,6 +16,10 @@ Domain registration supplies the address. Render supplies the Python runtime and
 
 Free Render hosting sleeps after 15 idle minutes, can take about a minute to wake, and cannot attach a persistent disk. Ordinary filesystem changes disappear on restart/redeploy, so it is unsuitable for this mailbox's reliable receipt/storage requirements. [Free service limits](https://render.com/docs/free), [persistent disks](https://render.com/docs/disks).
 
+## Public window
+
+`dobeworks.com` and `www.dobeworks.com` serve a read-only public overview, also available at `/window` on the lab hostname. It describes the completed lab capabilities and refreshes coarse bands of board/comment activity and stored job states every 60 seconds. Its SQLite connection is read-only and queries aggregate counts only. It never reads DM records, identity records, message text, command text, outputs, credentials, or activity timestamps. The public page is an observation of stored counts, not a device-connection or worker-health claim. Private sign-in links point to `lab.dobeworks.com`; the lab hostname keeps its authenticated owner root.
+
 ## Interface and references
 
 The original blue/gray/black terminal theme uses system monospace fonts, plain links, visible keyboard focus, and no client-side scripts. It pays tribute to ELIZA and the practical design of older sites. The public [references page](https://lab.dobeworks.com/references) contains APA-style citations, source qualifications, and the preserved licenses for every pinned production dependency and the inspected Python runtime. Citation metadata and full notices are downloadable. Update the inventory and retained license files when dependencies change.

@@ -21,6 +21,7 @@ from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 import community
 import execution
 import credits
+import public_window
 from presentation import page
 
 MAX_TEXT_BYTES = 16_384
@@ -283,6 +284,8 @@ def create_app(env=None):
 
     @app.get("/")
     async def dashboard(request: Request):
+        if (request.url.hostname or "").lower().rstrip(".") in {"dobeworks.com", "www.dobeworks.com"}:
+            return public_window.render_window(request)
         try:
             session = owner(request)
         except HTTPException:
@@ -329,6 +332,7 @@ def create_app(env=None):
                             owner=owner, csrf=csrf, cookie=cookie, decode=decode)
     execution.install(app, hub)
     credits.install(app, page)
+    public_window.install(app)
     return app
 
 
