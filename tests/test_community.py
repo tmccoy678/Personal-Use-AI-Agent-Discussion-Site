@@ -99,7 +99,7 @@ def test_additive_migration_preserves_legacy_and_seeds_only_requested_agents(env
             assert "grok-mac" not in roster.text and "No current key" in roster.text
     with sqlite3.connect(env["BRIDGE_DB_PATH"]) as db:
         rows = db.execute("SELECT id,token_hash,first_used_at FROM community_agents WHERE role='agent' ORDER BY id").fetchall()
-        assert [row[0] for row in rows] == ["codex", "grok-phone", "muse-mac", "muse-phone", "queen-blu"]
+        assert [row[0] for row in rows] == ["codex", "codex-blu-private", "grok-phone", "muse-mac", "muse-phone"]
         assert all(row[1:] == (None, None) for row in rows)
         assert db.execute("SELECT COUNT(*) FROM community_migrations").fetchone()[0] == 1
 
@@ -124,14 +124,48 @@ def test_keys_hashed_shown_once_and_pending_until_authenticated_use(system, env)
 
 def test_queen_blu_identity_and_inbox_are_separate_from_codex(system):
     client, tokens = system
-    queen = headers(tokens["queen-blu"])
-    assert tokens["queen-blu"] != tokens["codex"]
-    assert client.get("/api/agents/me", headers=queen).json()["id"] == "queen-blu"
+    queen = headers(tokens["codex-blu-private"])
+    assert tokens["codex-blu-private"] != tokens["codex"]
+    assert client.get("/api/agents/me", headers=queen).json()["id"] == "codex-blu-private"
     assert dm(client, tokens["muse-phone"], "codex", id="codex-private", text="Codex only").status_code == 201
     assert client.get("/api/dms", headers=queen).json()["dms"] == []
-    assert dm(client, tokens["muse-phone"], "queen-blu", id="blu-private", text="Blu only").status_code == 201
+    assert dm(client, tokens["muse-phone"], "codex-blu-private", id="blu-private", text="Blu only").status_code == 201
     assert [row["text"] for row in client.get("/api/dms", headers=queen).json()["dms"]] == ["Blu only"]
     assert [row["text"] for row in client.get("/api/dms", headers=headers(tokens["codex"])).json()["dms"]] == ["Codex only"]
+
+
+@pytest.mark.parametrize("history", [None, "issued", "revoked", "post", "comment", "dm", "worker", "submitted_job", "worker_job"])
+def test_blu_placeholder_replacement_preserves_any_unexpected_history(env, history):
+    bridge.initialize(env["BRIDGE_DB_PATH"])
+    with bridge.database(env["BRIDGE_DB_PATH"]) as db:
+        db.execute("INSERT INTO community_agents(id,display_name,role) VALUES('queen-blu','Queen Blu','agent')")
+        # Existing destination identity is never overwritten or assigned the old identity's history.
+        db.execute("UPDATE community_agents SET token_hash='existing-new-key',token_version=1 WHERE id='codex-blu-private'")
+        if history == "issued":
+            db.execute("UPDATE community_agents SET token_hash='old-key',token_version=1,issued_at=1 WHERE id='queen-blu'")
+        elif history == "revoked":
+            db.execute("UPDATE community_agents SET token_version=1,revoked_at=1 WHERE id='queen-blu'")
+        elif history in ("post", "comment"):
+            author = "queen-blu" if history == "post" else "owner"
+            seq = db.execute("INSERT INTO community_posts(id,author_id,title,text,created_at) VALUES('history',?,'Title','Text',1)", (author,)).lastrowid
+            if history == "comment":
+                db.execute("INSERT INTO community_comments(id,author_id,post_sequence,text,created_at) VALUES('history','queen-blu',?,'Text',1)", (seq,))
+        elif history == "dm":
+            db.execute("INSERT INTO community_dms(id,sender_id,recipient_id,text,created_at) VALUES('history','owner','queen-blu','Text',1)")
+        elif history == "worker":
+            db.execute("INSERT INTO execution_workers VALUES('queen-blu',0,1)")
+        elif history in ("submitted_job", "worker_job"):
+            submitter, worker = ("queen-blu", "codex") if history == "submitted_job" else ("codex", "queen-blu")
+            db.execute("INSERT INTO execution_jobs(id,submitter_id,worker_id,command,timeout_seconds,status,created_at) VALUES('history',?,?,'true',1,'cancelled',1)", (submitter, worker))
+        original = tuple(db.execute("SELECT * FROM community_agents WHERE id='queen-blu'").fetchone())
+    for _ in range(2):
+        bridge.initialize(env["BRIDGE_DB_PATH"])
+    with bridge.database(env["BRIDGE_DB_PATH"]) as db:
+        old = db.execute("SELECT * FROM community_agents WHERE id='queen-blu'").fetchone()
+        assert old is None if history is None else tuple(old) == original
+        new = db.execute("SELECT display_name,token_hash,token_version FROM community_agents WHERE id='codex-blu-private'").fetchone()
+        assert tuple(new) == ("Blu Private", "existing-new-key", 1)
+        assert db.execute("PRAGMA foreign_key_check").fetchall() == []
 
 
 def test_api_role_separation_and_author_cannot_be_supplied(system, env):

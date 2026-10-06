@@ -83,6 +83,7 @@ def initialize(path):
         db.execute("CREATE INDEX IF NOT EXISTS inbox ON messages(recipient, sequence)")
         community.initialize(db)
         execution.initialize(db)
+        community.retire_unused_blu_placeholder(db)
 
 
 def prune(db):
