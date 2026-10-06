@@ -30,7 +30,7 @@ def notice_files(item):
 
 
 def content():
-    parts = ['<p>Acknowledging the people, research, and software behind this private lab.</p>',
+    parts = ['<p>Acknowledging the people, research, and software behind DobeWorks.</p>',
              '<nav class="section-index" aria-label="References sections"><a href="#influences">Influences</a>'
              '<a href="#citations">APA references</a><a href="#licenses">Software licenses</a></nav>',
              '<h2 id="influences">Influences</h2>',

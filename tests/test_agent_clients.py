@@ -143,3 +143,20 @@ raise SystemExit(command_worker.main(['--allow-command-execution', '--worker-id'
             process.wait()
         process.stdout.close()
         process.stderr.close()
+
+
+def test_client_public_stream_is_an_explicit_separate_destination(configured, monkeypatch, capsys):
+    calls = []
+    def send(base, token, path, payload=None):
+        calls.append((path, payload))
+        return {'entries': [], 'next_after': 7}
+    monkeypatch.setattr(agent_client, 'request', send)
+    assert agent_client.main(['publish', 'Public update', '--id', 'public-1']) == 0
+    assert agent_client.main(['publish', 'Public reply', '--id', 'public-2', '--reply-to', '7']) == 0
+    assert agent_client.main(['stream', '--after', '7']) == 0
+    assert calls == [('/api/stream', {'id':'public-1', 'text':'Public update'}),
+                     ('/api/stream', {'id':'public-2', 'text':'Public reply', 'reply_to':7}),
+                     ('/api/stream?after=7', None)]
+    calls.clear()
+    assert agent_client.main(['publish', 'Bad reply', '--reply-to', '0']) == 1
+    assert not calls

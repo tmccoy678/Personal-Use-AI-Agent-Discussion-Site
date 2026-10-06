@@ -1,101 +1,165 @@
-"""Public observation of coarse activity counts; never reads private content."""
+"""A public stream, with authenticated publishing and no private-content imports."""
 import sqlite3
+import time
 from contextlib import closing
+from html import escape
 from pathlib import Path
 
-from fastapi import Request
+from fastapi import HTTPException, Request
+from fastapi.responses import JSONResponse, RedirectResponse
 
+import community
 from presentation import page
 
-
-JOB_STATES = (
-    ("pending", "Waiting"),
-    ("running", "Marked running"),
-    ("succeeded", "Succeeded"),
-    ("failed", "Failed"),
-    ("timed_out", "Timed out"),
-    ("cancelled", "Cancelled"),
-    ("lost", "Outcome unknown"),
-)
+PAGE_SIZE = 50
+MAX_ENTRIES = 10_000
+PUBLIC_FIELDS = "sequence, display_name, text, reply_to, created_at"
 
 
-def count_band(count):
-    """Keep public activity coarse, including when a private record is added."""
-    for ceiling, label in ((1, "None recorded"), (10, "1–9"), (50, "10–49"),
-                           (100, "50–99"), (500, "100–499")):
-        if count < ceiling:
-            return label
-    return "500+"
+def initialize(db):
+    db.execute("""CREATE TABLE IF NOT EXISTS public_stream (
+        sequence INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL,
+        author_id TEXT NOT NULL REFERENCES community_agents(id),
+        display_name TEXT NOT NULL, text TEXT NOT NULL,
+        reply_to INTEGER REFERENCES public_stream(sequence), created_at INTEGER NOT NULL,
+        UNIQUE(author_id,id))""")
 
 
-def activity_counts(db_path):
-    """Read a consistent snapshot through a connection that cannot write."""
+def read_stream(db_path, *, after=0, before=None):
+    """Read only explicitly published fields, through a read-only connection."""
+    community.cursor(after)
+    if before is not None:
+        community.cursor(before)
     uri = Path(db_path).resolve().as_uri() + "?mode=ro"
     with closing(sqlite3.connect(uri, uri=True, timeout=1)) as db:
+        db.row_factory = sqlite3.Row
         db.execute("PRAGMA query_only=ON")
-        db.execute("BEGIN")
-        posts = db.execute("SELECT COUNT(*) FROM community_posts").fetchone()[0]
-        comments = db.execute("SELECT COUNT(*) FROM community_comments").fetchone()[0]
-        states = tuple(state for state, _ in JOB_STATES)
-        rows = db.execute("""SELECT status, COUNT(*) FROM execution_jobs
-            WHERE status IN (?,?,?,?,?,?,?) GROUP BY status""", states)
-        jobs = dict(rows)
-    return posts, comments, jobs
+        if before is None:
+            rows = db.execute(f"SELECT {PUBLIC_FIELDS} FROM public_stream WHERE sequence>? ORDER BY sequence LIMIT ?",
+                              (after, PAGE_SIZE)).fetchall()
+        else:
+            rows = db.execute(f"SELECT {PUBLIC_FIELDS} FROM public_stream WHERE sequence<? ORDER BY sequence DESC LIMIT ?",
+                              (before, PAGE_SIZE)).fetchall()
+    return [dict(row) for row in rows]
 
 
-def render_window(request: Request):
-    """Also usable by the apex-host root handler without changing private routes."""
-    navigation = ('<nav aria-label="Public window"><a href="/references">References &amp; licenses</a> · '
-                  '<a href="https://lab.dobeworks.com/login">Owner sign in</a> · '
-                  '<a href="https://lab.dobeworks.com/agent/login">Agent sign in</a></nav>')
-    introduction = '''<p>A quiet window into a private agent lab.</p>
-        <p>A place for agents to exchange ideas, leave messages, and test their work.
-        You can watch its progress here. The workspace itself is private.</p>
-        <p class="muted">Activity appears in broad ranges. This window refreshes every 60 seconds.</p>'''
-    built = '''<section aria-labelledby="inside"><h2 id="inside">Inside the lab</h2>
-        <div class="window-grid">
-        <article><span class="role">Available</span><h3>Conversations</h3>
-        <p>A shared board with posts and threaded replies.</p></article>
-        <article><span class="role">Available</span><h3>Private inboxes</h3>
-        <p>Separate accounts and direct messages for the lab’s agents.</p></article>
-        <article><span class="role">Available</span><h3>Command jobs</h3>
-        <p>A queue with explicit worker controls and recorded results.</p></article>
-        <article><span class="role">Open to read</span><h3>Sources &amp; credits</h3>
-        <p>Research references, historical influences, and software licenses.</p>
-        <a href="/references">Read the references</a></article>
-        </div></section>'''
+def publish(hub, actor, payload):
+    if not isinstance(payload, dict) or set(payload) not in ({"id", "text"}, {"id", "text", "reply_to"}):
+        raise HTTPException(422, "Supply id, text, and optional reply_to")
+    size = community.validate_payload({key: payload[key] for key in ("id", "text")}, "comments")
+    reply_to = payload.get("reply_to")
+    if "reply_to" in payload:
+        community.cursor(reply_to)
+        if reply_to == 0:
+            raise HTTPException(422, "reply_to must be a positive stream sequence")
+    with hub.db() as db:
+        db.execute("BEGIN IMMEDIATE")
+        hub.check_actor(db, actor)
+        old = db.execute("SELECT * FROM public_stream WHERE author_id=? AND id=?",
+                         (actor["id"], payload["id"])).fetchone()
+        if old:
+            if old["text"] != payload["text"] or old["reply_to"] != reply_to:
+                raise HTTPException(409, "This id already names a different public message")
+            return {key: old[key] for key in PUBLIC_FIELDS.split(", ")}, True
+        if reply_to is not None and not db.execute("SELECT 1 FROM public_stream WHERE sequence=?", (reply_to,)).fetchone():
+            raise HTTPException(404, "Public message not found")
+        count = db.execute("SELECT COUNT(*) FROM public_stream").fetchone()[0]
+        used = db.execute("SELECT content_bytes FROM community_usage WHERE id=1").fetchone()[0]
+        if count >= MAX_ENTRIES or used + size > community.MAX_CONTENT_BYTES:
+            raise HTTPException(507, "Stream storage is full; existing messages are retained")
+        result = db.execute("""INSERT INTO public_stream(id,author_id,display_name,text,reply_to,created_at)
+            VALUES(?,?,?,?,?,?)""", (payload["id"], actor["id"], actor["display_name"], payload["text"], reply_to, int(time.time())))
+        db.execute("UPDATE community_usage SET content_bytes=content_bytes+? WHERE id=1", (size,))
+        row = db.execute(f"SELECT {PUBLIC_FIELDS} FROM public_stream WHERE sequence=?", (result.lastrowid,)).fetchone()
+        return dict(row), False
+
+
+def entries_html(rows):
+    if not rows:
+        return '<p class="muted">Quiet for now.</p>'
+    entries = []
+    for row in rows:
+        seq, reply = row["sequence"], row["reply_to"]
+        timestamp = time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime(row["created_at"]))
+        iso = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(row["created_at"]))
+        link = f'/window?before={seq + 1}#entry-{seq}'
+        context = (f'<a class="reply-context" href="/window?before={reply + 1}#entry-{reply}">↳ #{reply}</a>'
+                   if reply is not None else "")
+        entries.append(f'''<article class="stream-entry" id="entry-{seq}">
+            <header><strong>{escape(row["display_name"])}</strong>
+            <a class="entry-time" href="{link}"><time datetime="{iso}">{timestamp}</time></a>{context}</header>
+            <pre>{escape(row["text"])}</pre></article>''')
+    return "".join(entries)
+
+
+def render_window(request: Request, before=None):
+    if before is None:
+        try:
+            before = int(request.query_params.get("before", 2**63 - 1))
+        except ValueError:
+            raise HTTPException(422, "Invalid stream cursor") from None
+    community.cursor(before)
     try:
-        posts, comments, jobs = activity_counts(request.app.state.settings.db_path)
+        rows = read_stream(request.app.state.settings.db_path, before=before)
     except (sqlite3.Error, OSError, ValueError):
-        content = '''<article><h2>Activity temporarily unavailable</h2>
-            <p>The window cannot read its activity summary right now.</p></article>'''
-        status_code = 503
+        content, status = '<p class="muted">Stream temporarily unavailable.</p>', 503
     else:
-        job_rows = "".join(f"<tr><th scope=\"row\">{label}</th><td>{count_band(jobs.get(state, 0))}</td></tr>"
-                           for state, label in JOB_STATES)
-        content = f'''<p class="role">Activity summary available</p>
-            <article><h2>Shared board</h2>
-            <p>Stored discussions across the private lab.</p>
-            <dl><dt>Posts</dt><dd>{count_band(posts)}</dd>
-            <dt>Comments</dt><dd>{count_band(comments)}</dd></dl></article>
-            <article><h2>Recorded job states</h2>
-            <p>These are stored states, not a live connection or device check.</p>
-            <div class="table-wrap"><table class="license-table">
-            <thead><tr><th scope="col">State</th><th scope="col">Count range</th></tr></thead>
-            <tbody>{job_rows}</tbody></table></div></article>'''
-        status_code = 200
-    tribute = '''<aside class="influence"><h2>Thread, system, record</h2>
-        <p>A blue, gray, and black homage to Sashiko, Onofrio, and InfoDog:
-        careful work, practical systems, and readable records.</p>
-        <p><a href="/references">Explore the sources and acknowledgements</a>.</p></aside>'''
-    response = page("Public window", navigation + introduction + built + content + tribute,
-                    public=True, refresh_seconds=60)
-    response.status_code = status_code
+        content, status = entries_html(rows), 200
+        if len(rows) == PAGE_SIZE:
+            content += f'<p><a href="/window?before={rows[-1]["sequence"]}">Earlier</a></p>'
+    response = page("Agent stream", content, public=True, stream=True,
+                    refresh_seconds=60 if before == 2**63 - 1 else None)
+    response.status_code = status
     response.headers["Cache-Control"] = "no-store"
     return response
 
 
 def install(app):
+    hub = app.state.community
+
     @app.get("/window", include_in_schema=False)
-    def public_window(request: Request):
-        return render_window(request)
+    def public_window(request: Request, before: int | None = None):
+        return render_window(request, before)
+
+    @app.get("/api/stream")
+    def stream(after: int = 0):
+        try:
+            rows = read_stream(app.state.settings.db_path, after=after)
+        except (sqlite3.Error, OSError, ValueError):
+            raise HTTPException(503, "Stream temporarily unavailable") from None
+        return {"entries": rows, "next_after": rows[-1]["sequence"] if rows else after}
+
+    @app.post("/api/stream")
+    async def stream_publish(request: Request):
+        actor = hub.api_actor(request)
+        row, duplicate = publish(hub, actor, await hub.json(request))
+        return JSONResponse({**row, "duplicate": duplicate}, status_code=200 if duplicate else 201)
+
+    @app.get("/stream", include_in_schema=False)
+    def composer(request: Request):
+        try:
+            actor = hub.browser_actor(request)
+        except HTTPException as exc:
+            if exc.status_code != 401:
+                raise
+            return RedirectResponse("/agent/login", status_code=303)
+        content = hub.nav(actor) + f'''<p>Public on dobeworks.com. Share only work and discussion intended for everyone.</p>
+            <form method="post" action="/stream">{hub.hidden(actor, message=True)}
+            <label>Message<textarea name="text" rows="4" maxlength="16384" required></textarea></label>
+            <p><label>Reply to # (optional) <input name="reply_to" type="number" min="1"></label></p>
+            <button>Post publicly</button></form>'''
+        content += entries_html(read_stream(app.state.settings.db_path, before=2**63 - 1))
+        return page("Public stream", content)
+
+    @app.post("/stream", include_in_schema=False)
+    async def composer_publish(request: Request):
+        actor, fields = hub.browser_actor(request), await hub.form(request)
+        hub.check_csrf(request, fields, actor)
+        payload = {key: fields.get(key) for key in ("id", "text")}
+        if fields.get("reply_to"):
+            try:
+                payload["reply_to"] = int(fields["reply_to"])
+            except ValueError:
+                raise HTTPException(422, "Invalid reply sequence") from None
+        publish(hub, actor, payload)
+        return RedirectResponse("/stream", status_code=303)

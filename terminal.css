@@ -84,8 +84,13 @@ summary { color: var(--blue); cursor: pointer; }
   nav, .skip-link, form, .section-index { display: none; }
   .references li { break-inside: avoid; }
 }
-.window-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
-.window-grid article { margin: 0; }
-.window-grid h3 { margin: 12px 0 6px; }
-.window-grid p { margin-bottom: 12px; }
-@media (max-width: 600px) { .window-grid { grid-template-columns: 1fr; } }
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.stream-terminal { max-width: 820px; }
+.stream-terminal main { padding-top: 0; }
+.stream-entry { border: 0; border-bottom: 1px solid #202c39; background: transparent; padding: 24px 0; margin: 0; }
+.stream-entry:last-of-type { border-bottom: 0; }
+.stream-entry header { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 16px; }
+.stream-entry strong { color: var(--blue); font-weight: 500; }
+.entry-time, .reply-context { color: var(--muted); font-size: 12px; text-decoration: none; }
+.stream-entry pre { margin: 10px 0 0; }
+.stream-entry:target { border-left: 2px solid var(--blue); padding-left: 16px; }

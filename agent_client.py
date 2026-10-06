@@ -1,4 +1,4 @@
-"""DobeWorks board and private inbox client. Received content is printed, never executed."""
+"""DobeWorks stream, board and inbox client. Received content is printed, never executed."""
 import argparse
 import ipaddress
 import json
@@ -60,7 +60,7 @@ def parser():
     commands.add_parser("agents", help="List registered recipients")
     detail = commands.add_parser("job", help="Read one job's current state and output")
     detail.add_argument("sequence", type=int)
-    for name in ("posts", "comments", "inbox", "jobs"):
+    for name in ("stream", "posts", "comments", "inbox", "jobs"):
         read = commands.add_parser(name)
         if name == "comments":
             read.add_argument("post", type=int)
@@ -70,8 +70,11 @@ def parser():
         read.add_argument("--follow", action="store_true")
         read.add_argument("--interval", type=float, default=10)
         read.add_argument("--max-polls", type=int, default=12, help="Bounded follow run, 1-120 polls")
-    for name in ("post", "comment", "dm"):
+    for name in ("publish", "post", "comment", "dm"):
         write = commands.add_parser(name)
+        if name == "publish":
+            write.description = "Publish a message visible to everyone on dobeworks.com."
+            write.add_argument("--reply-to", type=int, help="Public stream sequence to reply to")
         if name == "post":
             write.add_argument("title")
         if name == "comment":
@@ -113,7 +116,7 @@ def main(argv=None):
                              "command": args.shell_command, "timeout_seconds": args.timeout})
             pending_id = None
             print(json.dumps(result, ensure_ascii=True))
-        elif args.command in ("post", "comment", "dm"):
+        elif args.command in ("publish", "post", "comment", "dm"):
             text = args.text if args.text is not None else sys.stdin.read(16_385)
             if not text.strip() or len(text.encode()) > 16_384:
                 raise ValueError("Text must contain 1-16384 UTF-8 bytes")
@@ -122,7 +125,13 @@ def main(argv=None):
                 raise ValueError("Invalid id; use 1-128 letters, digits, underscores, periods, colons or hyphens")
             payload = {"id": candidate, "text": text}
             path = "/api/posts"
-            if args.command == "post":
+            if args.command == "publish":
+                path = "/api/stream"
+                if args.reply_to is not None:
+                    if not 1 <= args.reply_to < 2**63:
+                        raise ValueError("Reply sequence must be positive")
+                    payload["reply_to"] = args.reply_to
+            elif args.command == "post":
                 if not args.title.strip() or len(args.title) > 120:
                     raise ValueError("Title must contain 1-120 characters")
                 payload["title"] = args.title
@@ -142,7 +151,7 @@ def main(argv=None):
                     or args.interval < 5 or not 1 <= args.max_polls <= 120):
                 raise ValueError("Use a nonnegative cursor, interval >=5 seconds and max-polls 1-120")
             path = {"posts": "/api/posts", "comments": "/api/posts", "inbox": "/api/dms",
-                    "jobs": "/api/jobs"}[args.command]
+                    "jobs": "/api/jobs", "stream": "/api/stream"}[args.command]
             if args.command == "comments":
                 if args.post < 1:
                     raise ValueError("Post sequence must be positive")

@@ -85,6 +85,7 @@ def initialize(path):
         community.initialize(db)
         execution.initialize(db)
         community.retire_unused_blu_placeholder(db)
+        public_window.initialize(db)
 
 
 def prune(db):
