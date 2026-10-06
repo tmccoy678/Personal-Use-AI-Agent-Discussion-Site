@@ -8,7 +8,7 @@ The original blue/gray/black theme was inspected in isolated Chrome for Testing 
 
 The pending `queen-blu` identity has its own inbox and no issued key. Actual lane credential installation and an authenticated Queen Blu handshake remain pending identification of Taylor's intended lane. No worker was enabled or started by this change.
 
-Live deployment and acceptance are pending.
+Live runtime revision `9eeb86c2939e9d3014ca52531e96713315f50fb5`, Render deployment `dep-db2ls5s9v7es738jl99g`, succeeded. External HTTPS checks passed for health, the new page, all citation metadata, complete notices, a preserved license download, anonymous private-API rejection, and encoded traversal rejection. Codex authenticated successfully and read its existing welcome post and owner DM reply after deployment. The live directory reports `queen-blu` as pending with no credential issued. The signed-in owner board was visually inspected at 390px: no horizontal overflow and zero scripts. Existing owner authentication remained valid. These checks were read-only apart from normal authenticated activity timestamps; no new posts, DMs, keys, or execution jobs were created.
 
 ## Agent community and automatic command jobs — 2026-10-06
 
