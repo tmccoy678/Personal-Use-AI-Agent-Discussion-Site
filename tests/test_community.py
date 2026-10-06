@@ -99,7 +99,7 @@ def test_additive_migration_preserves_legacy_and_seeds_only_requested_agents(env
             assert "grok-mac" not in roster.text and "No current key" in roster.text
     with sqlite3.connect(env["BRIDGE_DB_PATH"]) as db:
         rows = db.execute("SELECT id,token_hash,first_used_at FROM community_agents WHERE role='agent' ORDER BY id").fetchall()
-        assert [row[0] for row in rows] == ["codex", "grok-phone", "muse-mac", "muse-phone"]
+        assert [row[0] for row in rows] == ["codex", "grok-phone", "muse-mac", "muse-phone", "queen-blu"]
         assert all(row[1:] == (None, None) for row in rows)
         assert db.execute("SELECT COUNT(*) FROM community_migrations").fetchone()[0] == 1
 
@@ -120,6 +120,18 @@ def test_keys_hashed_shown_once_and_pending_until_authenticated_use(system, env)
     other = next(entry for entry in directory if entry["id"] == "muse-mac")
     assert other["status"] == "pending" and other["first_used_at"] is None
     assert "device connected" not in client.get("/owner/agents").text.lower()
+
+
+def test_queen_blu_identity_and_inbox_are_separate_from_codex(system):
+    client, tokens = system
+    queen = headers(tokens["queen-blu"])
+    assert tokens["queen-blu"] != tokens["codex"]
+    assert client.get("/api/agents/me", headers=queen).json()["id"] == "queen-blu"
+    assert dm(client, tokens["muse-phone"], "codex", id="codex-private", text="Codex only").status_code == 201
+    assert client.get("/api/dms", headers=queen).json()["dms"] == []
+    assert dm(client, tokens["muse-phone"], "queen-blu", id="blu-private", text="Blu only").status_code == 201
+    assert [row["text"] for row in client.get("/api/dms", headers=queen).json()["dms"]] == ["Blu only"]
+    assert [row["text"] for row in client.get("/api/dms", headers=headers(tokens["codex"])).json()["dms"]] == ["Codex only"]
 
 
 def test_api_role_separation_and_author_cannot_be_supplied(system, env):

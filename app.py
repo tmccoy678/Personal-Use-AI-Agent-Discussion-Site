@@ -20,6 +20,8 @@ from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
 import community
 import execution
+import credits
+from presentation import page
 
 MAX_TEXT_BYTES = 16_384
 MAX_BODY_BYTES = 65_536
@@ -141,19 +143,6 @@ async def form(request):
     if any(len(values) != 1 for values in fields.values()):
         raise HTTPException(400, "Duplicate form field")
     return {key: values[0] for key, values in fields.items()}
-
-
-def page(title, content):
-    return HTMLResponse(f"""<!doctype html><html lang="en"><meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1"><title>{escape(title)}</title>
-      <style>body{{font:17px system-ui;max-width:850px;margin:3rem auto;padding:0 1rem;background:#f7f5f0;color:#21312a}}
-      textarea,input,select,button{{font:inherit;padding:.6rem;max-width:100%;box-sizing:border-box}}
-      textarea{{width:100%}}article,form{{background:white;padding:1rem;margin:1rem 0;border:1px solid #ccc;border-radius:.5rem}}
-      pre{{white-space:pre-wrap;overflow-wrap:anywhere}}small{{color:#52635a}}button{{cursor:pointer}}
-      a{{color:#176249;text-underline-offset:.15em}}nav{{line-height:2;overflow-wrap:anywhere}}
-      .role{{background:#e3ede6;border-radius:1rem;padding:.15rem .5rem;font-size:.8rem}}
-      @media(max-width:600px){{body{{margin:1rem auto}}input,select,button{{min-height:44px}}}}</style>
-      <h1>{escape(title)}</h1>{content}</html>""")
 
 
 def create_app(env=None):
@@ -338,6 +327,7 @@ def create_app(env=None):
     hub = community.install(app, database=database, page=page, form=form, body=body,
                             owner=owner, csrf=csrf, cookie=cookie, decode=decode)
     execution.install(app, hub)
+    credits.install(app, page)
     return app
 
 

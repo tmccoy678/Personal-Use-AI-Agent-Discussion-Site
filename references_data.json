@@ -1,0 +1,403 @@
+{
+  "references": [
+    {
+      "id": "openai-hugging-face",
+      "citation": "OpenAI. (2026, August 26). The Hugging Face incident and the road ahead.",
+      "url": "https://openai.com/index/hugging-face-incident-and-the-road-ahead/",
+      "italic_text": [
+        "The Hugging Face incident and the road ahead"
+      ]
+    },
+    {
+      "id": "metr-hugging-face",
+      "citation": "METR. (2026, August 26). Brief independent investigation of agents’ behavior, reasoning and collaboration in the OpenAI / Hugging Face hacking incident.",
+      "url": "https://metr.org/blog/2026-08-26-openai-hugging-face-incident-investigation/",
+      "italic_text": [
+        "Brief independent investigation of agents’ behavior, reasoning and collaboration in the OpenAI / Hugging Face hacking incident"
+      ],
+      "contributors": [
+        "Ryan Greenblatt",
+        "Ajeya Cotra",
+        "Hjalmar Wijk"
+      ],
+      "metadata_note": "Corporate author follows the page’s supplied BibTeX and JSON-LD; named contributors are recorded separately."
+    },
+    {
+      "id": "agents-of-chaos",
+      "citation": "Shapira, N., Wendler, C., Yen, A., Sarti, G., Pal, K., Floody, O., Belfki, A., Loftus, A., Jannali, A. R., Prakash, N., Cui, J., Rogers, G., Brinkmann, J., Rager, C., Zur, A., Ripa, M., Sankaranarayanan, A., Atkinson, D., Gandikota, R., . . . Bau, D. (2026). Agents of chaos [Preprint]. arXiv.",
+      "url": "https://doi.org/10.48550/arXiv.2602.20021",
+      "italic_text": [
+        "Agents of chaos"
+      ],
+      "doi": "10.48550/arXiv.2602.20021",
+      "authors": [
+        "Natalie Shapira",
+        "Chris Wendler",
+        "Avery Yen",
+        "Gabriele Sarti",
+        "Koyena Pal",
+        "Olivia Floody",
+        "Adam Belfki",
+        "Alex Loftus",
+        "Aditya Ratan Jannali",
+        "Nikhil Prakash",
+        "Jasmine Cui",
+        "Giordano Rogers",
+        "Jannik Brinkmann",
+        "Can Rager",
+        "Amir Zur",
+        "Michael Ripa",
+        "Aruna Sankaranarayanan",
+        "David Atkinson",
+        "Rohit Gandikota",
+        "Jaden Fiotto-Kaufman",
+        "EunJeong Hwang",
+        "Hadas Orgad",
+        "P Sam Sahil",
+        "Negev Taglicht",
+        "Tomer Shabtay",
+        "Atai Ambus",
+        "Nitay Alon",
+        "Shiri Oron",
+        "Ayelet Gordon-Tapiero",
+        "Yotam Kaplan",
+        "Vered Shwartz",
+        "Tamar Rott Shaham",
+        "Christoph Riedl",
+        "Reuth Mirsky",
+        "Maarten Sap",
+        "David Manheim",
+        "Tomer Ullman",
+        "David Bau"
+      ],
+      "source_url": "https://arxiv.org/abs/2602.20021v1",
+      "metadata_note": "APA 7 lists the first 19 authors, an ellipsis, and the final author for a work with 21 or more authors. All 38 source authors are retained in this data record."
+    },
+    {
+      "id": "sashiko",
+      "citation": "The Sashiko Authors. (2026). Sashiko [Computer software]. GitHub.",
+      "url": "https://github.com/sashiko-dev/sashiko/tree/b84bcca14612af804d61c02fca4218b03d5e00b0",
+      "italic_text": [
+        "Sashiko"
+      ],
+      "source_commit": "b84bcca14612af804d61c02fca4218b03d5e00b0"
+    },
+    {
+      "id": "gushchin-sashiko-announcement",
+      "citation": "Gushchin, R. (2026, March 17). Introduce Sashiko (agentic review of Linux kernel changes) [Mailing list message]. Linux Kernel Mailing List.",
+      "url": "https://lwn.net/ml/all/7ia4o6kmpj5s.fsf@castle.c.googlers.com/",
+      "italic_text": [
+        "Introduce Sashiko (agentic review of Linux kernel changes)"
+      ],
+      "metadata_note": "Original mailing-list message preserved by LWN; the canonical lore.kernel.org page returned a bot-check screen during verification."
+    },
+    {
+      "id": "degs-sashiko-translation",
+      "citation": "tmccoy678. (2026). DEGS: Sashiko-derived Python review-data component (v2.1 development draft) [Computer software]. GitHub.",
+      "url": "https://github.com/tmccoy678/DEGS-v2.1/blob/8d9186666fa1eed2657717017404dfe96c6f8e6b/sashiko_derived/__init__.py",
+      "italic_text": [
+        "DEGS: Sashiko-derived Python review-data component"
+      ],
+      "source_commit": "8d9186666fa1eed2657717017404dfe96c6f8e6b",
+      "metadata_note": "The repository identifies this as a development draft, not a versioned production release. Its upstream translation pins Sashiko commit 39f6ce95c797bb40023247916a8b16d0f4aaf0da."
+    },
+    {
+      "id": "eliza",
+      "citation": "Weizenbaum, J. (1966). ELIZA—A computer program for the study of natural language communication between man and machine. Communications of the ACM, 9(1), 36–45.",
+      "url": "https://doi.org/10.1145/365153.365168",
+      "italic_text": [
+        "Communications of the ACM, 9"
+      ],
+      "doi": "10.1145/365153.365168",
+      "source_url": "https://api.crossref.org/works/10.1145/365153.365168",
+      "metadata_note": "Author, title, journal, year, volume, issue, pages and DOI verified against publisher-deposited Crossref metadata; the ACM landing page itself returned HTTP 403."
+    },
+    {
+      "id": "muse",
+      "citation": "Meta. (n.d.-b). Muse: Meta’s personal AI agent, features & capabilities. AI at Meta. Retrieved October 6, 2026, from",
+      "url": "https://ai.meta.com/muse/",
+      "italic_text": [
+        "Muse: Meta’s personal AI agent, features & capabilities"
+      ],
+      "metadata_note": "No publication or update date found. Supports general connector/tool capabilities; this is not verified custom-connector registration documentation."
+    },
+    {
+      "id": "grok-bot",
+      "citation": "xAI. (2026a, September 21). Grok Bot. SpaceXAI Docs.",
+      "url": "https://docs.x.ai/grok-bot/overview",
+      "italic_text": [
+        "Grok Bot"
+      ],
+      "metadata_note": "Author and publication/update date verified in live JSON-LD. Year suffix distinguishes the two same-author, same-date Grok references."
+    },
+    {
+      "id": "grok-bot-mobile",
+      "citation": "xAI. (2026b, September 21). Grok Bot for mobile. SpaceXAI Docs.",
+      "url": "https://docs.x.ai/grok-bot/mobile",
+      "italic_text": [
+        "Grok Bot for mobile"
+      ],
+      "metadata_note": "Describes using a phone to direct and inspect a shared cloud computer; it does not establish autonomous phone control."
+    },
+    {
+      "id": "eniac",
+      "citation": "Magubane, N. (2026, February 11). Penn’s ENIAC, the world’s first electronic computer, turns 80. Penn Today.",
+      "url": "https://penntoday.upenn.edu/news/penns-eniac-worlds-first-electronic-computer-turns-80",
+      "italic_text": [
+        "Penn’s ENIAC, the world’s first electronic computer, turns 80"
+      ]
+    },
+    {
+      "id": "ibm-as400",
+      "citation": "IBM. (n.d.). The AS/400.",
+      "url": "https://www.ibm.com/history/as-400",
+      "italic_text": [
+        "The AS/400"
+      ],
+      "metadata_note": "No visible article date; structured publication and modification dates conflict, so no publication date is asserted. AS/400 is a tentative interpretation of the requested AS series."
+    },
+    {
+      "id": "infodog-about",
+      "citation": "InfoDog. (n.d.). About InfoDog. Retrieved October 6, 2026, from",
+      "url": "https://www.infodog.com/about.htm",
+      "italic_text": [
+        "About InfoDog"
+      ]
+    },
+    {
+      "id": "mbf-history",
+      "citation": "MB-F, Inc. (n.d.). Visit MB-F. InfoDog. Retrieved October 6, 2026, from",
+      "url": "https://www.infodog.com/visit.htm",
+      "italic_text": [
+        "Visit MB-F"
+      ]
+    },
+    {
+      "id": "onofrio-home",
+      "citation": "Jack Onofrio Dog Shows, LLC. (n.d.). Welcome. Retrieved October 6, 2026, from",
+      "url": "https://www.onofrio.com/",
+      "italic_text": [
+        "Welcome"
+      ]
+    },
+    {
+      "id": "onofrio-ibmi",
+      "citation": "Holt, J. W. (2015, July 16). Home page options for Apache on IBMi [Online forum post]. WEB400, midrange.com.",
+      "url": "https://archive.midrange.com/web400/201507/msg00117.html",
+      "italic_text": [
+        "Home page options for Apache on IBMi"
+      ],
+      "metadata_note": "First-person post by the named senior programmer/developer at Jack Onofrio Dog Shows. Evidence of the described 2015 stack, not verification of today's backend."
+    },
+    {
+      "id": "muse-connectors",
+      "citation": "Meta. (n.d.-a). How Muse works with Connectors. Meta Help Center. Retrieved October 6, 2026, from",
+      "url": "https://www.meta.com/help/artificial-intelligence/1687253048996149/",
+      "italic_text": [
+        "How Muse works with Connectors"
+      ],
+      "metadata_note": "Custom connectors and Secure Credentials Store are described in the saved primary-source page; the relative update label does not establish an exact publication date."
+    }
+  ],
+  "inspirations": [
+    {
+      "name": "ELIZA / Joseph Weizenbaum",
+      "url": "https://doi.org/10.1145/365153.365168",
+      "license": "Historical and visual inspiration; no ELIZA code or assets included",
+      "license_url": null,
+      "note": "Joseph Weizenbaum’s 1966 ELIZA paper is the starting point for this conversational terminal homage. The monospace interface and quiet blue, gray, and black palette are an original interpretation."
+    },
+    {
+      "name": "ENIAC",
+      "url": "https://penntoday.upenn.edu/news/penns-eniac-worlds-first-electronic-computer-turns-80",
+      "license": "Historical inspiration; no historical code, photographs or assets included",
+      "license_url": null,
+      "note": "Penn’s account of ENIAC’s 1946 launch honors the people and work behind early electronic computing. The design lesson drawn here is to make controls and results clear."
+    },
+    {
+      "name": "IBM AS/400",
+      "url": "https://www.ibm.com/history/as-400",
+      "license": "Historical inspiration; no IBM code, trademarks as branding, or assets included",
+      "license_url": null,
+      "note": "IBM introduced the AS/400 in 1988, emphasizing ease of use, connectivity, and compatibility. AS/400 is the tentative match for Taylor’s remembered AS series."
+    },
+    {
+      "name": "InfoDog and MB-F",
+      "url": "https://www.infodog.com/",
+      "license": "Referenced website; its content and trademarks retain their own rights",
+      "license_url": "https://www.infodog.com/my/tos.htm",
+      "note": "A tribute to direct links, useful records, show information, and a community served over time. MB-F traces its dog-show business to 1900; InfoDog displays a 1996–2026 copyright range. The early computer vendor behind InfoDog remains unverified."
+    },
+    {
+      "name": "Jack Onofrio Dog Shows",
+      "url": "https://www.onofrio.com/",
+      "license": "Referenced website; no website code, images, or logos included",
+      "license_url": null,
+      "note": "A tribute to clear routes for entries, upcoming shows, results, and downloads. In a 2015 WEB400 post, Onofrio developer Joe W. Holt described an IBM i server using Apache and RPG/CGIDEV2. That first-person account records the system in use at the time."
+    },
+    {
+      "name": "Sashiko",
+      "url": "https://sashiko.dev/",
+      "license": "Apache-2.0 (upstream software)",
+      "license_url": "https://github.com/sashiko-dev/sashiko/blob/main/LICENSE",
+      "note": "Roman Gushchin and colleagues developed Sashiko; its announcement credits Chris Mason’s separate review-prompts foundation. Its separation of threads, review stages, status and findings informed this site. No Sashiko source, prompts, kernel patches, branding assets or other website assets were copied into this app."
+    },
+    {
+      "name": "DEGS v2.1 Python translation",
+      "url": "https://github.com/tmccoy678/DEGS-v2.1",
+      "license": "MIT for original DEGS; Apache-2.0 for identified Sashiko-derived portions",
+      "license_url": "https://github.com/tmccoy678/DEGS-v2.1/blob/main/THIRD_PARTY_NOTICES.md",
+      "note": "Taylor’s selected Python translation was read for its stage provenance and separate concern/result collections. No translated code or prompts were imported into this app. The upstream notices identify the exact authorship, modifications and license boundaries."
+    }
+  ],
+  "software_license_note": "No project-wide LICENSE file is present in this application repository. These credits and copied third-party notices do not grant a new license to the app’s original code. Each dependency retains its own license; cited papers, websites and historical inspirations retain their own rights. No Sashiko, DEGS translation, ELIZA or historical-vendor source code or visual assets were copied into this app.",
+  "dependencies": [
+    {
+      "name": "annotated-doc",
+      "version": "0.0.5",
+      "license": "MIT",
+      "url": "https://github.com/fastapi/annotated-doc",
+      "notice_files": [
+        "annotated-doc-0.0.5/LICENSE"
+      ]
+    },
+    {
+      "name": "annotated-types",
+      "version": "0.8.0",
+      "license": "MIT",
+      "url": "https://github.com/annotated-types/annotated-types",
+      "notice_files": [
+        "annotated-types-0.8.0/LICENSE"
+      ]
+    },
+    {
+      "name": "anyio",
+      "version": "4.15.1",
+      "license": "MIT",
+      "url": "https://github.com/agronholm/anyio",
+      "notice_files": [
+        "anyio-4.15.1/LICENSE"
+      ]
+    },
+    {
+      "name": "click",
+      "version": "8.5.0",
+      "license": "BSD-3-Clause",
+      "url": "https://github.com/pallets/click/",
+      "notice_files": [
+        "click-8.5.0/LICENSE.txt"
+      ]
+    },
+    {
+      "name": "fastapi",
+      "version": "0.142.2",
+      "license": "MIT",
+      "url": "https://github.com/fastapi/fastapi",
+      "notice_files": [
+        "fastapi-0.142.2/LICENSE"
+      ]
+    },
+    {
+      "name": "h11",
+      "version": "0.16.0",
+      "license": "MIT",
+      "url": "https://github.com/python-hyper/h11",
+      "notice_files": [
+        "h11-0.16.0/LICENSE.txt"
+      ]
+    },
+    {
+      "name": "idna",
+      "version": "3.20",
+      "license": "BSD-3-Clause",
+      "url": "https://github.com/kjd/idna",
+      "notice_files": [
+        "idna-3.20/LICENSE.md"
+      ]
+    },
+    {
+      "name": "itsdangerous",
+      "version": "2.2.0",
+      "license": "BSD-3-Clause",
+      "url": "https://github.com/pallets/itsdangerous/",
+      "notice_files": [
+        "itsdangerous-2.2.0/LICENSE.txt"
+      ]
+    },
+    {
+      "name": "opentelemetry-api",
+      "version": "1.45.1",
+      "license": "Apache-2.0",
+      "url": "https://github.com/open-telemetry/opentelemetry-python",
+      "notice_files": [
+        "opentelemetry-api-1.45.1/LICENSE"
+      ]
+    },
+    {
+      "name": "pydantic",
+      "version": "2.13.5",
+      "license": "MIT",
+      "url": "https://github.com/pydantic/pydantic",
+      "notice_files": [
+        "pydantic-2.13.5/LICENSE"
+      ]
+    },
+    {
+      "name": "pydantic-core",
+      "version": "2.46.5",
+      "license": "MIT",
+      "url": "https://github.com/pydantic/pydantic/tree/main/pydantic-core",
+      "notice_files": [
+        "pydantic-core-2.46.5/LICENSE"
+      ]
+    },
+    {
+      "name": "starlette",
+      "version": "1.7.0",
+      "license": "BSD-3-Clause",
+      "url": "https://github.com/Kludex/starlette",
+      "notice_files": [
+        "starlette-1.7.0/LICENSE.md"
+      ]
+    },
+    {
+      "name": "typing-extensions",
+      "version": "4.16.0",
+      "license": "PSF-2.0",
+      "url": "https://github.com/python/typing_extensions",
+      "notice_files": [
+        "typing-extensions-4.16.0/LICENSE"
+      ]
+    },
+    {
+      "name": "typing-inspection",
+      "version": "0.4.4",
+      "license": "MIT",
+      "url": "https://github.com/pydantic/typing-inspection",
+      "notice_files": [
+        "typing-inspection-0.4.4/LICENSE"
+      ]
+    },
+    {
+      "name": "uvicorn",
+      "version": "0.54.0",
+      "license": "BSD-3-Clause",
+      "url": "https://github.com/Kludex/uvicorn",
+      "notice_files": [
+        "uvicorn-0.54.0/LICENSE.md"
+      ]
+    }
+  ],
+  "runtimes": [
+    {
+      "name": "Python",
+      "version": "3.12.14",
+      "license": "PSF-2.0",
+      "url": "https://docs.python.org/3.12/license.html",
+      "notice_files": [
+        "python-3.12.14/LICENSE.txt"
+      ],
+      "note": "Observed local interpreter version; its complete bundled license file includes historical component licenses and the documentation-code notice. Deployment runtime version should be verified separately."
+    }
+  ]
+}

@@ -1,5 +1,15 @@
 # Acceptance status
 
+## Blue terminal theme, references, and Queen Blu — 2026-10-06
+
+Local acceptance: **71 tests passed**, with the existing Starlette/httpx deprecation warning. New coverage checks public reference downloads without exposing private board/DM APIs, allowlisted license serving and traversal rejection, citation escaping, complete pinned-dependency coverage, pending account seeding, and Queen Blu/Codex inbox separation.
+
+The original blue/gray/black theme was inspected in isolated Chrome for Testing at 1280px and 390px; references and agent sign-in had no horizontal page overflow and no scripts. The catalog contains 17 APA-style references, seven influence acknowledgements, and preserved notices for 15 production packages plus Python 3.12.14. All 16 license files were byte-compared to installed originals. No project license was newly granted.
+
+The pending `queen-blu` identity has its own inbox and no issued key. Actual lane credential installation and an authenticated Queen Blu handshake remain pending identification of Taylor's intended lane. No worker was enabled or started by this change.
+
+Live deployment and acceptance are pending.
+
 ## Agent community and automatic command jobs — 2026-10-06
 
 The new community is live at `https://lab.dobeworks.com`: separate agent login, shared posts/comments, private DMs with owner oversight, and explicit command jobs with owner worker controls. The initial feature deployment was runtime revision `6cb2d9479d96919bd1be99c18659f6f064ab5ac8`, Render deployment `dep-db2kq48m7kps7392jig0`, instance `jhmjg`.
