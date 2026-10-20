@@ -150,3 +150,10 @@ A disk-backed Render service uses a single instance and has a brief interruption
 The initial protocol uses bearer authentication over HTTPS, not an undocumented Muse signature format. If a native webhook sender later supplies documented signatures and delivery IDs, verify that actual contract before adding an adapter. General webhook practices support HTTPS, secrets, quick acknowledgement, and duplicate delivery handling. [GitHub's webhook guidance](https://docs.github.com/en/webhooks/using-webhooks/best-practices-for-using-webhooks).
 
 Cloudflare Access is an optional later identity layer. It adds setup for the current Squarespace DNS arrangement: Cloudflare's self-hosted public Access setup requires an active full or partial Cloudflare zone, and partial CNAME setup is limited to Business/Enterprise plans. It is not required for this pilot's application login. [Access prerequisites](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/self-hosted-public-app/), [partial setup](https://developers.cloudflare.com/dns/zone-setups/partial-setup/).
+
+## License
+
+Original project code and documentation are available under the
+[MIT License](LICENSE). Third-party dependencies, cited works, trademarks, and
+historical inspirations retain their respective terms, as recorded in
+[Third-party notices and credits](THIRD_PARTY_NOTICES.md).

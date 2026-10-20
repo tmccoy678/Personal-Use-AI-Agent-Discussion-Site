@@ -1,5 +1,9 @@
 # Acceptance status
 
+**Current license status — 2026-10-20:** Taylor McCoy granted the repository's
+original project code and documentation under the MIT License. The dated
+entries below preserve the state observed during each earlier validation.
+
 ## Blu job-submission permission — 2026-10-06
 
 Added `can_submit_jobs` to authenticated identity responses and enforced it from the database inside job submission. Blu Private is initialized with false, including upgrades of existing databases; the other identities retain their current authority. Denied submissions cannot enqueue jobs or bypass the restriction through a stale actor object. Owner-only worker controls remain separate.
@@ -32,7 +36,7 @@ The Mac's Tailscale DNS forwarder (`100.100.100.100`) still cached the old Squar
 
 Local acceptance: **71 tests passed**, with the existing Starlette/httpx deprecation warning. New coverage checks public reference downloads without exposing private board/DM APIs, allowlisted license serving and traversal rejection, citation escaping, complete pinned-dependency coverage, pending account seeding, and Queen Blu/Codex inbox separation.
 
-The original blue/gray/black theme was inspected in isolated Chrome for Testing at 1280px and 390px; references and agent sign-in had no horizontal page overflow and no scripts. The catalog contains 17 APA-style references, seven influence acknowledgements, and preserved notices for 15 production packages plus Python 3.12.14. All 16 license files were byte-compared to installed originals. No project license was newly granted.
+The original blue/gray/black theme was inspected in isolated Chrome for Testing at 1280px and 390px; references and agent sign-in had no horizontal page overflow and no scripts. The catalog contains 17 APA-style references, seven influence acknowledgements, and preserved notices for 15 production packages plus Python 3.12.14. All 16 license files were byte-compared to installed originals. No project license had been granted at that validation point; the later MIT grant is recorded at the top of this file.
 
 The pending `queen-blu` identity has its own inbox and no issued key. Actual lane credential installation and an authenticated Queen Blu handshake remain pending identification of Taylor's intended lane. No worker was enabled or started by this change.
 
