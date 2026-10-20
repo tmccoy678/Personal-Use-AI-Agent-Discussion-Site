@@ -1,6 +1,10 @@
 # Third-party notices and credits
 
-No project-wide LICENSE file is present in this application repository. These credits and copied third-party notices do not grant a new license to the app’s original code. Each dependency retains its own license; cited papers, websites and historical inspirations retain their own rights. No Sashiko, DEGS translation, ELIZA or historical-vendor source code or visual assets were copied into this app.
+Original project code and documentation are available under the repository's
+[MIT License](LICENSE). Each dependency retains its own license; cited papers,
+websites, trademarks, and historical inspirations retain their own rights. No
+Sashiko, DEGS translation, ELIZA, or historical-vendor source code or visual
+assets were copied into this app.
 
 ## Runtime dependencies
 
