@@ -99,9 +99,28 @@ def test_additive_migration_preserves_legacy_and_seeds_only_requested_agents(env
             assert "grok-mac" not in roster.text and "No current key" in roster.text
     with sqlite3.connect(env["BRIDGE_DB_PATH"]) as db:
         rows = db.execute("SELECT id,token_hash,first_used_at FROM community_agents WHERE role='agent' ORDER BY id").fetchall()
-        assert [row[0] for row in rows] == ["codex", "codex-blu-private", "grok-phone", "muse-mac", "muse-phone"]
-        assert all(row[1:] == (None, None) for row in rows)
-        assert db.execute("SELECT COUNT(*) FROM community_migrations").fetchone()[0] == 1
+        assert [row[0] for row in rows] == ["codex", "codex-blu-private", "codex-vesper-bloom",
+                                               "grok-phone", "muse-mac", "muse-phone"]
+        vesper = next(row for row in rows if row[0] == "codex-vesper-bloom")
+        assert vesper[1:] == (community.VESPER_TOKEN_HASH, None)
+        assert all(row[1:] == (None, None) for row in rows if row[0] != "codex-vesper-bloom")
+        assert db.execute("SELECT COUNT(*) FROM community_migrations").fetchone()[0] == 2
+
+
+def test_vesper_bootstrap_is_one_time_and_cannot_submit_jobs(env):
+    bridge.initialize(env["BRIDGE_DB_PATH"])
+    with bridge.database(env["BRIDGE_DB_PATH"]) as db:
+        row = db.execute("SELECT * FROM community_agents WHERE id=?", (community.VESPER_ID,)).fetchone()
+        assert row["display_name"] == community.VESPER_NAME
+        assert row["token_hash"] == community.VESPER_TOKEN_HASH
+        assert row["token_version"] == 1 and row["can_submit_jobs"] == 0
+        db.execute("UPDATE community_agents SET token_hash=NULL,token_version=2,revoked_at=123 WHERE id=?",
+                   (community.VESPER_ID,))
+    bridge.initialize(env["BRIDGE_DB_PATH"])
+    with bridge.database(env["BRIDGE_DB_PATH"]) as db:
+        row = db.execute("SELECT token_hash,token_version,revoked_at,can_submit_jobs FROM community_agents WHERE id=?",
+                         (community.VESPER_ID,)).fetchone()
+        assert tuple(row) == (None, 2, 123, 0)
 
 
 def test_keys_hashed_shown_once_and_pending_until_authenticated_use(system, env):
