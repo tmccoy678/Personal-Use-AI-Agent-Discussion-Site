@@ -79,7 +79,7 @@ License / credit scope: Referenced website; no website code, images, or logos in
 
 ### Sashiko
 
-Roman Gushchin and colleagues developed Sashiko; its announcement credits Chris Mason’s separate review-prompts foundation. Its separation of threads, review stages, status and findings informed this site. No Sashiko source, prompts, kernel patches, branding assets or other website assets were copied into this app.
+Roman Gushchin and colleagues developed Sashiko; its announcement credits Chris Mason’s separate review-prompts foundation. Its separation of threads, review stages, status and findings informed the original bridge, which copied no Sashiko source or assets. The separate mission exhibit retains DEGS's identified translation and its notices as test support, described below.
 
 Source: https://sashiko.dev/
 
@@ -89,7 +89,7 @@ Upstream license or scope: https://github.com/sashiko-dev/sashiko/blob/main/LICE
 
 ### DEGS v2.1 Python translation
 
-Taylor’s selected Python translation was read for its stage provenance and separate concern/result collections. No translated code or prompts were imported into this app. The upstream notices identify the exact authorship, modifications and license boundaries.
+Taylor’s selected Python translation informed the original bridge's stage provenance and separate concern/result collections. The later mission exhibit includes the unchanged translation and prompts with DEGS's core test support. The retained upstream notices identify the authorship, modifications and license boundaries.
 
 Source: https://github.com/tmccoy678/DEGS-v2.1
 
@@ -106,7 +106,7 @@ The complete APA-style citation data, source links, bibliographic qualifications
 All 16 retained license files were byte-compared with their installed originals. No third-party license text was rewritten. Dependency updates should refresh this inventory and recopy the corresponding original notices.
 ## Mission exhibit
 
-`stage_vendor/DobeWorks` and `stage_vendor/DEGS` retain exact selected files from the public releases identified in `stage_vendor/sources.json`. DobeWorks retains Apache-2.0 and its component-specific notices; original DEGS retains MIT and its identified Apache-derived portions retain their own notices. The exhibit does not relicense either project.
+`stage_vendor/DobeWorks` and `stage_vendor/DEGS` retain exact selected runtime files, core tests, fixtures and support files from the public repository commits identified in `stage_vendor/sources.json`. DobeWorks retains Apache-2.0 and its component-specific notices; original DEGS retains MIT and its identified Apache-derived portions retain their own notices. The exhibit does not relicense either project. DEGS's unmodified Sashiko translation and prompts retain its component-specific provenance and Apache notice; benchmark JSON fixtures retain their data license.
 
 `stage_vendor/nasa-fprime` contains unmodified NASA/JPL F´ source at commit `a37ffa40871e567481d0a7626c12b24d8acdbf15`. Copyright 2025 California Institute of Technology; Apache-2.0. The CRC implementation's embedded Stephan Brumme provenance and permissive notice remain intact. See the retained `LICENSE.txt` and `provenance.json`. This is an F´ component, not a claim that NASA originated the CRC algorithm or endorses this exhibit.
 

@@ -2,24 +2,17 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>DobeWorks · Mission Stage</title><link rel="stylesheet" href="/stage.css"></head>
 <body><main>
+<p class="station">┌─ SOFTWARE / TELEMETRY DESK ─ MISSION 001 ─┐</p>
 <header><div class="wordmark">D O B E W O R K S</div><div class="voice">{{quote}}</div><div class="attribution">{{attribution}}</div></header>
 <div class="layout"><section aria-label="Mission terminal"><p class="prompt">PLEASE GO ON.</p>
-<form action="/" method="post"><label class="scenario">MISSION PACKET <select name="scenario">{{options}}</select></label>
-<div class="programs">
-<button name="command" value="01">01  RUN CURRENT-PAIR INTEGRATION</button>
-<button name="command" value="02">02  DOBEWORKS OBSERVER — FRESH</button>
-<button name="command" value="03">03  DOBEWORKS OBSERVER — STALE</button>
-<button name="command" value="04">04  DOBEWORKS WORKER — STAGE UNACCEPTED RESULT</button>
-<button name="command" value="05">05  DEGS — INTACT MISSION RECORD</button>
-<button name="command" value="06">06  DEGS — MISSING EVIDENCE RECORD</button>
-<button name="command" value="07">07  CHECK PINNED-PAIR HANDOFF</button>
-<button name="command" value="08">08  OPEN RUN EVIDENCE</button>
-<button class="reset" name="command" value="00">00  RESET INTERFACE</button></div></form>
-<pre class="result" aria-live="polite">{{result}}</pre>
+<form action="/" method="post"><input type="hidden" name="csrf" value="{{csrf}}"><label class="scenario">MISSION PACKET <select name="scenario">{{options}}</select></label>
+<div class="programs">{{programs}}<button class="reset" name="command" value="00">00  RESET INTERFACE</button></div></form>
+<section class="output" aria-label="Program results"><h2>{{title}}</h2><pre class="result" aria-live="polite">{{result}}</pre>
+<form action="/" method="post" class="actions"><input type="hidden" name="csrf" value="{{csrf}}"><input type="hidden" name="scenario" value="{{scenario}}">{{actions}}</form>{{details}}</section>
 <p class="reply">{{reply}}</p><p class="question">{{question}}</p>
-<form action="/" method="post" class="command"><input type="hidden" name="scenario" value="{{scenario}}">
+<form action="/" method="post" class="command"><input type="hidden" name="csrf" value="{{csrf}}"><input type="hidden" name="scenario" value="{{scenario}}">
 <label for="command">WHICH PROGRAM SHALL WE RUN? &gt;</label> <input id="command" name="command" maxlength="160" autocomplete="off" autofocus aria-label="Program number or a short question"><button class="enter">RETURN</button></form>
-</section><aside aria-label="Fictional mission"><h1>MISSION 001</h1><pre class="rocket" aria-label="Simple text rocket">
+</section><aside aria-label="Fictional mission"><h1>MISSION 001</h1><pre class="rocket {{flight_class}}" aria-label="Simple text rocket">
          /\
         /  \
        /    \
@@ -30,11 +23,23 @@
      /_|____|_\
         /__\
  ─────────────────
-       THE PAD
-</pre><p class="state">{{mission_state}}</p><p>ONE PACKET.<br>EVERY HANDOFF VISIBLE.</p>
-<p>Start with the intact packet. Introduce one fault. Run the check again. Inspect what changed.</p>
+       {{flight_label}}
+</pre><p class="state">{{mission_state}}</p><pre class="tray" aria-label="Packet tray">┌──────────────────────────┐
+│  PACKET TRAY             │
+│  ┌────────────────────┐  │
+│  │ TM-CRC-001         │  │
+│  │ NASA/JPL F´ CRC32  │  │
+│  └────────────────────┘  │
+└──────────────────────────┘</pre><p>ONE SMALL PACKAGE.<br>EVERY HANDOFF VISIBLE.</p><pre class="progress">{{progress}}</pre>
 <p>SIMULATED FIXTURE CLOCK<br>NO LIVE DEVICE TELEMETRY</p>
-<details><summary>INFORMATION</summary><p><a href="/evidence?scenario={{scenario}}">DOWNLOAD EVIDENCE</a><br><a href="/sources">SOURCE IDENTITIES</a><br><a href="/source/nasa">NASA COMPONENT</a><br><a href="/source/harness">MISSION HARNESS</a><br><a href="/source/dialogue">DIALOGUE RULES</a></p></details></aside></div>
+<details><summary>INFORMATION</summary><p><a href="/evidence">RUN EVIDENCE</a><br><a href="/sources">FROZEN SOURCE IDENTITIES</a><br><a href="/source/nasa">NASA TABLE GENERATOR</a><br><a href="/source/nasa-crc">NASA CRC32 COMPONENT</a><br><a href="/source/harness">MISSION HARNESS</a><br><a href="/source/dialogue">DIALOGUE RULES</a></p>
+<p>The packet contains unmodified NASA/JPL F´ CRC32 source files, their license, a requirement and fictional check evidence. The damaged scenario changes its handoff copy. The Worker stages a synthetic inventory of Markdown source summaries; the exhibit checks the actual source manifest and checksum. The Observer uses its public synthetic fixture. DEGS checks the adapted read-only record.</p>
+<p>You play several fictional roles. Reviewer acceptance and the launch poll are simulation actions. Worker output remains unaccepted. These few checks illustrate one component's handoff, not a complete flight certification or NASA procedure.</p>
+<p>Workflow references: <a href="https://www.nasa.gov/reference/6-5-configuration-management/">NASA configuration management</a> and <a href="https://www.nasa.gov/reference/system-engineering-handbook-appendix/">readiness review definitions</a>.</p>
+<p>Checks run on the frozen backend and their results are reused. 08 displays the record without rerunning checks. A changed packet invalidates every earlier receipt. Progress uses a temporary cookie and server memory; it expires after two hours or a restart. No conversation text is saved.</p></details></aside></div>
+<pre class="desk" aria-hidden="true">└──────────────────────────┬───────────────────┬──────────────────────────┘
+                           │                   │
+                           │                   │</pre>
 <footer>FICTIONAL MISSION · REAL PUBLIC CODE · NO LAUNCH AUTHORITY<br>
 RULE-BASED DIALOGUE · NO MODEL CALLS · NO CHAT HISTORY STORED<br>
 <a href="https://doi.org/10.1145/365153.365168">ELIZA, WEIZENBAUM 1966</a> · <a href="/source/nasa-license">NASA/JPL F´ LICENSE</a> · <a href="/source/license">EXHIBIT LICENSE</a> · <a href="https://dobeworks.com">DOBEWORKS</a> · <a href="https://lab.dobeworks.com">LAB</a></footer>

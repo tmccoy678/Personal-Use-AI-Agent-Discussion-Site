@@ -78,7 +78,9 @@ def stage_inventory(directory, artifacts):
     sys.path.insert(0, str(PHASE4))
     import worker_core
     inputs = {"schema_version": worker_core.INPUT_SCHEMA, "records": [
-        {"path": name, "kind": "markdown", "bytes": len(data)} for name, data in artifacts.items()]}
+        {"path": "inventory/" + name + ".md", "kind": "markdown",
+         "bytes": len(f"Source: {name}\nBytes: {len(data)}\nSHA256: {digest(data)}\n".encode())}
+        for name, data in artifacts.items()]}
     raw = encode(inputs)
     envelope = json.loads((PHASE4 / "fixtures/job-envelope.json").read_text())
     envelope.update(job_id="job-mission-001", input_sha256=digest(raw))
@@ -95,6 +97,21 @@ def stage_inventory(directory, artifacts):
     return result, inputs, envelope
 
 
+def verify_cores():
+    sources, _ = check_sources()
+    ui = load_module("stage_public_interface", VENDOR / "DobeWorks/interface/command_center.py")
+    ui.DEGS = VENDOR / "DEGS"
+    results = {}
+    for name, (command, directory) in ui.core_test_commands().items():
+        completed = subprocess.run(command, cwd=directory, capture_output=True, text=True, timeout=45)
+        results[name] = {**ui.test_execution_summary(completed.stdout + completed.stderr, completed.returncode),
+                         "command": command, "stdout": completed.stdout, "stderr": completed.stderr}
+    return {"schema_version": "dobeworks.stage.core-tests.v1", "source_identity": sources,
+            "python": sys.version, "results": results,
+            "result": "PASS" if all(item["passed"] for item in results.values()) else "FAIL",
+            "operational_authority": "NONE"}
+
+
 def run_mission(scenario):
     if scenario not in SCENARIOS:
         raise ValueError("Unknown mission scenario")
@@ -105,14 +122,24 @@ def run_mission(scenario):
     ui.DEGS = VENDOR / "DEGS"
     with tempfile.TemporaryDirectory(prefix="mission-") as temporary:
         directory = Path(temporary)
-        telemetry = PACKET.replace(b"SEQ=7", b"SEQ=8") if scenario == "altered" else PACKET
+        telemetry = PACKET
         artifacts = {"mission/telemetry.md": PACKET,
+                     "source/TableGenerator.c": (NASA / "TableGenerator.c").read_bytes(),
+                     "source/Crc32.cpp": (NASA / "Crc32.cpp").read_bytes(),
+                     "source/LICENSE.txt": (NASA / "LICENSE.txt").read_bytes(),
                      "mission/plan.md": encode({"mission": "DEMO-001", "required_crc32": "B8BD3EAE", "next_stage": "INDEPENDENT_REVIEW"}),
+                     "mission/context.md": encode({"component": "TM-CRC-001: NASA/JPL F prime CRC32 source handoff",
+                         "requirement": "Retain the exact sequence-7 telemetry bytes and reject missing or changed package evidence.",
+                         "impact": "Ground telemetry integrity review; one component of a larger fictional mission.",
+                         "limits": "No flight guidance, vehicle control or launch authority.",
+                         "source_commits": {name: item["commit"] for name, item in sources.items()}}),
                      "evidence/nasa-source.md": nasa["files"]["TableGenerator.c"]["sha256"].encode()}
         expected_manifest = {name: digest(data) for name, data in artifacts.items()}
         artifacts["mission/telemetry.md"] = telemetry
         if scenario == "missing":
             del artifacts["evidence/nasa-source.md"]
+        if scenario == "altered":
+            artifacts["source/TableGenerator.c"] += b"\n/* changed during fictional handoff */\n"
         worker, inventory, envelope = stage_inventory(directory, artifacts)
         ui.RUNS = directory
         observer = ui.run_observer(directory, stale=scenario == "stale")
@@ -143,6 +170,7 @@ def run_mission(scenario):
                              "integrity": "PASS" if intact else "BLOCKED", "expected_manifest": expected_manifest,
                              "actual_manifest": actual_manifest},
                   "worker": worker, "worker_input": inventory, "worker_envelope": envelope,
+                  "package_sha256": digest(encode(actual_manifest)),
                   "observer": observer, "degs_task": task, "degs": gate["evaluate"],
                   "degs_exit": gate["evaluate_exit"], "handoff": "READY_FOR_REVIEW" if expected_decision == "PASS" else "HOLD"}
         # Temporary execution paths are not part of the portable public evidence.
@@ -153,5 +181,7 @@ if __name__ == "__main__":
     if sys.argv[1:] == ["--prepare"]:
         prepare_nasa()
         print("Pinned sources and NASA table generator verified")
+    elif sys.argv[1:] == ["--verify-cores"]:
+        print(json.dumps(verify_cores(), sort_keys=True, separators=(",", ":")))
     else:
         print(json.dumps(run_mission(sys.argv[1]), sort_keys=True, separators=(",", ":")))
