@@ -131,6 +131,29 @@ def read_core_verification():
     return report
 
 
+def mission_package(scenario, sources, nasa):
+    """Exact packet bytes shared by execution and the read-only package viewer."""
+    if scenario not in SCENARIOS:
+        raise ValueError("Unknown mission scenario")
+    artifacts = {"mission/telemetry.md": PACKET,
+                 "source/TableGenerator.c": (NASA / "TableGenerator.c").read_bytes(),
+                 "source/Crc32.cpp": (NASA / "Crc32.cpp").read_bytes(),
+                 "source/LICENSE.txt": (NASA / "LICENSE.txt").read_bytes(),
+                 "mission/plan.md": encode({"mission": "DEMO-001", "required_crc32": "B8BD3EAE", "next_stage": "INDEPENDENT_REVIEW"}),
+                 "mission/context.md": encode({"component": "TM-CRC-001: NASA/JPL F prime CRC32 source handoff",
+                     "requirement": "Retain the exact sequence-7 telemetry bytes and reject missing or changed package evidence.",
+                     "impact": "Ground telemetry integrity review; one component of a larger fictional mission.",
+                     "limits": "No flight guidance, vehicle control or launch authority.",
+                     "source_commits": {name: item["commit"] for name, item in sources.items()}}),
+                 "evidence/nasa-source.md": nasa["files"]["TableGenerator.c"]["sha256"].encode()}
+    expected_manifest = {name: digest(data) for name, data in artifacts.items()}
+    if scenario == "missing":
+        del artifacts["evidence/nasa-source.md"]
+    if scenario == "altered":
+        artifacts["source/TableGenerator.c"] += b"\n/* changed during fictional handoff */\n"
+    return artifacts, expected_manifest
+
+
 def run_mission(scenario):
     if scenario not in SCENARIOS:
         raise ValueError("Unknown mission scenario")
@@ -142,23 +165,7 @@ def run_mission(scenario):
     with tempfile.TemporaryDirectory(prefix="mission-") as temporary:
         directory = Path(temporary)
         telemetry = PACKET
-        artifacts = {"mission/telemetry.md": PACKET,
-                     "source/TableGenerator.c": (NASA / "TableGenerator.c").read_bytes(),
-                     "source/Crc32.cpp": (NASA / "Crc32.cpp").read_bytes(),
-                     "source/LICENSE.txt": (NASA / "LICENSE.txt").read_bytes(),
-                     "mission/plan.md": encode({"mission": "DEMO-001", "required_crc32": "B8BD3EAE", "next_stage": "INDEPENDENT_REVIEW"}),
-                     "mission/context.md": encode({"component": "TM-CRC-001: NASA/JPL F prime CRC32 source handoff",
-                         "requirement": "Retain the exact sequence-7 telemetry bytes and reject missing or changed package evidence.",
-                         "impact": "Ground telemetry integrity review; one component of a larger fictional mission.",
-                         "limits": "No flight guidance, vehicle control or launch authority.",
-                         "source_commits": {name: item["commit"] for name, item in sources.items()}}),
-                     "evidence/nasa-source.md": nasa["files"]["TableGenerator.c"]["sha256"].encode()}
-        expected_manifest = {name: digest(data) for name, data in artifacts.items()}
-        artifacts["mission/telemetry.md"] = telemetry
-        if scenario == "missing":
-            del artifacts["evidence/nasa-source.md"]
-        if scenario == "altered":
-            artifacts["source/TableGenerator.c"] += b"\n/* changed during fictional handoff */\n"
+        artifacts, expected_manifest = mission_package(scenario, sources, nasa)
         worker, inventory, envelope = stage_inventory(directory, artifacts)
         ui.RUNS = directory
         observer = ui.run_observer(directory, stale=scenario == "stale")

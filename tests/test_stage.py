@@ -1,5 +1,6 @@
 """Real fixed scenarios, mission handoffs, and public/private host separation."""
 import json
+from html import escape
 import re
 import subprocess
 import sys
@@ -30,7 +31,7 @@ def real_cores():
 
 
 def command(client, number, scenario="clean", **kwargs):
-    csrf = re.search(r'name="csrf" value="([^"]+)"', client.get("/").text)[1]
+    csrf = re.search(r'name="csrf" value="([^"]+)"', client.get("/evidence").text)[1]
     return client.post("/", data={"command": number, "scenario": scenario, "csrf": csrf}, **kwargs)
 
 
@@ -62,7 +63,7 @@ def test_stage_host_cannot_reach_lab_routes(env):
         assert "HttpOnly" in page.headers["set-cookie"] and "Secure" in page.headers["set-cookie"]
         for path in ["/inbox", "/login", "/api/dms", "/api/jobs", "/stream", "/window", "/legacy"]:
             assert client.get(path).status_code == 404
-        assert "F R O Z E N" in client.get("/sources").text
+        assert "FROZEN SOURCES" in client.get("/sources").text
         assert client.get("/evidence").headers["content-type"].startswith("text/html")
         assert client.get("/stage.css").status_code == 200
     with TestClient(bridge.create_app(env), base_url="https://lab.dobeworks.com") as client:
@@ -184,3 +185,55 @@ def test_unexpected_observer_is_not_reported_as_expected_hold(monkeypatch):
     monkeypatch.setattr(stage_mission, "load_module", wrong_observer)
     with pytest.raises(RuntimeError, match="Observer result did not match"):
         stage_mission.run_mission("stale")
+
+
+def test_package_view_matches_packet_and_search_does_not_advance(monkeypatch):
+    with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
+        response = command(client, "01")
+        assert "<h2>ESTABLISH PACKAGE BASELINE</h2>" in response.text
+        assert response.text.count('class="package-file"') == 7
+        assert "&lt;stdint.h&gt;" in response.text
+        before = client.get("/api/evidence").json()
+        assert before["fixed_engine_run"]["package_sha256"] == "100bf914d582bf2d7f7b9136af2e8bf22993f3ca3979f4ec4daf9e93b9ac4295"
+        sources, nasa = stage_mission.check_sources()
+        artifacts, _ = stage_mission.mission_package("clean", sources, nasa)
+        for data in artifacts.values():
+            assert escape(data.decode()) in response.text
+        async def unexpected_run(_):
+            raise AssertionError("Package search must not run an engine")
+        with monkeypatch.context() as patch:
+            patch.setattr(stage, "mission", unexpected_run)
+            response = client.get("/package", params={"q": "crc32"})
+            assert "MATCHING LINES" in response.text and "COMPLETE FILE" in response.text
+            assert client.get("/api/evidence").json() == before
+            csrf = re.search(r'name="csrf" value="([^"]+)"', response.text)[1]
+            response = client.post("/", data={"command": "inspect", "scenario": "clean", "csrf": csrf, "q": "crc32"})
+            assert "MATCHING LINES" in response.text
+            assert client.get("/api/evidence").json() == before
+            assert "NO MATCHES IN THIS PACKET" in client.get("/package", params={"q": "no-such-phrase-123"}).text
+            response = client.get("/package", params={"q": '<script>alert("x")</script>'})
+            assert "<script>" not in response.text and "&lt;script&gt;" in response.text
+            assert client.get("/package", params={"q": "x" * 121}).status_code == 422
+            assert client.get("/package?path=/etc/passwd").status_code == 422
+            assert client.get("/package?q=crc&q=source").status_code == 422
+        command(client, "01", "missing")
+        assert "evidence/nasa-source.md · MISSING" in client.get("/package").text
+        command(client, "01", "altered")
+        response = client.get("/package", params={"q": "changed during fictional handoff"})
+        assert "IDENTITY DIFFERS" in response.text and "MATCHING LINES" in response.text
+
+
+def test_refresh_starts_a_clean_game_after_redirected_interactions():
+    with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
+        command(client, "01")
+        csrf = re.search(r'name="csrf" value="([^"]+)"', client.get("/evidence").text)[1]
+        response = client.post("/", data={"command": "hello", "scenario": "clean", "csrf": csrf}, follow_redirects=False)
+        assert response.status_code == 303
+        response = client.get(response.headers["location"])
+        assert "BEGIN WITH 01" in response.text
+        assert client.get("/api/evidence").json()["completed_handoffs"] == ["01"]
+        client.get("/")
+        evidence = client.get("/api/evidence").json()
+        assert evidence["completed_handoffs"] == [] and evidence["handoff_record"] == []
+        assert evidence["fictional_role_poll"] == {} and evidence["fixed_engine_run"] is None
+        assert not evidence["simulated_flight_completed"]

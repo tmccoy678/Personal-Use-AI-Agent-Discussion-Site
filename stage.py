@@ -13,18 +13,18 @@ import time
 from urllib.parse import parse_qs
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
-from stage_mission import digest, encode
+from stage_mission import check_sources, digest, encode, mission_package
 
 ROOT = Path(__file__).resolve().parent
 SCENARIOS = {"clean": "INTACT PACKET", "stale": "STALE TELEMETRY", "missing": "MISSING EVIDENCE",
              "unresolved": "OPEN REVIEW ITEM", "altered": "ALTERED SOURCE"}
 PROGRAMS = {"01": ("CONFIGURATION ENGINEER", "ESTABLISH PACKAGE BASELINE"),
-            "02": ("TELEMETRY ENGINEER", "CHECK OBSERVER FRESHNESS"),
-            "03": ("PACKAGE ENGINEER", "STAGE AND CHECK THE PACKAGE"),
+            "02": ("TELEMETRY ENGINEER", "DOBEWORKS — CHECK OBSERVATIONS"),
+            "03": ("PACKAGE ENGINEER", "DOBEWORKS — STAGE THE WORK"),
             "04": ("VERIFICATION ENGINEER", "VERIFY BOTH FROZEN CORES"),
-            "05": ("INDEPENDENT REVIEWER", "REVIEW AND ACCEPT THE PACKAGE"),
+            "05": ("INDEPENDENT REVIEWER", "REVIEWER — CHECK DEGS AND ACCEPT"),
             "06": ("MISSION TEAM", "POLL LAUNCH READINESS"),
             "07": ("LAUNCH DIRECTOR", "RUN THE ROCKET SIMULATION"),
             "08": ("EVIDENCE", "OPEN THE HANDOFF RECORD")}
@@ -98,33 +98,101 @@ def dialogue(question, report=None):
     return "I DO NOT HAVE A RULE FOR THAT REQUEST. SHALL WE INSPECT THE PACKAGE OR CONTINUE A NUMBERED PROGRAM?"
 
 
-def render(state, title="MISSION TERMINAL", lines=None, reply="PLEASE GO ON.", question="", actions=(), details=None):
+def baseline_lines(report):
+    return ("TM-CRC-001 · NASA/JPL F PRIME CRC32\n\nREQUIREMENT\n"
+            "Retain exact source and sequence-7 telemetry identities.\nReject changed bytes or missing evidence at handoff.\n\n"
+            f'SOURCE FILES          TableGenerator.c + Crc32.cpp\nPACKAGE SHA256        {report["package_sha256"]}\n'
+            f'BASELINE FILES        {len(report["packet"]["expected_manifest"])}\nNEXT ROLE             TELEMETRY ENGINEER')
+
+
+def package_view(state, query, focus=False):
+    sources, nasa = check_sources()
+    artifacts, expected = mission_package(state["scenario"], sources, nasa)
+    actual = {path: digest(data) for path, data in artifacts.items()}
+    report = state["report"]
+    if actual != report["packet"]["actual_manifest"] or expected != report["packet"]["expected_manifest"]:
+        raise RuntimeError("The displayed packet differs from the checked packet")
+    descriptions = {"source/TableGenerator.c": "NASA/JPL lookup-table generator",
+                    "source/Crc32.cpp": "NASA/JPL CRC32 reference implementation",
+                    "source/LICENSE.txt": "Upstream license",
+                    "mission/context.md": "Requirement and handoff context",
+                    "mission/plan.md": "Fictional mission handoff plan",
+                    "mission/telemetry.md": "Fictional telemetry sample",
+                    "evidence/nasa-source.md": "Pinned NASA source identity"}
+    files = []
+    for path in sorted(expected):
+        data = artifacts.get(path)
+        text = data.decode("utf-8") if data is not None else ""
+        matches = [(number, line) for number, line in enumerate(text.splitlines(), 1)
+                   if query and query.casefold() in line.casefold()]
+        if query and query.casefold() not in path.casefold() and not matches:
+            continue
+        if data is None:
+            files.append(f'<p class="missing">{escape(path)} · MISSING</p>')
+            continue
+        identity = f'{len(data):,} bytes · SHA256 {actual[path]}'
+        if actual[path] != expected[path]:
+            identity += f'\nIDENTITY DIFFERS · BASELINE SHA256 {expected[path]}'
+        contents = f'<pre class="file-content">{escape(text)}</pre>'
+        if matches:
+            found = "\n".join(f"{number:4}  {line}" for number, line in matches[:60])
+            contents = (f'<p>{len(matches)} MATCHING LINES · LINE NUMBERS SHOWN'
+                        + (' · FIRST 60' if len(matches) > 60 else '') + '</p>'
+                        + f'<pre class="file-content">{escape(found)}</pre>'
+                        + f'<details><summary>COMPLETE FILE</summary>{contents}</details>')
+        files.append(f'<details class="package-file" {"open" if query else ""}>'
+                     f'<summary>{escape(path)}</summary><p>{descriptions[path]}</p>'
+                     f'<pre class="file-identity">{identity}</pre>{contents}</details>')
+    result = f'{len(files)} FILES MATCH' if query else f'{len(artifacts)} FILES PRESENT · {len(expected)} EXPECTED'
+    return ('<section class="package" id="package" aria-labelledby="package-title"><h3 id="package-title">PACKET TRAY · TM-CRC-001</h3>'
+            '<form action="/" method="post" class="package-search"><label for="package-query">SEARCH THIS PACKET</label>'
+            f'<input type="hidden" name="csrf" value="{state["csrf"]}"><input type="hidden" name="scenario" value="{state["scenario"]}">'
+            '<input type="hidden" name="command" value="inspect">'
+            f'<input id="package-query" name="q" value="{escape(query)}" maxlength="120" placeholder="Filename or text" {"autofocus" if focus else ""}>'
+            '<button class="enter">SEARCH</button></form>'
+            f'<p>{result} · OPEN A FILE TO INSPECT ITS CONTENTS.</p>'
+            + ('<p><a href="/package#package">CLEAR SEARCH</a></p>' if query else '')
+            + (''.join(files) if files else '<p>NO MATCHES IN THIS PACKET.</p>') + '</section>')
+
+
+def render(state, title="MISSION TERMINAL", lines=None, reply="PLEASE GO ON.", question="", actions=(), details=None,
+           show_package=False, package_query="", focus_package=False):
     voice = secrets.choice(VOICES)
     scenario = state["scenario"]
     if lines is None:
-        lines = ("PACKAGE  TM-CRC-001\nNASA/JPL F PRIME CRC32 SOURCE HANDOFF\n\n"
-                 "Preserve the source, requirement, identities, and evidence.\n"
-                 "Begin with 01. Each role receives the same package.\n"
-                 "Other mission teams still have their own decisions to make.")
+        lines = ("YOUR ASSIGNMENT\n\nDeliver one NASA/JPL checksum component to the next team with its context intact.\n\n"
+                 "DOBEWORKS checks that observations are fresh and stages bounded work for review.\n\n"
+                 "DEGS checks whether the engineering record meets the rules for its next handoff.\n\n"
+                 "YOU inspect the package and play the people who receive it. Begin with 01.")
     options = "".join(f'<option value="{key}" {"selected" if key == scenario else ""}>{value}</option>' for key, value in SCENARIOS.items())
     programs = "".join(f'<button name="command" value="{key}">{key}  {label}</button>' for key, (_, label) in PROGRAMS.items())
     controls = "".join(f'<button class="enter" name="command" value="{key}">{escape(label)}</button>' for key, label in actions)
     raw = f'<details class="raw"><summary>FULL RECORDED EVIDENCE</summary><pre>{escape(json.dumps(details, indent=2, sort_keys=True))}</pre></details>' if details is not None else ""
-    progress = "\n".join(f'{key}  {"RECEIVED" if key in state["completed"] else "WAITING "}  {role}' for key, role in
-                         zip(("01", "02", "03", "04", "05"), ("CONFIGURATION", "TELEMETRY", "PACKAGE", "VERIFICATION", "REVIEW")))
+    milestones = ("PACKAGE IDENTIFIED", "OBSERVATIONS RECEIVED", "WORK STAGED FOR REVIEW", "ENGINE TESTS VERIFIED", "REVIEWER RECEIVED PACKAGE")
+    progress = '<ol class="handoffs">' + ''.join(
+        f'<li class="{"received" if key in state["completed"] else "waiting"}"><span>{key} · {milestone}</span>'
+        f'<small>{"RECEIVED" if key in state["completed"] else "AWAITING HANDOFF"}</small></li>'
+        for key, milestone in zip(("01", "02", "03", "04", "05"), milestones)) + '</ol>'
     mission_state = "SIMULATED FLIGHT COMPLETE" if state["launched"] else ("PACKAGE ACCEPTED · TEAM POLL OPEN" if "05" in state["completed"] else "PACKAGE HANDOFF IN PROGRESS" if state["completed"] else "AWAITING PACKAGE")
     replacements = {"quote": f'“{voice["text"]}”', "attribution": voice["attribution"], "reply": reply,
-        "question": question, "result": lines, "title": " ".join(title), "mission_state": mission_state,
-        "scenario": scenario, "csrf": state["csrf"], "progress": progress,
+        "question": question, "result": lines, "title": title, "mission_state": mission_state,
+        "scenario": scenario, "csrf": state["csrf"],
+        "command_focus": "" if show_package else "autofocus",
         "flight_class": "flight" if state["launched"] else "", "flight_label": "THE CLIMB" if state["launched"] else "THE PAD"}
     html = TEMPLATE
     for key, value in replacements.items():
         html = html.replace("{{" + key + "}}", escape(str(value)))
-    return html.replace("{{options}}", options).replace("{{programs}}", programs).replace("{{actions}}", controls).replace("{{details}}", raw)
+    return (html.replace("{{options}}", options).replace("{{programs}}", programs).replace("{{actions}}", controls)
+            .replace("{{details}}", raw).replace("{{progress}}", progress)
+            .replace("{{package}}", package_view(state, package_query, focus_package) if state["report"] else "<p class=empty-tray>PACKET TRAY · TM-CRC-001<br>USE 01 TO OPEN THE PACKAGE.</p>"))
 
 
 def page(request, key, state, **kwargs):
-    response = HTMLResponse(render(state, **kwargs))
+    if request.method == "GET" and request.url.path == "/":
+        response = HTMLResponse(render(state, **kwargs))
+    else:
+        state["pending_view"] = kwargs
+        response = RedirectResponse("/#package" if kwargs.get("focus_package") else "/", status_code=303)
     response.set_cookie(COOKIE, key, max_age=7200, secure=request.url.scheme == "https", httponly=True, samesite="strict")
     return response
 
@@ -199,19 +267,18 @@ async def program(state, command):
     passed = True
     reply = "HANDOFF RECORDED. CONTINUE TO THE NEXT ROLE."
     if command == "01":
-        lines = ("TM-CRC-001 · NASA/JPL F PRIME CRC32\n\nREQUIREMENT\n"
-                 "Retain exact source and sequence-7 telemetry identities.\nReject changed bytes or missing evidence at handoff.\n\n"
-                 f'SOURCE FILES          TableGenerator.c + Crc32.cpp\nPACKAGE SHA256        {report["package_sha256"]}\n'
-                 f'BASELINE FILES        {len(report["packet"]["expected_manifest"])}\nNEXT ROLE             TELEMETRY ENGINEER')
+        lines = baseline_lines(report)
     elif command == "02":
         observer = report["observer"]
         passed = observer["status"] == "VALIDATED" and observer["freshness"] == "FRESH"
-        lines = f'OBSERVER              {observer["status"]}\nFRESHNESS             {observer["freshness"]}\n\nTELEMETRY HANDOFF · {"PASS" if passed else "HOLD"}'
+        lines = ("DOBEWORKS OBSERVER\nThe next engineer needs fresh observations to judge this handoff.\n\n"
+                 f'OBSERVER              {observer["status"]}\nFRESHNESS             {observer["freshness"]}\n\nTELEMETRY HANDOFF · {"PASS" if passed else "HOLD"}')
         if not passed:
             reply = "THE OBSERVER CANNOT SUPPLY FRESH EVIDENCE. RESTORE THE INTACT PACKET TO START A NEW BASELINE."
     elif command == "03":
         passed = report["packet"]["integrity"] == "PASS"
-        lines = (f'WORKER                {report["worker"]["state"]}\nPROMOTION             {report["worker"]["promotion"]}\n'
+        lines = ("DOBEWORKS WORKER\nThe inventory is staged for review. The packet is compared with its baseline.\n\n"
+                 f'WORKER                {report["worker"]["state"]}\nPROMOTION             {report["worker"]["promotion"]}\n'
                  f'NASA TABLE CONTROL    {report["nasa"]["generated_values_checked"]} VALUES · VERIFIED\nKNOWN CRC CONTROL     {report["nasa"]["known_vector"]}\n'
                  f'PACKET CRC            {report["packet"]["actual_crc32"]}\nSOURCE / MANIFEST     {report["packet"]["integrity"]}\n\n'
                  f'PACKAGE HANDOFF · {"READY FOR VERIFICATION" if passed else "HOLD"}')
@@ -224,7 +291,8 @@ async def program(state, command):
         lines += "\n\nCORE VERIFICATION · " + state["cores"]["result"]
     elif command == "05":
         passed = report["degs"]["decision"] == "PASS" and report["degs_exit"] == 0
-        lines = (f'DEGS RECORD CHECK     {report["degs"]["decision"]} · EXIT {report["degs_exit"]}\n'
+        lines = ("DEGS HANDOFF CHECK\nDEGS checks the engineering record. You receive the package as its fictional reviewer.\n\n"
+                 f'DEGS RECORD CHECK     {report["degs"]["decision"]} · EXIT {report["degs_exit"]}\n'
                  f'PACKAGE IDENTITY      {report["package_sha256"]}\nCORE VERIFICATION     {state["cores"]["result"]}\n'
                  f'REVIEW ITEM           {"CLOSED" if passed else "OPEN"}\n\n'
                  f'PACKAGE REVIEW · {"ACCEPTED FOR SIMULATED INTEGRATION" if passed else "HOLD"}')
@@ -233,7 +301,12 @@ async def program(state, command):
         record(state, role, title, "RECEIVED" if passed else "HOLD")
         if passed:
             state["completed"].append(command)
-    return {"title": title, "lines": lines, "reply": reply}
+    if passed and command in {"01", "02", "03", "04"}:
+        reply = {"01": "CONFIGURATION → TELEMETRY. THE PACKAGE NOW HAS A RECORDED IDENTITY.",
+                 "02": "TELEMETRY → PACKAGE ENGINEER. FRESH OBSERVATIONS RECEIVED.",
+                 "03": "PACKAGE ENGINEER → VERIFICATION. THE SAME FILES ARE READY FOR THE NEXT REVIEW.",
+                 "04": "VERIFICATION → INDEPENDENT REVIEWER. THE ENGINE TEST RECORD TRAVELS WITH THE PACKAGE."}[command]
+    return {"title": title, "lines": lines, "reply": reply, "show_package": command == "01"}
 
 
 @app.middleware("http")
@@ -248,7 +321,10 @@ async def headers(request, call_next):
 @app.get("/")
 async def home(request: Request):
     key, state = session(request)
-    return page(request, key, state)
+    pending = state.pop("pending_view", None)
+    if pending is None:
+        SESSIONS[key] = state = new_state()
+    return page(request, key, state, **(pending or {}))
 
 
 @app.get("/stage.css")
@@ -273,12 +349,13 @@ async def interact(request: Request):
         if len(body) > 2048:
             return Response("Request too large", status_code=413)
     try:
-        fields = parse_qs(body.decode("utf-8"), max_num_fields=3, strict_parsing=True, keep_blank_values=True)
-        if set(fields) != {"command", "scenario", "csrf"} or any(len(value) != 1 for value in fields.values()):
+        fields = parse_qs(body.decode("utf-8"), max_num_fields=4, strict_parsing=True, keep_blank_values=True)
+        if set(fields) not in ({"command", "scenario", "csrf"}, {"command", "scenario", "csrf", "q"}) or any(len(value) != 1 for value in fields.values()):
             raise ValueError()
         scenario = fields["scenario"][0]
         question = fields["command"][0].strip()
-        if scenario not in SCENARIOS or len(question) > 160:
+        query = fields.get("q", [""])[0].strip()
+        if scenario not in SCENARIOS or len(question) > 160 or len(query) > 120 or ("q" in fields and question != "inspect"):
             raise ValueError()
     except (ValueError, UnicodeError):
         return Response("Choose a listed packet and a short command", status_code=422)
@@ -297,7 +374,11 @@ async def interact(request: Request):
         if scenario != state["scenario"]:
             state.update(scenario=scenario, completed=[], poll={}, report=None, cores=None, launched=False)
             record(state, "CONFIGURATION ENGINEER", "PACKAGE REPLACED — ALL RECEIPTS INVALIDATED", "NEW BASELINE REQUIRED")
-        if question in PROGRAMS or question in POLL:
+        if question == "inspect" and state["report"]:
+            result = {"title": "PACKAGE INSPECTION", "lines": baseline_lines(state["report"]),
+                      "show_package": True, "package_query": query, "focus_package": True,
+                      "reply": "INSPECT THE PACKAGE. SEARCH DOES NOT ADVANCE A HANDOFF."}
+        elif question in PROGRAMS or question in POLL:
             result = await program(state, question)
         else:
             result = {"reply": dialogue(question, state["report"]), "question": question}
@@ -318,6 +399,25 @@ async def evidence(request: Request):
 async def evidence_json(request: Request):
     _, state = session(request)
     return JSONResponse(evidence_record(state))
+
+
+@app.get("/package")
+def inspect_package(request: Request):
+    fields = request.query_params
+    if len(request.scope["query_string"]) > 2048:
+        return Response("Search too long", status_code=413)
+    query = fields.get("q", "").strip()
+    if set(fields) - {"q"} or len(fields.getlist("q")) > 1 or len(query) > 120:
+        return Response("Use one search of at most 120 characters", status_code=422)
+    key, state = session(request)
+    if state["report"] is None:
+        return page(request, key, state, reply="USE 01 TO ESTABLISH THE PACKAGE BEFORE INSPECTING IT.")
+    try:
+        return page(request, key, state, title="PACKAGE INSPECTION", lines=baseline_lines(state["report"]),
+                    show_package=True, package_query=query, focus_package=True,
+                    reply="INSPECT THE PACKAGE. SEARCH DOES NOT ADVANCE A HANDOFF.")
+    except (RuntimeError, ValueError, KeyError):
+        return Response("The package could not be verified for display", status_code=503)
 
 
 @app.get("/sources")
