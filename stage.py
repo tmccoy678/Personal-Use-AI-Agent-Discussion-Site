@@ -446,5 +446,8 @@ class StageHost:
 
     async def __call__(self, scope, receive, send):
         host = dict(scope.get("headers", [])).get(b"host", b"").split(b":", 1)[0].lower().rstrip(b".")
-        target = app if scope["type"] == "http" and host == b"stage.dobeworks.com" else self.app
+        # Render probes the newest custom hostname over internal HTTP.
+        # Keep the existing database health check available on every hostname.
+        target = app if (scope["type"] == "http" and host == b"stage.dobeworks.com"
+                         and scope["path"] != "/healthz") else self.app
         await target(scope, receive, send)

@@ -69,6 +69,10 @@ def test_stage_host_cannot_reach_lab_routes(env):
     with TestClient(bridge.create_app(env), base_url="https://lab.dobeworks.com") as client:
         assert client.get("/sources").status_code == 404
         assert client.get("/api/dms").status_code == 401
+    with TestClient(bridge.create_app(env), base_url="http://stage.dobeworks.com:10000") as client:
+        health = client.get("/healthz")
+        assert health.status_code == 200 and health.json() == {"ok": True}
+        assert "set-cookie" not in health.headers
 
 
 def test_complete_workflow_and_invalidation(real_cores, monkeypatch):
