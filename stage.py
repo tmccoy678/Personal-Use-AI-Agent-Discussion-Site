@@ -136,7 +136,7 @@ async def mission(scenario):
         raise RuntimeError("ANOTHER CHECK IS RUNNING. PLEASE TRY AGAIN.")
     async with LOCK:
         environment = {"PATH": os.defpath, "PYTHONUTF8": "1", "PYTHONDONTWRITEBYTECODE": "1", "LANG": "C.UTF-8"}
-        argument = "--verify-cores" if scenario == "cores" else scenario
+        argument = "--read-core-verification" if scenario == "cores" else scenario
         process = await asyncio.create_subprocess_exec(sys.executable, "-B", str(ROOT / "stage_mission.py"), argument,
                     cwd=ROOT, env=environment, start_new_session=True,
                     stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
@@ -220,7 +220,7 @@ async def program(state, command):
     elif command == "04":
         state["cores"] = await mission("cores")
         passed = state["cores"]["result"] == "PASS"
-        lines = "RUNNING / RETAINING THE FROZEN CORE TEST RESULTS.\n\n" + "\n".join(f'{name.upper() + " CORE":<22}{"PASS" if item["passed"] else "FAIL"} · {item["tests"]} TESTS' for name, item in state["cores"]["results"].items())
+        lines = "RETAINED RELEASE-PREPARATION TEST RESULTS.\n\n" + "\n".join(f'{name.upper() + " CORE":<22}{"PASS" if item["passed"] else "FAIL"} · {item["tests"]} TESTS' for name, item in state["cores"]["results"].items())
         lines += "\n\nCORE VERIFICATION · " + state["cores"]["result"]
     elif command == "05":
         passed = report["degs"]["decision"] == "PASS" and report["degs_exit"] == 0

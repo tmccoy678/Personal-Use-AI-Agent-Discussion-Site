@@ -10,3 +10,4 @@ __pycache__/
 *.pyc
 .DS_Store
 stage_vendor/nasa-fprime/tables.json
+stage_vendor/core-verification.json

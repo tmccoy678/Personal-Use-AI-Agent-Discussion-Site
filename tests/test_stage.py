@@ -156,6 +156,23 @@ def test_request_bound():
         assert not stage.CACHE
 
 
+def test_prepared_verification_must_match_sources_and_test_output(real_cores, tmp_path, monkeypatch):
+    path = tmp_path / "core-verification.json"
+    monkeypatch.setattr(stage_mission, "CORE_RECORD", path)
+    path.write_text(json.dumps(real_cores))
+    assert stage_mission.read_core_verification()["result"] == "PASS"
+    changed = json.loads(json.dumps(real_cores))
+    changed["results"]["degs"]["stderr"] = ""
+    path.write_text(json.dumps(changed))
+    with pytest.raises(RuntimeError, match="does not match"):
+        stage_mission.read_core_verification()
+    changed = json.loads(json.dumps(real_cores))
+    changed["source_identity"]["DEGS"]["commit"] = "0" * 40
+    path.write_text(json.dumps(changed))
+    with pytest.raises(RuntimeError, match="different identity"):
+        stage_mission.read_core_verification()
+
+
 def test_unexpected_observer_is_not_reported_as_expected_hold(monkeypatch):
     original = stage_mission.load_module
     def wrong_observer(name, path):

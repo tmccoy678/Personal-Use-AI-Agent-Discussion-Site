@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parent
 VENDOR = ROOT / "stage_vendor"
 PHASE4 = VENDOR / "DobeWorks/contexts/operational-system/software/phase4"
 NASA = VENDOR / "nasa-fprime"
+CORE_RECORD = VENDOR / "core-verification.json"
 SCENARIOS = ("clean", "stale", "missing", "unresolved", "altered")
 PACKET = b"DOBEWORKS-MISSION-001|TEMP_C=21.5|VOLTAGE_V=3.30|SEQ=7\n"
 NOW = "2026-09-06T00:01:00Z"
@@ -103,13 +104,31 @@ def verify_cores():
     ui.DEGS = VENDOR / "DEGS"
     results = {}
     for name, (command, directory) in ui.core_test_commands().items():
-        completed = subprocess.run(command, cwd=directory, capture_output=True, text=True, timeout=45)
+        completed = subprocess.run(command, cwd=directory, capture_output=True, text=True, timeout=ui.PROCESS_TIMEOUT_SECONDS)
         results[name] = {**ui.test_execution_summary(completed.stdout + completed.stderr, completed.returncode),
                          "command": command, "stdout": completed.stdout, "stderr": completed.stderr}
     return {"schema_version": "dobeworks.stage.core-tests.v1", "source_identity": sources,
             "python": sys.version, "results": results,
             "result": "PASS" if all(item["passed"] for item in results.values()) else "FAIL",
             "operational_authority": "NONE"}
+
+
+def read_core_verification():
+    sources, _ = check_sources()
+    report = json.loads(CORE_RECORD.read_text())
+    ui = load_module("stage_public_interface", VENDOR / "DobeWorks/interface/command_center.py")
+    if (report.get("schema_version") != "dobeworks.stage.core-tests.v1"
+            or report.get("source_identity") != sources or report.get("operational_authority") != "NONE"
+            or set(report.get("results", {})) != {"dobeworks", "degs"}):
+        raise RuntimeError("Prepared core verification has a different identity")
+    for item in report["results"].values():
+        summary = ui.test_execution_summary(item["stdout"] + item["stderr"], item["exit"])
+        if any(item.get(key) != value for key, value in summary.items()):
+            raise RuntimeError("Prepared core verification does not match the test output")
+    expected = "PASS" if all(item["passed"] for item in report["results"].values()) else "FAIL"
+    if report.get("result") != expected:
+        raise RuntimeError("Prepared core verification has an inconsistent result")
+    return report
 
 
 def run_mission(scenario):
@@ -180,8 +199,14 @@ def run_mission(scenario):
 if __name__ == "__main__":
     if sys.argv[1:] == ["--prepare"]:
         prepare_nasa()
-        print("Pinned sources and NASA table generator verified")
+        CORE_RECORD.write_bytes(encode(verify_cores()))
+        report = read_core_verification()
+        if report["result"] != "PASS":
+            raise RuntimeError("Core verification failed; inspect the retained test output")
+        print("Pinned sources, NASA table generator and both core suites verified")
     elif sys.argv[1:] == ["--verify-cores"]:
         print(json.dumps(verify_cores(), sort_keys=True, separators=(",", ":")))
+    elif sys.argv[1:] == ["--read-core-verification"]:
+        print(json.dumps(read_core_verification(), sort_keys=True, separators=(",", ":")))
     else:
         print(json.dumps(run_mission(sys.argv[1]), sort_keys=True, separators=(",", ":")))
