@@ -290,7 +290,7 @@ async def interact(request: Request):
     if question == "00":
         SESSIONS[key] = state = new_state()
         return page(request, key, state)
-    if len(state["events"]) >= 64:
+    if len(state["events"]) >= 63:
         return page(request, key, state, reply="THIS MISSION RECORD IS FULL. USE 00 FOR A NEW MISSION.")
     state["busy"] = True
     try:
