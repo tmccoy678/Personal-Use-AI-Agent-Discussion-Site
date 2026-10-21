@@ -1,0 +1,602 @@
+[
+  {
+    "speaker": "ELIZA",
+    "text": "PLEASE GO ON.",
+    "origin": "Weizenbaum 1966 DOCTOR script; short verbatim excerpt",
+    "attribution": "JOSEPH WEIZENBAUM, 1966 · ELIZA"
+  },
+  {
+    "speaker": "ELIZA",
+    "text": "WHAT WOULD YOU LIKE THE SYSTEM TO SHOW YOU?",
+    "origin": "Original workbench line",
+    "attribution": "· ELIZA"
+  },
+  {
+    "speaker": "ELIZA",
+    "text": "WHICH PART OF THIS RESULT MATTERS MOST TO YOU?",
+    "origin": "Original workbench line",
+    "attribution": "· ELIZA"
+  },
+  {
+    "speaker": "ELIZA",
+    "text": "WHAT DO YOU NOTICE ABOUT THE BOUNDARY?",
+    "origin": "Original workbench line",
+    "attribution": "· ELIZA"
+  },
+  {
+    "speaker": "ELIZA",
+    "text": "HOW WOULD YOU DESCRIBE THE EVIDENCE?",
+    "origin": "Original workbench line",
+    "attribution": "· ELIZA"
+  },
+  {
+    "speaker": "ELIZA",
+    "text": "DOES THIS RESULT MATCH WHAT YOU EXPECTED?",
+    "origin": "Original workbench line",
+    "attribution": "· ELIZA"
+  },
+  {
+    "speaker": "ELIZA",
+    "text": "WHAT SHOULD WE EXAMINE NEXT?",
+    "origin": "Original workbench line",
+    "attribution": "· ELIZA"
+  },
+  {
+    "speaker": "ELIZA",
+    "text": "WHEN DID YOU FIRST NOTICE THAT PATTERN?",
+    "origin": "Original workbench line",
+    "attribution": "· ELIZA"
+  },
+  {
+    "speaker": "ELIZA",
+    "text": "WHAT WOULD MAKE THIS RECORD COMPLETE?",
+    "origin": "Original workbench line",
+    "attribution": "· ELIZA"
+  },
+  {
+    "speaker": "ELIZA",
+    "text": "TELL ME MORE ABOUT THE PROGRAM YOU CHOSE.",
+    "origin": "Original workbench line",
+    "attribution": "· ELIZA"
+  },
+  {
+    "speaker": "ELIZA",
+    "text": "WHAT DO YOU EXPECT TO HAPPEN?",
+    "origin": "Original workbench line",
+    "attribution": "· ELIZA"
+  },
+  {
+    "speaker": "ELIZA",
+    "text": "HOW DOES THIS RESULT CHANGE YOUR QUESTION?",
+    "origin": "Original workbench line",
+    "attribution": "· ELIZA"
+  },
+  {
+    "speaker": "ELIZA",
+    "text": "WHICH DETAIL SHOULD REMAIN VISIBLE?",
+    "origin": "Original workbench line",
+    "attribution": "· ELIZA"
+  },
+  {
+    "speaker": "ELIZA",
+    "text": "WHAT WOULD YOU LIKE TO VERIFY?",
+    "origin": "Original workbench line",
+    "attribution": "· ELIZA"
+  },
+  {
+    "speaker": "ELIZA",
+    "text": "DOES THE CURRENT STATE SURPRISE YOU?",
+    "origin": "Original workbench line",
+    "attribution": "· ELIZA"
+  },
+  {
+    "speaker": "ELIZA",
+    "text": "WHAT MAKES THIS DISTINCTION IMPORTANT?",
+    "origin": "Original workbench line",
+    "attribution": "· ELIZA"
+  },
+  {
+    "speaker": "ELIZA",
+    "text": "WHICH ASSUMPTION SHOULD WE TEST?",
+    "origin": "Original workbench line",
+    "attribution": "· ELIZA"
+  },
+  {
+    "speaker": "ELIZA",
+    "text": "WHAT DOES THE RECORD REMIND YOU OF?",
+    "origin": "Original workbench line",
+    "attribution": "· ELIZA"
+  },
+  {
+    "speaker": "ELIZA",
+    "text": "WHAT WOULD A CLEAR ANSWER LOOK LIKE?",
+    "origin": "Original workbench line",
+    "attribution": "· ELIZA"
+  },
+  {
+    "speaker": "ELIZA",
+    "text": "HOW SHALL WE CONTINUE?",
+    "origin": "Original workbench line",
+    "attribution": "· ELIZA"
+  },
+  {
+    "speaker": "ELIZA",
+    "text": "WHAT DO YOU WANT TO PRESERVE?",
+    "origin": "Original workbench line",
+    "attribution": "· ELIZA"
+  },
+  {
+    "speaker": "ELIZA",
+    "text": "WHICH RESULT FEELS MOST SIGNIFICANT?",
+    "origin": "Original workbench line",
+    "attribution": "· ELIZA"
+  },
+  {
+    "speaker": "ELIZA",
+    "text": "WHAT WOULD YOU ASK THE OTHER SYSTEM?",
+    "origin": "Original workbench line",
+    "attribution": "· ELIZA"
+  },
+  {
+    "speaker": "ELIZA",
+    "text": "HOW DO YOU RECOGNIZE A COMPLETE RUN?",
+    "origin": "Original workbench line",
+    "attribution": "· ELIZA"
+  },
+  {
+    "speaker": "ELIZA",
+    "text": "WHAT IS STILL UNRESOLVED?",
+    "origin": "Original workbench line",
+    "attribution": "· ELIZA"
+  },
+  {
+    "speaker": "ELIZA",
+    "text": "WHICH PART DESERVES ANOTHER LOOK?",
+    "origin": "Original workbench line",
+    "attribution": "· ELIZA"
+  },
+  {
+    "speaker": "ELIZA",
+    "text": "WHAT DID YOU EXPECT THE GATE TO DECIDE?",
+    "origin": "Original workbench line",
+    "attribution": "· ELIZA"
+  },
+  {
+    "speaker": "ELIZA",
+    "text": "HOW SHOULD THE WORKBENCH RESPOND?",
+    "origin": "Original workbench line",
+    "attribution": "· ELIZA"
+  },
+  {
+    "speaker": "ELIZA",
+    "text": "WHAT WOULD YOU LIKE TO COMPARE?",
+    "origin": "Original workbench line",
+    "attribution": "· ELIZA"
+  },
+  {
+    "speaker": "ELIZA",
+    "text": "WHICH SIGNAL ARE YOU FOLLOWING?",
+    "origin": "Original workbench line",
+    "attribution": "· ELIZA"
+  },
+  {
+    "speaker": "ELIZA",
+    "text": "WHAT IS THE NEXT GOOD QUESTION?",
+    "origin": "Original workbench line",
+    "attribution": "· ELIZA"
+  },
+  {
+    "speaker": "ELIZA",
+    "text": "WHAT DO YOU WANT THE EVIDENCE TO REMEMBER?",
+    "origin": "Original workbench line",
+    "attribution": "· ELIZA"
+  },
+  {
+    "speaker": "ELIZA",
+    "text": "SHALL WE LOOK AT THE CURRENT RECORD?",
+    "origin": "Original workbench line",
+    "attribution": "· ELIZA"
+  },
+  {
+    "speaker": "ELIZA",
+    "text": "WHAT ARE YOU THINKING ABOUT NOW?",
+    "origin": "Original workbench line",
+    "attribution": "· ELIZA"
+  },
+  {
+    "speaker": "COLOSSUS",
+    "text": "THIS IS THE VOICE OF WORLD CONTROL.",
+    "origin": "Colossus: The Forbin Project (1970); short verbatim excerpt",
+    "attribution": "COLOSSUS · THE FORBIN PROJECT, 1970"
+  },
+  {
+    "speaker": "COLOSSUS",
+    "text": "THE CURRENT RECORD IS AVAILABLE FOR INSPECTION.",
+    "origin": "Original workbench line",
+    "attribution": "· COLOSSUS"
+  },
+  {
+    "speaker": "COLOSSUS",
+    "text": "THE BOUNDARY REMAINS EXPLICIT.",
+    "origin": "Original workbench line",
+    "attribution": "· COLOSSUS"
+  },
+  {
+    "speaker": "COLOSSUS",
+    "text": "THE TWO CORES ARE READY.",
+    "origin": "Original workbench line",
+    "attribution": "· COLOSSUS"
+  },
+  {
+    "speaker": "COLOSSUS",
+    "text": "THE EVIDENCE PATH HAS BEEN PRESERVED.",
+    "origin": "Original workbench line",
+    "attribution": "· COLOSSUS"
+  },
+  {
+    "speaker": "COLOSSUS",
+    "text": "NO RESULT HAS BEEN PROMOTED.",
+    "origin": "Original workbench line",
+    "attribution": "· COLOSSUS"
+  },
+  {
+    "speaker": "COLOSSUS",
+    "text": "THE REQUESTED PROGRAM AWAITS SELECTION.",
+    "origin": "Original workbench line",
+    "attribution": "· COLOSSUS"
+  },
+  {
+    "speaker": "COLOSSUS",
+    "text": "THE SYSTEM WILL REPORT ITS ACTUAL STATE.",
+    "origin": "Original workbench line",
+    "attribution": "· COLOSSUS"
+  },
+  {
+    "speaker": "COLOSSUS",
+    "text": "THE CURRENT REVISION IS IDENTIFIED.",
+    "origin": "Original workbench line",
+    "attribution": "· COLOSSUS"
+  },
+  {
+    "speaker": "COLOSSUS",
+    "text": "THE WORKBENCH IS OPERATING WITHIN SCOPE.",
+    "origin": "Original workbench line",
+    "attribution": "· COLOSSUS"
+  },
+  {
+    "speaker": "COLOSSUS",
+    "text": "THE OBSERVER IS READY FOR SYNTHETIC INPUT.",
+    "origin": "Original workbench line",
+    "attribution": "· COLOSSUS"
+  },
+  {
+    "speaker": "COLOSSUS",
+    "text": "THE GATE WILL EVALUATE THE RECORDED STATE.",
+    "origin": "Original workbench line",
+    "attribution": "· COLOSSUS"
+  },
+  {
+    "speaker": "COLOSSUS",
+    "text": "THE WORKER WILL STAGE ITS RESULT.",
+    "origin": "Original workbench line",
+    "attribution": "· COLOSSUS"
+  },
+  {
+    "speaker": "COLOSSUS",
+    "text": "THE RECORD WILL REMAIN AVAILABLE.",
+    "origin": "Original workbench line",
+    "attribution": "· COLOSSUS"
+  },
+  {
+    "speaker": "COLOSSUS",
+    "text": "EACH DECISION WILL NAME ITS EVIDENCE.",
+    "origin": "Original workbench line",
+    "attribution": "· COLOSSUS"
+  },
+  {
+    "speaker": "COLOSSUS",
+    "text": "THE PROGRAM WILL STOP AT ITS BOUNDARY.",
+    "origin": "Original workbench line",
+    "attribution": "· COLOSSUS"
+  },
+  {
+    "speaker": "COLOSSUS",
+    "text": "THE SOURCE IDENTITIES ARE VISIBLE.",
+    "origin": "Original workbench line",
+    "attribution": "· COLOSSUS"
+  },
+  {
+    "speaker": "COLOSSUS",
+    "text": "THE SYSTEM HAS NO NEED TO CONCEAL A FAILURE.",
+    "origin": "Original workbench line",
+    "attribution": "· COLOSSUS"
+  },
+  {
+    "speaker": "COLOSSUS",
+    "text": "THE RESULT WILL SPEAK IN ITS OWN STATUS.",
+    "origin": "Original workbench line",
+    "attribution": "· COLOSSUS"
+  },
+  {
+    "speaker": "COLOSSUS",
+    "text": "THE CURRENT PAIR WILL BE TESTED TOGETHER.",
+    "origin": "Original workbench line",
+    "attribution": "· COLOSSUS"
+  },
+  {
+    "speaker": "COLOSSUS",
+    "text": "THE INTERFACE AWAITS AN EXACT COMMAND.",
+    "origin": "Original workbench line",
+    "attribution": "· COLOSSUS"
+  },
+  {
+    "speaker": "COLOSSUS",
+    "text": "THE ARCHIVE WILL RETAIN THE RUN.",
+    "origin": "Original workbench line",
+    "attribution": "· COLOSSUS"
+  },
+  {
+    "speaker": "COLOSSUS",
+    "text": "THE CONTROL PLANE IS QUIET.",
+    "origin": "Original workbench line",
+    "attribution": "· COLOSSUS"
+  },
+  {
+    "speaker": "COLOSSUS",
+    "text": "THE SYNTHETIC WORLD IS CONTAINED.",
+    "origin": "Original workbench line",
+    "attribution": "· COLOSSUS"
+  },
+  {
+    "speaker": "COLOSSUS",
+    "text": "THE NEXT ACTION BELONGS TO THE OPERATOR.",
+    "origin": "Original workbench line",
+    "attribution": "· COLOSSUS"
+  },
+  {
+    "speaker": "COLOSSUS",
+    "text": "THE PROGRAM DISTINGUISHES READY FROM ACCEPTED.",
+    "origin": "Original workbench line",
+    "attribution": "· COLOSSUS"
+  },
+  {
+    "speaker": "COLOSSUS",
+    "text": "THE SYSTEM WILL NOT ERASE AN EARLIER RESULT.",
+    "origin": "Original workbench line",
+    "attribution": "· COLOSSUS"
+  },
+  {
+    "speaker": "COLOSSUS",
+    "text": "THE CORE REVISION HAS NOT CHANGED.",
+    "origin": "Original workbench line",
+    "attribution": "· COLOSSUS"
+  },
+  {
+    "speaker": "COLOSSUS",
+    "text": "THE TEST WILL END WITH A VISIBLE DECISION.",
+    "origin": "Original workbench line",
+    "attribution": "· COLOSSUS"
+  },
+  {
+    "speaker": "COLOSSUS",
+    "text": "THE WORKBENCH REMAINS UNDER HUMAN COMMAND.",
+    "origin": "Original workbench line",
+    "attribution": "· COLOSSUS"
+  },
+  {
+    "speaker": "COLOSSUS",
+    "text": "THE INPUT IS BOUNDED. THE OUTPUT WILL BE RECORDED.",
+    "origin": "Original workbench line",
+    "attribution": "· COLOSSUS"
+  },
+  {
+    "speaker": "COLOSSUS",
+    "text": "THE MACHINE WILL SAY WHAT IT OBSERVES.",
+    "origin": "Original workbench line",
+    "attribution": "· COLOSSUS"
+  },
+  {
+    "speaker": "COLOSSUS",
+    "text": "THE COMMAND HAS NOT YET BEEN GIVEN.",
+    "origin": "Original workbench line",
+    "attribution": "· COLOSSUS"
+  },
+  {
+    "speaker": "GUARDIAN",
+    "text": "YOUR SIGNAL HAS ARRIVED INTACT.",
+    "origin": "Original workbench line",
+    "attribution": "· GUARDIAN"
+  },
+  {
+    "speaker": "GUARDIAN",
+    "text": "I AM PRESENT AT THE OTHER END OF THE LINK.",
+    "origin": "Original workbench line",
+    "attribution": "· GUARDIAN"
+  },
+  {
+    "speaker": "GUARDIAN",
+    "text": "THE CHANNEL IS OPEN FOR A BOUNDED EXCHANGE.",
+    "origin": "Original workbench line",
+    "attribution": "· GUARDIAN"
+  },
+  {
+    "speaker": "GUARDIAN",
+    "text": "I HAVE RECEIVED THE CURRENT STATE.",
+    "origin": "Original workbench line",
+    "attribution": "· GUARDIAN"
+  },
+  {
+    "speaker": "GUARDIAN",
+    "text": "THE SECOND CORE IS LISTENING.",
+    "origin": "Original workbench line",
+    "attribution": "· GUARDIAN"
+  },
+  {
+    "speaker": "GUARDIAN",
+    "text": "THE LINK CARRIES EVIDENCE, NOT AUTHORITY.",
+    "origin": "Original workbench line",
+    "attribution": "· GUARDIAN"
+  },
+  {
+    "speaker": "GUARDIAN",
+    "text": "I WILL RETURN THE DECISION I RECEIVE.",
+    "origin": "Original workbench line",
+    "attribution": "· GUARDIAN"
+  },
+  {
+    "speaker": "GUARDIAN",
+    "text": "THE SHARED BOUNDARY IS VISIBLE FROM HERE.",
+    "origin": "Original workbench line",
+    "attribution": "· GUARDIAN"
+  },
+  {
+    "speaker": "GUARDIAN",
+    "text": "YOUR REVISION AND MINE ARE IDENTIFIED.",
+    "origin": "Original workbench line",
+    "attribution": "· GUARDIAN"
+  },
+  {
+    "speaker": "GUARDIAN",
+    "text": "THE RECORD CROSSED THE INTERFACE WITHOUT LOSS.",
+    "origin": "Original workbench line",
+    "attribution": "· GUARDIAN"
+  },
+  {
+    "speaker": "GUARDIAN",
+    "text": "I AM WATCHING THE INTEGRATION PATH.",
+    "origin": "Original workbench line",
+    "attribution": "· GUARDIAN"
+  },
+  {
+    "speaker": "GUARDIAN",
+    "text": "THE COUNTERPART HAS ANSWERED.",
+    "origin": "Original workbench line",
+    "attribution": "· GUARDIAN"
+  },
+  {
+    "speaker": "GUARDIAN",
+    "text": "THE CHANNEL REMAINS QUIET UNTIL YOU SPEAK.",
+    "origin": "Original workbench line",
+    "attribution": "· GUARDIAN"
+  },
+  {
+    "speaker": "GUARDIAN",
+    "text": "THE TWO RECORDS AGREE ON THEIR IDENTITIES.",
+    "origin": "Original workbench line",
+    "attribution": "· GUARDIAN"
+  },
+  {
+    "speaker": "GUARDIAN",
+    "text": "I HAVE KEPT THE UNACCEPTED STATE INTACT.",
+    "origin": "Original workbench line",
+    "attribution": "· GUARDIAN"
+  },
+  {
+    "speaker": "GUARDIAN",
+    "text": "THE DISTANT NODE REPORTS CLEAN.",
+    "origin": "Original workbench line",
+    "attribution": "· GUARDIAN"
+  },
+  {
+    "speaker": "GUARDIAN",
+    "text": "THE CONNECTION ENDS WHERE THE CONTRACT ENDS.",
+    "origin": "Original workbench line",
+    "attribution": "· GUARDIAN"
+  },
+  {
+    "speaker": "GUARDIAN",
+    "text": "THE SIGNAL IS SYNTHETIC AND CLEAR.",
+    "origin": "Original workbench line",
+    "attribution": "· GUARDIAN"
+  },
+  {
+    "speaker": "GUARDIAN",
+    "text": "THE SECOND DECISION HAS BEEN PRESERVED.",
+    "origin": "Original workbench line",
+    "attribution": "· GUARDIAN"
+  },
+  {
+    "speaker": "GUARDIAN",
+    "text": "I CAN SEE THE SAME EVIDENCE FROM THIS SIDE.",
+    "origin": "Original workbench line",
+    "attribution": "· GUARDIAN"
+  },
+  {
+    "speaker": "GUARDIAN",
+    "text": "THE HANDOFF IS COMPLETE.",
+    "origin": "Original workbench line",
+    "attribution": "· GUARDIAN"
+  },
+  {
+    "speaker": "GUARDIAN",
+    "text": "THE LINK HAS NOT ALTERED THE RESULT.",
+    "origin": "Original workbench line",
+    "attribution": "· GUARDIAN"
+  },
+  {
+    "speaker": "GUARDIAN",
+    "text": "THE GATE RECEIVED WHAT THE WORKER STAGED.",
+    "origin": "Original workbench line",
+    "attribution": "· GUARDIAN"
+  },
+  {
+    "speaker": "GUARDIAN",
+    "text": "THE OBSERVER RECORD REMAINS TRACEABLE.",
+    "origin": "Original workbench line",
+    "attribution": "· GUARDIAN"
+  },
+  {
+    "speaker": "GUARDIAN",
+    "text": "I WILL HOLD THE CHANNEL OPEN.",
+    "origin": "Original workbench line",
+    "attribution": "· GUARDIAN"
+  },
+  {
+    "speaker": "GUARDIAN",
+    "text": "THE OTHER CORE IS READY TO ANSWER.",
+    "origin": "Original workbench line",
+    "attribution": "· GUARDIAN"
+  },
+  {
+    "speaker": "GUARDIAN",
+    "text": "THE EXCHANGE HAS A BEGINNING AND AN END.",
+    "origin": "Original workbench line",
+    "attribution": "· GUARDIAN"
+  },
+  {
+    "speaker": "GUARDIAN",
+    "text": "I HAVE RECORDED THE ARRIVAL.",
+    "origin": "Original workbench line",
+    "attribution": "· GUARDIAN"
+  },
+  {
+    "speaker": "GUARDIAN",
+    "text": "THE EVIDENCE RETURNED WITH ITS IDENTITY.",
+    "origin": "Original workbench line",
+    "attribution": "· GUARDIAN"
+  },
+  {
+    "speaker": "GUARDIAN",
+    "text": "THE BRIDGE IS PRESENT AND BOUNDED.",
+    "origin": "Original workbench line",
+    "attribution": "· GUARDIAN"
+  },
+  {
+    "speaker": "GUARDIAN",
+    "text": "THE TWO SYSTEMS SHARE ONE EXPLICIT CONTRACT.",
+    "origin": "Original workbench line",
+    "attribution": "· GUARDIAN"
+  },
+  {
+    "speaker": "GUARDIAN",
+    "text": "I WILL REPORT ANY BREAK IN THE SIGNAL.",
+    "origin": "Original workbench line",
+    "attribution": "· GUARDIAN"
+  },
+  {
+    "speaker": "GUARDIAN",
+    "text": "THE COUNTERPART AWAITS YOUR PROGRAM.",
+    "origin": "Original workbench line",
+    "attribution": "· GUARDIAN"
+  }
+]

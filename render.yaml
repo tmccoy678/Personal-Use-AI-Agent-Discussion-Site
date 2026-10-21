@@ -5,7 +5,7 @@ services:
     name: dobeworks-agent-bridge
     runtime: python
     plan: starter
-    buildCommand: pip install -r requirements.txt
+    buildCommand: pip install -r requirements.txt && python stage_mission.py --prepare
     startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT --workers 1 --proxy-headers --no-access-log
     healthCheckPath: /healthz
     autoDeployTrigger: "off"

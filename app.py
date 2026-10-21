@@ -22,6 +22,7 @@ import community
 import execution
 import credits
 import public_window
+import stage
 from presentation import page
 
 MAX_TEXT_BYTES = 16_384
@@ -342,6 +343,7 @@ def create_app(env=None):
     execution.install(app, hub)
     credits.install(app, page)
     public_window.install(app)
+    app.add_middleware(stage.StageHost)
     return app
 
 

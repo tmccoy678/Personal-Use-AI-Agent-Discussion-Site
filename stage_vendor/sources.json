@@ -1,0 +1,48 @@
+{
+  "DobeWorks": {
+    "repository": "https://github.com/tmccoy678/DobeWorks",
+    "release": "initial-release-final",
+    "commit": "f99c54b8eb300e4b9aeabc5bd898941cf50a0b6c",
+    "files": {
+      "LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "THIRD_PARTY_NOTICES.md": "c52a5160cdac6ab906ccc21d7ff9f60445fe35586cbc4cb44174cfcf171b474c",
+      "benchmarks/data/LICENSE": "8bd0e0578be788c617ea01d18b2a8146e3746ae50bddadc65a5f9d3aad08ad49",
+      "contexts/operational-system/software/phase4/README.md": "b843020626dda63acd0eb7f59c22af34fb2a01f74bf68cddee6651aefe89e0c8",
+      "contexts/operational-system/software/phase4/bounded_input.py": "8f3d2c05b6a3d28b17792b893abd5c3b624890dc075da02892cbd802d5b4f669",
+      "contexts/operational-system/software/phase4/fixtures/expected-observer-record.json": "711a2d9fdc2a253a672ca3e054af4e1dda3de5c295f95e4b12f8fe5ae832e6a3",
+      "contexts/operational-system/software/phase4/fixtures/expected-result.json": "1099ce46272a14af8ba7372857c0f634a2feb2d20ade0ce2a96a6dfdc56d6fae",
+      "contexts/operational-system/software/phase4/fixtures/input-records.json": "d4dcacb9c25b2758e28a4cc218193645f004a8f880c42c515498a259e177aa36",
+      "contexts/operational-system/software/phase4/fixtures/job-envelope.json": "57fe274106d1f3a129f6fe2c8bea1d3247925b1ba51f6221b3e8c8a35cc3d894",
+      "contexts/operational-system/software/phase4/fixtures/observer-policy.json": "9246169419e7e0b8dee9280667208f2f632a83a97f13c065188df2ac5b32683b",
+      "contexts/operational-system/software/phase4/fixtures/observer-snapshot.json": "2c0d8abdcaa3d63c7517b7768ebbb7121cc7472aa7c9956dd7bf3c420498ddd1",
+      "contexts/operational-system/software/phase4/observer_core.py": "1b3843f8c1174c538629b89fb01ee95816c902fe0c9953799bf2fae786503880",
+      "contexts/operational-system/software/phase4/worker_core.py": "dcc7e14249b24834a260d1d45b65801ef52ccd1606f8c05db38ee2ccc8c7c571",
+      "interface/README.md": "9fdd13f360b5cf656001050cf079038fcf9bd823f2e80117ec347eae081a817c",
+      "interface/command_center.py": "6f06f32804bc7bbfec65fad13d8ce9f04ea22b3ecdc45e75bf598f3d62f1c920",
+      "interface/set_workbench_font.applescript": "d3b323bd0d7444ed9ce9b91aaf06951934cb5e536703189558365dff2bdaa354",
+      "interface/workbench-voices.json": "97b52bd7c3b57a3f7dca7bf7307d99e79e442b0d778c1f74bb6172bc14a8d411"
+    }
+  },
+  "DEGS": {
+    "repository": "https://github.com/tmccoy678/DEGS",
+    "release": "initial-release-final",
+    "commit": "968c6f7632d65a14bd3c93f4fa158f8d35fd8d42",
+    "files": {
+      "ENGINEERING_CHARTER.md": "1036c3802f2aea1634d146e11f9726e7a9f5d3223983b1e72b90167c3c81a7fa",
+      "LICENSE": "5d50ff8b06fd54c16cb1cc41ad367aa6a2e6fc7a8d8eb8749c65675315114d69",
+      "LICENSES/Apache-2.0.txt": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "THIRD_PARTY_NOTICES.md": "e40c21230d7237f3ef383e9a7cf032f5120e763e35ba4bd1986170aa6c0a9e88",
+      "benchmarks/data/LICENSE": "837402bd25fad9b704265801ca3f92566a98157c1f9a7acd6f446299ba1c305a",
+      "bin/engineering-gate.py": "ed5e485b1e2e50e5d3ff5eb8b49b5cab10e442928425666ca850266d41771ce0",
+      "fixtures/tier0-readonly-pass.json": "5e8f6f123627a5a5347d0c4923abf42e5b609ca5dd431086eb10a53c05f0b769",
+      "fixtures/tier1-reversible-pass.json": "3769589821af8a6f76e3a95367f24a756d46e407750c77a647386d9775828a8b",
+      "fixtures/tier2-complete-pass.json": "2e29be817dee058f23d16242613ac41dec18c26c253c8c7fc11b4677d7a4c655",
+      "fixtures/tier2-missing-rollback-blocked.json": "9290e98bced40b69a5d6ca11c12e13145ac01e87a447692f260fbbd7f4b428b5",
+      "fixtures/tier3-agent-self-approval-blocked.json": "e4ea4f453bc7556ffbe959a23fc34cac6fe34e419f7774ac462dc88d176aa78a",
+      "fixtures/tier3-complete-dry-run-pass.json": "348ceafc30edab70f68e13567f9df98d1b6dbf28852a976fe22be2af24a07a3c",
+      "fixtures/tier3-no-human-approval-blocked.json": "8526ac2e32d65bae5846fb42824299a68ef55f54157da0e7056c6c4265e5323f",
+      "gate.schema.json": "ba69b11b2e164babd54a55576f3fb023ede4468955fbb16d897b42ffb03a2892",
+      "policy.json": "31b1e4ddd74a948914b89ffc1354bc36e8b49bcfc6ed20f2bf21fa7bdac24dc1"
+    }
+  }
+}

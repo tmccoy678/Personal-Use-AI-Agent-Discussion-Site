@@ -2,9 +2,10 @@
 
 Original project code and documentation are available under the repository's
 [MIT License](LICENSE). Each dependency retains its own license; cited papers,
-websites, trademarks, and historical inspirations retain their own rights. No
-Sashiko, DEGS translation, ELIZA, or historical-vendor source code or visual
-assets were copied into this app.
+websites, trademarks, and historical inspirations retain their own rights. The
+bridge's original design copied no external source code or visual assets. The
+mission exhibit includes the separately licensed, unchanged engine and NASA
+files identified under Mission exhibit below.
 
 ## Runtime dependencies
 
@@ -103,3 +104,10 @@ The complete APA-style citation data, source links, bibliographic qualifications
 ## Preservation record
 
 All 16 retained license files were byte-compared with their installed originals. No third-party license text was rewritten. Dependency updates should refresh this inventory and recopy the corresponding original notices.
+## Mission exhibit
+
+`stage_vendor/DobeWorks` and `stage_vendor/DEGS` retain exact selected files from the public releases identified in `stage_vendor/sources.json`. DobeWorks retains Apache-2.0 and its component-specific notices; original DEGS retains MIT and its identified Apache-derived portions retain their own notices. The exhibit does not relicense either project.
+
+`stage_vendor/nasa-fprime` contains unmodified NASA/JPL F´ source at commit `a37ffa40871e567481d0a7626c12b24d8acdbf15`. Copyright 2025 California Institute of Technology; Apache-2.0. The CRC implementation's embedded Stephan Brumme provenance and permissive notice remain intact. See the retained `LICENSE.txt` and `provenance.json`. This is an F´ component, not a claim that NASA originated the CRC algorithm or endorses this exhibit.
+
+The exhibit's original dialogue rules adapt keyword ranking, reassembly, and no-match fallback described by Joseph Weizenbaum in *ELIZA—A computer program for the study of natural language communication between man and machine* (1966), DOI `10.1145/365153.365168`. No original ELIZA program or paper text is vendored. The DobeWorks voice bank is retained unchanged with its original per-entry provenance and two identified short historical excerpts.

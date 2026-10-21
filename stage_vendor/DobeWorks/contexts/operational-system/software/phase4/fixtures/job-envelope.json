@@ -1,0 +1,22 @@
+{
+  "cancellation": "STOP_AND_PRESERVE_PARTIAL",
+  "checkpoint": "NONE",
+  "configuration_sha256": "ba0e803fc49b7a78989a44c9c9beb9789e37980b7ce92654a89d3f364460873d",
+  "data_classes": [
+    "PUBLIC_METADATA"
+  ],
+  "delivery_intent": "ANALYSIS_ONLY",
+  "dispatch_authority": "TAYLOR_AI_WORKBENCH",
+  "expected_output_sha256": "1099ce46272a14af8ba7372857c0f634a2feb2d20ade0ce2a96a6dfdc56d6fae",
+  "expires_at": "2030-01-01T00:00:00Z",
+  "handback": "ATOMIC_STAGED_OUTPUT",
+  "idempotency": "IDEMPOTENT",
+  "input_sha256": "d4dcacb9c25b2758e28a4cc218193645f004a8f880c42c515498a259e177aa36",
+  "job_class": "synthetic_repository_inventory",
+  "job_id": "job-phase4-fixture-001",
+  "promotion_authority": "PROHIBITED",
+  "retry_limit": 0,
+  "schema_version": "dobeworks.job-envelope.v1",
+  "side_effects": "STAGED_OUTPUT_ONLY",
+  "timeout_seconds": 5
+}

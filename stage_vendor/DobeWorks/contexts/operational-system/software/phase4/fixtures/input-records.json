@@ -1,0 +1,20 @@
+{
+  "records": [
+    {
+      "bytes": 120,
+      "kind": "markdown",
+      "path": "docs/guide.md"
+    },
+    {
+      "bytes": 80,
+      "kind": "python",
+      "path": "src/main.py"
+    },
+    {
+      "bytes": 100,
+      "kind": "python",
+      "path": "tests/test_main.py"
+    }
+  ],
+  "schema_version": "dobeworks.synthetic.input.v1"
+}

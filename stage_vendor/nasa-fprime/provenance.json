@@ -1,0 +1,67 @@
+{
+  "component": "NASA/JPL F prime CRC32 lookup-table generator",
+  "files": {
+    "Crc32.cpp": {
+      "bytes": 16805,
+      "modified": false,
+      "sha256": "d608a32e8f9a2eb7fa0f76d3de376ae38308fcb3b8f3280ab8ee84097a4e6d30",
+      "source_url": "https://raw.githubusercontent.com/nasa/fprime/a37ffa40871e567481d0a7626c12b24d8acdbf15/Utils/Hash/Crc32/Crc32.cpp",
+      "upstream_path": "Utils/Hash/Crc32/Crc32.cpp"
+    },
+    "LICENSE.txt": {
+      "bytes": 10856,
+      "modified": false,
+      "sha256": "84a2c29a962a800b9dc839e5e5f39a319a1270e4781c8d135da79fbe76f807fc",
+      "source_url": "https://raw.githubusercontent.com/nasa/fprime/a37ffa40871e567481d0a7626c12b24d8acdbf15/LICENSE.txt",
+      "upstream_path": "LICENSE.txt"
+    },
+    "TableGenerator.c": {
+      "bytes": 2776,
+      "modified": false,
+      "sha256": "94bc4338af73905dcc39925fe20c05ae48de96dae5b4c77136b2eec25143b84f",
+      "source_url": "https://raw.githubusercontent.com/nasa/fprime/a37ffa40871e567481d0a7626c12b24d8acdbf15/Utils/Hash/Crc32/TableGenerator.c",
+      "upstream_path": "Utils/Hash/Crc32/TableGenerator.c"
+    }
+  },
+  "prior_verification": {
+    "checksum_method": "Separate Python standard-library harness using generated table 0, initial value 0xFFFFFFFF, and final XOR 0xFFFFFFFF.",
+    "compile_exit": 0,
+    "compile_stderr_empty": true,
+    "fictional_packet": {
+      "crc32_hex": "B8BD3EAE",
+      "input_utf8": "DOBEWORKS-MISSION-001|TEMP_C=21.5|VOLTAGE_V=3.30|SEQ=7\n",
+      "tamper_check": "Replacing SEQ=7 with SEQ=8 produced a different checksum."
+    },
+    "generator_compile_recipe": [
+      "cc",
+      "-std=c99",
+      "-O2",
+      "TableGenerator.c",
+      "-o",
+      "table-generator"
+    ],
+    "generator_exit": 0,
+    "generator_stderr_empty": true,
+    "known_vector": {
+      "actual_crc32_hex": "CBF43926",
+      "expected_crc32_hex": "CBF43926",
+      "input_utf8": "123456789"
+    },
+    "matching_generated_values": 1024,
+    "performed": "Before vendoring, using exact source bytes identified above and a temporary local directory.",
+    "reference_table_values": 1024,
+    "status": "PASS"
+  },
+  "retained_notices": [
+    "Full upstream Apache License 2.0 text retained in LICENSE.txt.",
+    "Copyright 2025 California Institute of Technology and Apache-2.0 headers retained verbatim in both source files.",
+    "Embedded Stephan Brumme CRC32 provenance URL and permissive redistribution notice retained verbatim in both source files."
+  ],
+  "roles": {
+    "Crc32.cpp": "Unmodified reference for checking the generated table values; not a standalone build target.",
+    "TableGenerator.c": "Standalone C99 generator; only stdint.h and stdio.h required."
+  },
+  "schema_version": 1,
+  "upstream_commit": "a37ffa40871e567481d0a7626c12b24d8acdbf15",
+  "upstream_repository": "https://github.com/nasa/fprime"
+}

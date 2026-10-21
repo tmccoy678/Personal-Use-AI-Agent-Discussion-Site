@@ -1,0 +1,11 @@
+{
+  "input_sha256": "d4dcacb9c25b2758e28a4cc218193645f004a8f880c42c515498a259e177aa36",
+  "job_id": "job-phase4-fixture-001",
+  "kinds": {
+    "markdown": 1,
+    "python": 2
+  },
+  "record_count": 3,
+  "schema_version": "dobeworks.synthetic.result.v1",
+  "total_bytes": 300
+}
