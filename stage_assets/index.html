@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DobeWorks · Mission Stage</title><link rel="stylesheet" href="/stage.css"></head>
+<body><main>
+<header><div class="wordmark">D O B E W O R K S</div><div class="voice">{{quote}}</div><div class="attribution">{{attribution}}</div></header>
+<div class="layout"><section aria-label="Mission terminal"><p class="prompt">PLEASE GO ON.</p>
+<form action="/" method="post"><label class="scenario">MISSION PACKET <select name="scenario">{{options}}</select></label>
+<div class="programs">
+<button name="command" value="01">01  RUN CURRENT-PAIR INTEGRATION</button>
+<button name="command" value="02">02  DOBEWORKS OBSERVER — FRESH</button>
+<button name="command" value="03">03  DOBEWORKS OBSERVER — STALE</button>
+<button name="command" value="04">04  DOBEWORKS WORKER — STAGE UNACCEPTED RESULT</button>
+<button name="command" value="05">05  DEGS — INTACT MISSION RECORD</button>
+<button name="command" value="06">06  DEGS — MISSING EVIDENCE RECORD</button>
+<button name="command" value="07">07  CHECK PINNED-PAIR HANDOFF</button>
+<button name="command" value="08">08  OPEN RUN EVIDENCE</button>
+<button class="reset" name="command" value="00">00  RESET INTERFACE</button></div></form>
+<pre class="result" aria-live="polite">{{result}}</pre>
+<p class="reply">{{reply}}</p><p class="question">{{question}}</p>
+<form action="/" method="post" class="command"><input type="hidden" name="scenario" value="{{scenario}}">
+<label for="command">WHICH PROGRAM SHALL WE RUN? &gt;</label> <input id="command" name="command" maxlength="160" autocomplete="off" autofocus aria-label="Program number or a short question"><button class="enter">RETURN</button></form>
+</section><aside aria-label="Fictional mission"><h1>MISSION 001</h1><pre class="rocket" aria-label="Simple text rocket">
+         /\
+        /  \
+       /    \
+       | DW |
+       |    |
+       |    |
+      /|    |\
+     /_|____|_\
+        /__\
+ ─────────────────
+       THE PAD
+</pre><p class="state">{{mission_state}}</p><p>ONE PACKET.<br>EVERY HANDOFF VISIBLE.</p>
+<p>Start with the intact packet. Introduce one fault. Run the check again. Inspect what changed.</p>
+<p>NASA/JPL F´ CRC tables + fictional telemetry. The engines keep their own decisions.</p>
+<p>SIMULATED FIXTURE CLOCK<br>NO LIVE DEVICE TELEMETRY</p>
+<p><a href="/evidence?scenario={{scenario}}">DOWNLOAD EVIDENCE</a><br><a href="/sources">SOURCE IDENTITIES</a><br><a href="/source/nasa">NASA COMPONENT</a><br><a href="/source/harness">MISSION HARNESS</a><br><a href="/source/dialogue">DIALOGUE RULES</a></p></aside></div>
+<footer>FICTIONAL MISSION · REAL PUBLIC CODE · NO LAUNCH AUTHORITY<br>
+RULE-BASED DIALOGUE · NO MODEL CALLS · NO CHAT HISTORY STORED<br>
+<a href="https://doi.org/10.1145/365153.365168">ELIZA, WEIZENBAUM 1966</a> · <a href="/source/nasa-license">NASA/JPL F´ LICENSE</a> · <a href="/source/license">EXHIBIT LICENSE</a> · <a href="https://dobeworks.com">DOBEWORKS</a> · <a href="https://lab.dobeworks.com">LAB</a></footer>
+</main></body></html>

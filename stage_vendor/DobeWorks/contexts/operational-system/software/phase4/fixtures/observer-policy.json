@@ -1,0 +1,9 @@
+{
+  "daily_aggregate_retention_days": 180,
+  "raw_event_retention_days": 30,
+  "schema_version": "dobeworks.observer-policy.v1",
+  "stale_after_seconds": 300,
+  "stop_condition_delivery": "IMMEDIATE",
+  "trend_review_days": 7,
+  "warning_delivery_max_hours": 24
+}

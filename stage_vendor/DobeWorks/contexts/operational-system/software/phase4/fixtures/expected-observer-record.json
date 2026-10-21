@@ -1,0 +1,41 @@
+{
+  "decision_map": {
+    "backup_restore_age_days": "DECIDE_RECOVERY_RECENCY",
+    "bounded_resource_percent": "DECIDE_RESOURCE_GUARD",
+    "configuration_generation": "DECIDE_CONFIGURATION_MATCH",
+    "job_state": "DECIDE_JOB_DISPATCH_ELIGIBILITY",
+    "role_freshness": "DECIDE_ROLE_FRESHNESS",
+    "storage_presence": "DECIDE_STORAGE_AVAILABILITY"
+  },
+  "freshness": "FRESH",
+  "limitations": [
+    "SYNTHETIC_FIXTURE_ONLY",
+    "NO_DEVICE_OBSERVATION",
+    "NO_ACTION_AUTHORITY"
+  ],
+  "observed_at": "2026-09-06T00:01:00Z",
+  "provenance": {
+    "policy_sha256": "9246169419e7e0b8dee9280667208f2f632a83a97f13c065188df2ac5b32683b",
+    "snapshot_sha256": "2c0d8abdcaa3d63c7517b7768ebbb7121cc7472aa7c9956dd7bf3c420498ddd1"
+  },
+  "role_id": "WK-CANDIDATE-01",
+  "schema_version": "dobeworks.observer-record.v1",
+  "self_health": {
+    "clock_quality": "SYNTHETIC_EXACT",
+    "collector_status": "OK",
+    "dropped_records": 0,
+    "failure_status": "NONE",
+    "heartbeat_at": "2026-09-06T00:00:30Z",
+    "last_success_at": "2026-09-06T00:00:30Z",
+    "schema_version": "dobeworks.observer-snapshot.v1"
+  },
+  "signals": {
+    "backup_restore_age_days": 4,
+    "bounded_resource_percent": 42,
+    "configuration_generation": "phase4-synthetic-config-v1",
+    "job_state": "IDLE",
+    "role_freshness": "CURRENT",
+    "storage_presence": "PRESENT"
+  },
+  "status": "VALIDATED"
+}

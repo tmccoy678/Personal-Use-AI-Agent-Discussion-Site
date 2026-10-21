@@ -1,0 +1,36 @@
+{
+  "clock_quality": "SYNTHETIC_EXACT",
+  "collector_status": "OK",
+  "dropped_records": 0,
+  "heartbeat_at": "2026-09-06T00:00:30Z",
+  "last_success_at": "2026-09-06T00:00:30Z",
+  "role_id": "WK-CANDIDATE-01",
+  "sampled_at": "2026-09-06T00:00:30Z",
+  "schema_version": "dobeworks.observer-snapshot.v1",
+  "signals": [
+    {
+      "name": "backup_restore_age_days",
+      "value": 4
+    },
+    {
+      "name": "bounded_resource_percent",
+      "value": 42
+    },
+    {
+      "name": "configuration_generation",
+      "value": "phase4-synthetic-config-v1"
+    },
+    {
+      "name": "job_state",
+      "value": "IDLE"
+    },
+    {
+      "name": "role_freshness",
+      "value": "CURRENT"
+    },
+    {
+      "name": "storage_presence",
+      "value": "PRESENT"
+    }
+  ]
+}
