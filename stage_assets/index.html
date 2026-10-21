@@ -7,11 +7,11 @@
 <div class="layout"><section aria-label="Mission terminal"><div class="conversation" aria-label="Rule-based conversation"><form action="/" method="post" class="command"><input type="hidden" name="csrf" value="{{csrf}}"><input type="hidden" name="scenario" value="{{scenario}}">
 <label for="command">PLEASE GO ON. &gt;</label> <input id="command" name="command" maxlength="160" autocomplete="off" {{command_focus}} aria-label="Talk to the rule-based terminal or enter a program number" placeholder="Talk here, or enter a program number"><button class="enter">RETURN</button></form>
 <p class="question">{{question}}</p><p class="reply" aria-live="polite">{{reply}}</p></div>
-<p class="mission-brief">One NASA source package. Several teams. DobeWorks observes and stages the work; DEGS checks its handoff record. You inspect the evidence and receive the package for the next team.</p>
+<p class="mission-brief">One mistyped character. A C program that still compiles. Follow the effect from its test result to the launch decision; correct it and carry the evidence to the next team.</p>
+<form action="/" method="post" class="actions"><input type="hidden" name="csrf" value="{{csrf}}"><input type="hidden" name="scenario" value="{{scenario}}">{{actions}}</form>
 <form action="/" method="post"><input type="hidden" name="csrf" value="{{csrf}}"><label class="scenario">MISSION PACKET <select name="scenario">{{options}}</select></label>
 <div class="programs">{{programs}}<button class="reset" name="command" value="00">00  RESET INTERFACE</button></div></form>
-<section class="output" aria-label="Program results"><h2>{{title}}</h2><pre class="result" aria-live="polite">{{result}}</pre>
-<form action="/" method="post" class="actions"><input type="hidden" name="csrf" value="{{csrf}}"><input type="hidden" name="scenario" value="{{scenario}}">{{actions}}</form>{{details}}</section>
+<section class="output" aria-label="Program results"><h2>{{title}}</h2><pre class="result" aria-live="polite">{{result}}</pre>{{details}}</section>
 </section><aside aria-label="Fictional mission"><h1>MISSION 001</h1><div class="mission-board"><div class="launch-display"><pre class="rocket {{flight_class}}" aria-label="Simple text rocket">
          /\
         /  \
@@ -24,11 +24,13 @@
      /_|____|_\
         /__\
 </pre><p class="pad">──────────────────<br>{{flight_label}}</p></div>
-<div class="ledger"><p class="prompt">EVERY HANDOFF VISIBLE</p>{{progress}}</div></div>
-<p class="state">{{mission_state}}</p>{{package}}
+{{impact}}</div>
+<p class="state">{{mission_state}}</p><details class="handoff-ledger"><summary>ENGINEERING HANDOFFS</summary>{{progress}}</details>{{package}}
 <p class="fixture-clock">SIMULATED FIXTURE CLOCK · NO LIVE DEVICE TELEMETRY</p>
 <details><summary>INFORMATION</summary><p><a href="/package#package">INSPECT CURRENT PACKAGE</a><br><a href="/evidence">RUN EVIDENCE</a><br><a href="/sources">FROZEN SOURCE IDENTITIES</a><br><a href="/source/nasa">NASA TABLE GENERATOR</a><br><a href="/source/nasa-crc">NASA CRC32 COMPONENT</a><br><a href="/source/harness">MISSION HARNESS</a><br><a href="/source/dialogue">DIALOGUE RULES</a></p>
-<p>The packet contains unmodified NASA/JPL F´ CRC32 source files, their license, a requirement and fictional check evidence. The damaged scenario changes its handoff copy. The Worker stages a synthetic inventory of Markdown source summaries; the exhibit checks the actual source manifest and checksum. The Observer uses its public synthetic fixture. DEGS checks the adapted read-only record.</p>
+<p>The packet uses NASA/JPL F´ CRC32 source files, their license, a requirement and fictional check evidence. The damaged scenario changes its handoff copy. The Worker stages a synthetic inventory of Markdown source summaries; the exhibit checks the actual source manifest and checksum. The Observer uses its public synthetic fixture. DEGS checks the adapted read-only record.</p>
+<p>The transcription exercise changes one digit in a clearly marked demo copy: polynomial 0xEDB88320 becomes 0xEDB88321. Both C generators compile during preparation. Their retained lookup tables are checked against the current source copy before the known-answer test is displayed. The receiver rejection and flight paths illustrate this exercise's consequences; they are not a spacecraft model.</p>
+<p>Historical lesson: NASA records an omitted overbar in <a href="https://science.nasa.gov/mission/mariner-1/">Mariner 1's guidance equation</a>. Our CRC exercise is an original teaching analogue, not a reconstruction of that incident. Inspecting a reviewer or team opens its report; recording acceptance or GO is a separate decision. The error-flight branch keeps the real blocked result and does not record package acceptance.</p>
 <p>You play several fictional roles. Reviewer acceptance and the launch poll are simulation actions. Worker output remains unaccepted. These few checks illustrate one component's handoff, not a complete flight certification or NASA procedure.</p>
 <p>Workflow references: <a href="https://www.nasa.gov/reference/6-5-configuration-management/">NASA configuration management</a> and <a href="https://www.nasa.gov/reference/system-engineering-handbook-appendix/">readiness review definitions</a>.</p>
 <p>Packet checks run on the frozen backend and their results are reused. Core tests run once during release preparation; 04 displays that retained verification. 08 displays the record without rerunning checks. A changed packet invalidates every earlier receipt. Refresh starts a new mission. During play, progress uses a temporary cookie and server memory and expires after two hours or a server restart. No conversation text is saved.</p></details></aside></div>

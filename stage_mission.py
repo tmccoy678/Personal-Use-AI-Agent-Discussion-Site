@@ -13,6 +13,7 @@ VENDOR = ROOT / "stage_vendor"
 PHASE4 = VENDOR / "DobeWorks/contexts/operational-system/software/phase4"
 NASA = VENDOR / "nasa-fprime"
 CORE_RECORD = VENDOR / "core-verification.json"
+TRANSCRIPTION_RECORD = ROOT / "stage_assets/transcription-check.json"
 SCENARIOS = ("clean", "stale", "missing", "unresolved", "altered")
 PACKET = b"DOBEWORKS-MISSION-001|TEMP_C=21.5|VOLTAGE_V=3.30|SEQ=7\n"
 NOW = "2026-09-06T00:01:00Z"
@@ -39,21 +40,47 @@ def check_sources():
     return sources, nasa
 
 
-def prepare_nasa():
-    check_sources()
+def transcription_copy(source):
+    before, after = b"polynomial = 0xEDB88320;", b"polynomial = 0xEDB88321;"
+    if source.count(before) != 1:
+        raise RuntimeError("The transcription exercise no longer matches the pinned source")
+    return source.replace(before, after)
+
+
+def compile_tables(source):
     with tempfile.TemporaryDirectory() as directory:
-        binary = Path(directory) / "generator"
-        for command in (["cc", "-std=c99", "-O2", str(NASA / "TableGenerator.c"), "-o", str(binary)], [str(binary)]):
-            result = subprocess.run(command, capture_output=True, text=True, timeout=15, check=True)
+        (Path(directory) / "TableGenerator.c").write_bytes(source)
+        commands = [["cc", "-std=c99", "-O2", "TableGenerator.c", "-o", "generator"], ["./generator"]]
+        for command in commands:
+            result = subprocess.run(command, cwd=directory, capture_output=True, text=True, timeout=15, check=True)
             if result.stderr:
                 raise RuntimeError("NASA generator produced unexpected diagnostics")
         values = re.findall(r"0x([0-9A-Fa-f]{8})", result.stdout)
-        reference = re.findall(r"0x([0-9A-Fa-f]{8})", (NASA / "Crc32.cpp").read_text())
-        if len(values) != 1024 or [int(x, 16) for x in values] != [int(x, 16) for x in reference]:
-            raise RuntimeError("NASA-generated tables differ from pinned reference")
-        (NASA / "tables.json").write_bytes(encode([int(x, 16) for x in values]))
+        if len(values) != 1024:
+            raise RuntimeError("The compiled generator did not emit 1024 values")
+        return [int(x, 16) for x in values], commands
+
+
+def prepare_transcription():
+    check_sources()
+    source = (NASA / "TableGenerator.c").read_bytes()
+    candidate = transcription_copy(source)
+    table, commands = compile_tables(candidate)
+    TRANSCRIPTION_RECORD.write_bytes(encode({"source_sha256": digest(source), "candidate_sha256": digest(candidate),
+        "modified_demo_copy": True, "commands": commands, "exit": 0, "stderr": "", "tables": table}))
+    source_behavior(candidate)
+
+
+def prepare_nasa():
+    check_sources()
+    values, _ = compile_tables((NASA / "TableGenerator.c").read_bytes())
+    reference = [int(x, 16) for x in re.findall(r"0x([0-9A-Fa-f]{8})", (NASA / "Crc32.cpp").read_text())]
+    if values != reference:
+        raise RuntimeError("NASA-generated tables differ from pinned reference")
+    (NASA / "tables.json").write_bytes(encode(values))
     if crc(b"123456789") != "CBF43926":
         raise RuntimeError("CRC known-vector check failed")
+    prepare_transcription()
 
 
 def crc(data):
@@ -61,10 +88,49 @@ def crc(data):
     reference = [int(value, 16) for value in re.findall(r"0x([0-9A-Fa-f]{8})", (NASA / "Crc32.cpp").read_text())]
     if len(table) != 1024 or table != reference:
         raise RuntimeError("Generated NASA tables changed after verification")
+    return crc_with_table(data, table)
+
+
+def crc_with_table(data, table):
     value = 0xFFFFFFFF
     for byte in data:
         value = (value >> 8) ^ table[(value ^ byte) & 255]
     return f"{value ^ 0xFFFFFFFF:08X}"
+
+
+def source_behavior(candidate):
+    source = (NASA / "TableGenerator.c").read_bytes()
+    changed = candidate == transcription_copy(source)
+    if candidate != source and not changed:
+        raise RuntimeError("No compiled behavior evidence exists for this source")
+    commands = [["cc", "-std=c99", "-O2", "TableGenerator.c", "-o", "generator"], ["./generator"]]
+    actual = crc(b"123456789")
+    packet_crc = crc(PACKET)
+    if changed:
+        record = json.loads(TRANSCRIPTION_RECORD.read_text())
+        if (record["source_sha256"] != digest(source) or record["candidate_sha256"] != digest(candidate)
+                or record["modified_demo_copy"] is not True or record["exit"] != 0 or record["stderr"]
+                or record["commands"] != commands):
+            raise RuntimeError("Compiled transcription evidence has a different identity")
+        # Recheck all retained C output values against the fixed, altered polynomial.
+        expected = []
+        for i in range(256):
+            value = i
+            for _ in range(8):
+                value = (value >> 1) ^ (0xEDB88321 if value & 1 else 0)
+            expected.append(value)
+        for row in range(3):
+            expected.extend((value >> 8) ^ expected[value & 255] for value in expected[row * 256:(row + 1) * 256])
+        if record["tables"] != expected:
+            raise RuntimeError("Retained compiled tables differ from the candidate polynomial")
+        actual = crc_with_table(b"123456789", record["tables"])
+        packet_crc = crc_with_table(PACKET, record["tables"])
+    line = next(i for i, text in enumerate(source.decode().splitlines(), 1) if "polynomial =" in text)
+    return {"source_sha256": digest(candidate), "line": line, "changed_characters": int(changed),
+            "polynomial": "0xEDB88321" if changed else "0xEDB88320", "compiled_at_preparation": True,
+            "commands": commands, "compile_exit": 0, "stderr": "", "test_input": "123456789",
+            "candidate_packet_crc32": packet_crc, "receiver_expected_crc32": crc(PACKET),
+            "expected_crc32": "CBF43926", "actual_crc32": actual, "result": "PASS" if actual == "CBF43926" else "FAIL"}
 
 
 def load_module(name, path):
@@ -150,7 +216,7 @@ def mission_package(scenario, sources, nasa):
     if scenario == "missing":
         del artifacts["evidence/nasa-source.md"]
     if scenario == "altered":
-        artifacts["source/TableGenerator.c"] += b"\n/* changed during fictional handoff */\n"
+        artifacts["source/TableGenerator.c"] = transcription_copy(artifacts["source/TableGenerator.c"])
     return artifacts, expected_manifest
 
 
@@ -174,11 +240,20 @@ def run_mission(scenario):
         task = ui.observer_task(observer, Path("evidence/observer.json"), scenario == "stale")
         actual_crc = crc(telemetry)
         actual_manifest = {name: digest(data) for name, data in artifacts.items()}
-        intact = actual_manifest == expected_manifest and actual_crc == "B8BD3EAE"
+        behavior = source_behavior(artifacts["source/TableGenerator.c"])
+        intact = actual_manifest == expected_manifest and actual_crc == "B8BD3EAE" and behavior["result"] == "PASS"
         task.update(task_id="DEGS-STAGE-MISSION-001", title="Fictional mission packet handoff",
                     objective="Inspect a fictional packet; no launch or operational authority.")
+        task["scope"]["description"] = "Read the Observer, source-identity comparison and CRC known-answer result for this handoff."
+        task["requirements"] = ["Fresh validated observations are required.",
+            "Retain exact source identities and required evidence.", "The candidate CRC32 component must reproduce 123456789 -> CBF43926."]
+        task["acceptance_criteria"] = ["Preserve a stop while any required check or unresolved finding is open."]
+        task["selected_design"] = "Translate the recorded Observer and exhibit test outcomes into a read-only readiness record."
+        (directory / "source-check.json").write_bytes(encode(behavior))
+        task["verification"] = {"status": behavior["result"], "evidence_path": str(directory / "source-check.json")}
         if not intact:
             task["status"] = "BLOCKED"
+            task["unresolved_items"] = ["The candidate source or its known-answer test differs from the published baseline."]
         if scenario == "unresolved":
             task["unresolved_items"] = ["MISSION-001: the independent checksum review remains open."]
         (directory / "task.json").write_bytes(encode(task))
@@ -196,6 +271,7 @@ def run_mission(scenario):
                              "integrity": "PASS" if intact else "BLOCKED", "expected_manifest": expected_manifest,
                              "actual_manifest": actual_manifest},
                   "worker": worker, "worker_input": inventory, "worker_envelope": envelope,
+                  "source_behavior": behavior,
                   "package_sha256": digest(encode(actual_manifest)),
                   "observer": observer, "degs_task": task, "degs": gate["evaluate"],
                   "degs_exit": gate["evaluate_exit"], "handoff": "READY_FOR_REVIEW" if expected_decision == "PASS" else "HOLD"}
@@ -204,7 +280,10 @@ def run_mission(scenario):
 
 
 if __name__ == "__main__":
-    if sys.argv[1:] == ["--prepare"]:
+    if sys.argv[1:] == ["--prepare-transcription"]:
+        prepare_transcription()
+        print("Modified demo source compiled; one-character behavior evidence retained")
+    elif sys.argv[1:] == ["--prepare"]:
         prepare_nasa()
         CORE_RECORD.write_bytes(encode(verify_cores()))
         report = read_core_verification()

@@ -11,3 +11,4 @@ __pycache__/
 .DS_Store
 stage_vendor/nasa-fprime/tables.json
 stage_vendor/core-verification.json
+stage_assets/transcription-check.json

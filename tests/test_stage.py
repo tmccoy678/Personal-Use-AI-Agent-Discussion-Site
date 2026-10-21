@@ -86,14 +86,21 @@ def test_complete_workflow_and_invalidation(real_cores, monkeypatch):
             response = command(client, number)
             assert response.status_code == 200 and "content-disposition" not in response.headers
             assert response.headers["content-type"].startswith("text/html")
+        assert client.get("/api/evidence").json()["completed_handoffs"] == ["01", "02", "03", "04"]
+        command(client, "accept")
         assert client.get("/api/evidence").json()["completed_handoffs"] == ["01", "02", "03", "04", "05"]
         command(client, "director")
         assert not client.get("/api/evidence").json()["fictional_role_poll"]
         for role in ("vehicle", "weather", "range"):
             command(client, role)
+        assert not client.get("/api/evidence").json()["fictional_role_poll"]
+        assert "HOLD" in command(client, "go-weather").text
+        command(client, "clear-weather")
+        for role in ("vehicle", "weather", "range"):
+            command(client, "go-" + role)
         command(client, "07")
         assert not client.get("/api/evidence").json()["simulated_flight_completed"]
-        command(client, "director")
+        command(client, "go-director")
         response = command(client, "07")
         assert "THE ROCKET CLEARS THE PAD" in response.text
         record = client.get("/api/evidence").json()
@@ -223,8 +230,57 @@ def test_package_view_matches_packet_and_search_does_not_advance(monkeypatch):
         command(client, "01", "missing")
         assert "evidence/nasa-source.md · MISSING" in client.get("/package").text
         command(client, "01", "altered")
-        response = client.get("/package", params={"q": "changed during fictional handoff"})
+        response = client.get("/package", params={"q": "0xEDB88321"})
         assert "IDENTITY DIFFERS" in response.text and "MATCHING LINES" in response.text
+
+
+def test_one_character_failure_counterfactual_and_corrected_flight(real_cores, monkeypatch, tmp_path):
+    stage.CACHE["cores"] = real_cores
+    source = (stage_mission.NASA / "TableGenerator.c").read_bytes()
+    changed = stage_mission.transcription_copy(source)
+    assert len(source) == len(changed) and sum(a != b for a, b in zip(source, changed)) == 1
+    behavior = stage_mission.source_behavior(changed)
+    assert behavior["compile_exit"] == 0 and behavior["stderr"] == ""
+    assert behavior["actual_crc32"] == "CFBDC920" and behavior["result"] == "FAIL"
+    assert behavior["candidate_packet_crc32"] != behavior["receiver_expected_crc32"]
+    with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
+        for number in ("01", "02", "03"):
+            response = command(client, number, "altered")
+        assert "COUNTDOWN" in response.text and "CFBDC920" in response.text
+        before = client.get("/api/evidence").json()
+        assert before["completed_handoffs"] == ["01", "02"]
+        assert "BLOCKED" in command(client, "keep", "altered").text
+        assert "WHAT-IF" in command(client, "what-if", "altered").text
+        error_flight = client.get("/api/evidence").json()
+        assert error_flight["counterfactual_flight_with_errors"] is True
+        assert error_flight["simulated_flight_completed"] is False
+        assert error_flight["fixed_engine_run"] == before["fixed_engine_run"]
+        assert error_flight["completed_handoffs"] == ["01", "02"]
+        assert "COUNTDOWN HOLD" in command(client, "07", "altered").text
+        command(client, "restore", "altered")
+        corrected = client.get("/api/evidence").json()
+        assert corrected["completed_handoffs"] == ["01"]
+        assert corrected["prior_candidate_runs"] == [before["fixed_engine_run"]]
+        assert corrected["fixed_engine_run"]["source_behavior"]["result"] == "PASS"
+        assert not corrected["counterfactual_flight_with_errors"]
+        for number in ("02", "03", "04", "05"):
+            command(client, number)
+        assert client.get("/api/evidence").json()["completed_handoffs"] == ["01", "02", "03", "04"]
+        command(client, "accept")
+        command(client, "clear-weather")
+        for role in ("vehicle", "weather", "range", "director"):
+            command(client, "go-" + role)
+        assert "ALL EXERCISE CHECKS PASS" in command(client, "07").text
+        client.get("/")
+        fresh = client.get("/api/evidence").json()
+        assert not fresh["prior_candidate_runs"] and not fresh["counterfactual_flight_with_errors"]
+    record = json.loads(stage_mission.TRANSCRIPTION_RECORD.read_text())
+    record["tables"][-1] ^= 1
+    altered_record = tmp_path / "transcription.json"
+    altered_record.write_text(json.dumps(record))
+    monkeypatch.setattr(stage_mission, "TRANSCRIPTION_RECORD", altered_record)
+    with pytest.raises(RuntimeError, match="Retained compiled tables differ"):
+        stage_mission.source_behavior(changed)
 
 
 def test_refresh_starts_a_clean_game_after_redirected_interactions():
