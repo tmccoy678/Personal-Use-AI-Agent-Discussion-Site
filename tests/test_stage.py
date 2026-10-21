@@ -57,6 +57,7 @@ def test_stage_host_cannot_reach_lab_routes(env):
     with TestClient(bridge.create_app(env), base_url="https://stage.dobeworks.com") as client:
         page = client.get("/")
         assert page.status_code == 200 and "MISSION 001" in page.text
+        assert page.headers["referrer-policy"] == "same-origin"
         assert "<script" not in page.text
         assert "HttpOnly" in page.headers["set-cookie"] and "Secure" in page.headers["set-cookie"]
         for path in ["/inbox", "/login", "/api/dms", "/api/jobs", "/stream", "/window", "/legacy"]:

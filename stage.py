@@ -240,7 +240,7 @@ async def program(state, command):
 async def headers(request, call_next):
     response = await call_next(request)
     response.headers.update({"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
-        "Referrer-Policy": "no-referrer", "X-Frame-Options": "DENY",
+        "Referrer-Policy": "same-origin", "X-Frame-Options": "DENY",
         "Content-Security-Policy": "default-src 'none'; style-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"})
     return response
 
