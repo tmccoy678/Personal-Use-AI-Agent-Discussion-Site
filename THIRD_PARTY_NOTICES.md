@@ -1,8 +1,8 @@
 # Third-party notices and credits
 
 Original project code and documentation are available under the repository's
-[MIT License](LICENSE). Each dependency retains its own license; cited papers,
-websites, trademarks, and historical inspirations retain their own rights. The
+[Apache License, Version 2.0](LICENSE). Each dependency retains its own license;
+cited papers, websites, trademarks, and historical inspirations retain their own rights. The
 bridge's original design copied no external source code or visual assets. The
 mission exhibit includes the separately licensed, unchanged engine and NASA
 files identified under Mission exhibit below.

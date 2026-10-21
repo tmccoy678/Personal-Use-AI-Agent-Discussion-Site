@@ -1,8 +1,9 @@
 # Acceptance status
 
-**Current license status — 2026-10-20:** Taylor McCoy granted the repository's
-original project code and documentation under the MIT License. The dated
-entries below preserve the state observed during each earlier validation.
+**Current license status — 2026-10-21:** Taylor McCoy selected the Apache License,
+Version 2.0 for the repository's original project code and documentation, replacing
+the MIT License selected on 2026-10-20. The dated entries below preserve the state
+observed during each earlier validation. Third-party licenses remain unchanged.
 
 ## Blu job-submission permission — 2026-10-06
 
