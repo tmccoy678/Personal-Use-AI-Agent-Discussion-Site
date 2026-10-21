@@ -153,7 +153,9 @@ Cloudflare Access is an optional later identity layer. It adds setup for the cur
 
 ## License
 
+Copyright (c) 2026 Taylor McCoy.
+
 Original project code and documentation are available under the
-[MIT License](LICENSE). Third-party dependencies, cited works, trademarks, and
-historical inspirations retain their respective terms, as recorded in
+[Apache License, Version 2.0](LICENSE). Third-party dependencies, cited works,
+trademarks, and historical inspirations retain their respective terms, as recorded in
 [Third-party notices and credits](THIRD_PARTY_NOTICES.md).
