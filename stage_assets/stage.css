@@ -46,3 +46,52 @@ summary{cursor:pointer;color:#9ad1ed}
 @media(prefers-reduced-motion:reduce){.mission-segment.is-complete,.impact li.is-current{animation:none}}
 @media(forced-colors:active){.programs .program.is-current,.programs .program.is-held,.impact li.is-current,.impact li.is-held{border-color:Highlight}.mission-segment.is-complete{background:Highlight}}
 @media(max-width:760px){.programs .program{padding:6px 4px}.mission-progress{margin-bottom:12px}}
+
+/* Lighter rules and labels, derived from the existing navy / blue palette. */
+:root{--stage-paper:#091426;--stage-signal:#9ad1ed;--stage-rule:#7ca5c3;--stage-divider:#597385;--stage-label:#8ab4d1}
+.station,.desk{color:var(--stage-label)}
+header,.wordmark,.output,.output h2,.result,.state,.package,.enter,select,.package-search input,.command input{border-color:var(--stage-rule)}
+aside,footer,.conversation,.handoffs li,.package-file,.file-content,.impact li,.stop-conditions article,.advanced,.boundary-map,.mission-segment{border-color:var(--stage-divider)}
+.programs .program.is-waiting,.impact li small b{color:#a8bbcb}
+.impact li.is-waiting{opacity:.88}
+.impact li.is-complete,.stop-conditions article.current{border-color:var(--stage-rule)}
+.impact li.is-current,.impact li.is-held{border-color:var(--stage-signal)}
+.mission-progress p{font-size:10px;letter-spacing:.04em}
+input::placeholder{color:#a8bbcb;opacity:1}
+
+/* The signal depicts existing receipts; it cannot advance a mission. */
+.handoff-signal{margin:12px 0 0;padding:0 0 12px;border:1px solid var(--stage-divider);text-align:center}
+.signal-diagram{display:block;width:100%;max-width:260px;height:auto;margin:0 auto;color:var(--stage-signal);fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.signal-route{stroke:var(--stage-rule);stroke-dasharray:3 5}
+.signal-receiver,.signal-pivot{stroke:var(--stage-rule)}
+.signal-paper{fill:var(--stage-paper)}
+.signal-barrier{stroke-width:3;transform-origin:146px 61px}
+.signal-labels{position:relative;height:25px;color:#a8bbcb;font-size:10px}
+.signal-labels span{position:absolute;transform:translateX(-50%)}
+.signal-labels span:nth-child(1){left:11.7%}.signal-labels span:nth-child(2){left:60.8%}.signal-labels span:nth-child(3){left:88.8%}
+.handoff-signal figcaption{padding:0 9px;line-height:1.65}
+.handoff-signal strong{display:block;color:var(--stage-signal);font-size:10px;font-weight:400;letter-spacing:.04em}
+.handoff-signal figcaption span{display:block;margin-top:5px;color:#c7d7e3;font-size:10px}
+.signal-checking .signal-packet{transform:translateX(48px)}
+:is(.signal-held,.signal-staged,.signal-bypassed) .signal-packet{transform:translateX(88px)}
+:is(.signal-accepted,.signal-ready,.signal-flown) .signal-packet{transform:translateX(176px)}
+:is(.signal-accepted,.signal-ready,.signal-flown) .signal-barrier{transform:rotate(-82deg)}
+.signal-held,.signal-bypassed{border:1px dashed var(--stage-signal)}
+.signal-held strong,.signal-bypassed strong{color:#f0f4f7}
+.signal-ready,.signal-flown{border:3px double var(--stage-signal)}
+.launch-plume{display:none;fill:none;stroke:var(--stage-signal);stroke-width:1.5;stroke-linejoin:round;width:70px;height:30px;margin:-3px auto 0}
+.launch-display:has(.flight) .launch-plume,.launch-display:has(.fault-flight) .launch-plume{display:block}
+@media(prefers-reduced-motion:no-preference){
+  .signal-checking .signal-packet{animation:packet-check .65s ease-out both}
+  :is(.signal-held,.signal-staged) .signal-packet{animation:packet-hold .7s ease-out both}
+  :is(.signal-accepted,.signal-ready,.signal-flown) .signal-packet{animation:packet-release .9s ease-out both}
+  .signal-held{animation:boundary-hold .7s ease-out both}
+  .launch-display:has(.flight) .launch-plume{animation:climb 5s ease-in-out both}
+  .launch-display:has(.fault-flight) .launch-plume{animation:error-climb 4s ease-in-out both}
+}
+@keyframes packet-check{from{transform:translateX(0)}to{transform:translateX(48px)}}
+@keyframes packet-hold{from{transform:translateX(48px)}to{transform:translateX(88px)}}
+@keyframes packet-release{from{transform:translateX(88px)}to{transform:translateX(176px)}}
+@keyframes boundary-hold{from{box-shadow:0 0 0 rgba(154,209,237,0)}to{box-shadow:0 0 12px rgba(154,209,237,.18)}}
+@media(prefers-reduced-motion:reduce){.signal-packet,.handoff-signal,.launch-plume{animation:none!important}}
+@media(forced-colors:active){.signal-diagram{color:CanvasText}.signal-paper{fill:Canvas}.signal-route,.signal-receiver,.signal-pivot{stroke:CanvasText}.handoff-signal{border-color:CanvasText}}

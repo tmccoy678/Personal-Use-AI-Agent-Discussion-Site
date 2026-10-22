@@ -417,9 +417,26 @@ def render(state, title="MISSION TERMINAL", lines=None, reply="PLEASE GO ON.", q
         "altered": "19,581 source bytes. One character changes 0 to 1. Both C programs still compile; follow the failed behavior to the launch hold.",
     }
     mission_brief = mission_briefs.get(scenario, "Follow the selected stop condition through DobeWorks, DEGS, review, and the launch decision.")
+    _, current, held, _ = workflow_progress(state)
+    signal = ("waiting", "ONE PACKET · EVERY HANDOFF VISIBLE", "Carry the package through its required checks.")
+    if state["launched"]:
+        signal = ("flown", "HANDOFF COMPLETE", "The reviewed packet reached the next stage.")
+    elif state["counterfactual"]:
+        signal = ("bypassed", "BLOCKED RECORD PRESERVED", "The record remains blocked in this what-if flight.")
+    elif held:
+        signal = ("held", "HOLD PRESERVED", "The unresolved finding stays with this packet.")
+    elif current == "07":
+        signal = ("ready", "COUNTDOWN CLEARED", "Awaiting your separate launch command.")
+    elif "05" in state["completed"]:
+        signal = ("accepted", "PACKAGE ACCEPTED", "The launch poll still applies.")
+    elif "03" in state["completed"]:
+        signal = ("staged", "WORK COMPLETED · STILL STAGED", "The remaining reviews and separate acceptance still apply.")
+    elif state["completed"]:
+        signal = ("checking", "PACKET RECEIVED", "Carry the package through its required checks.")
     replacements = {"quote": f'“{voice["text"]}”', "attribution": voice["attribution"], "reply": reply,
         "question": question, "result": lines, "title": title, "mission_state": mission_state,
         "scenario": scenario, "csrf": state["csrf"], "mission_brief": mission_brief,
+        "signal_phase": signal[0], "signal_title": signal[1], "signal_caption": signal[2],
         "command_focus": "" if show_package else "autofocus",
         "flight_class": "flight" if state["launched"] else "fault-flight" if state["counterfactual"] else "",
         "flight_label": "CLEAN FLIGHT" if state["launched"] else ("WHAT-IF · NOTATION BYPASSED" if scenario.startswith("rbar") else "WHAT-IF · TELEMETRY ERROR") if state["counterfactual"] else "THE PAD"}
