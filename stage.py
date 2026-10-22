@@ -32,7 +32,7 @@ PROGRAMS = {"01": ("CONFIGURATION ENGINEER", "ESTABLISH PACKAGE BASELINE"),
             "06": ("MISSION TEAM", "POLL LAUNCH READINESS"),
             "07": ("LAUNCH DIRECTOR", "RUN THE ROCKET SIMULATION"),
             "08": ("EVIDENCE", "OPEN THE HANDOFF RECORD")}
-POLL = {"vehicle": "VEHICLE TEAM", "weather": "WEATHER TEAM", "range": "RANGE TEAM", "director": "LAUNCH DIRECTOR"}
+POLL = {"weather": "WEATHER OFFICER", "director": "LAUNCH DIRECTOR"}
 CASE_ACTIONS = {"restore", "keep", "hold", "accept", "what-if", "clear-weather"} | {"go-" + key for key in POLL}
 LESSON_ACTIONS = {"lesson-start", "lesson-fix", "lesson-compare", "lesson-mission"}
 CACHE = {}
@@ -416,43 +416,85 @@ async def program(state, command):
                            "SAME FILE SIZE AND SUCCESSFUL COMPILATION DO NOT SATISFY THE KNOWN-ANSWER REQUIREMENT. THE HANDOFF STAYS BLOCKED.")
         return result
     if command == "06" or command in POLL or command.startswith("go-") or command == "clear-weather":
-        reply = "SELECT A TEAM TO INSPECT ITS FICTIONAL READINESS RECORD."
+        package_ready = "05" in state["completed"]
         if command == "clear-weather":
             if not state["weather_clear"]:
                 state["weather_clear"] = True
-                record(state, POLL["weather"], "RECEIVE FIXTURE T+05 WEATHER REPORT", "WIND 9 · LIMIT 15")
+                record(state, POLL["weather"], "RECEIVE T+05 WEATHER OBSERVATION", "WIND 9 KT · LIMIT 15 KT")
             command = "weather"
         role = command.removeprefix("go-")
-        conditions = {"vehicle": "05" in state["completed"], "weather": state["weather_clear"], "range": True,
-                      "director": "05" in state["completed"] and all(state["poll"].get(k) == "GO" for k in ("vehicle", "weather", "range"))}
-        facts = {"vehicle": "Package acceptance is required before this fixture's vehicle report can be GO.",
-                 "weather": f'Fixture wind: {9 if state["weather_clear"] else 22}. Limit: 15. Window: {"T+05" if state["weather_clear"] else "T+00"}.',
-                 "range": "Fixed exercise report: exclusion area CLEAR. This is a separate mission-team record.",
-                 "director": "Requires package acceptance plus vehicle, weather and range decisions."}
-        if command.startswith("go-") and role in POLL:
-            if conditions[role] and state["poll"].get(role) != "GO":
-                state["poll"][role] = "GO"
-                record(state, POLL[role], "FICTIONAL READINESS DECISION", "GO")
-                reply = "GO RECORDED AGAINST THE DISPLAYED CONDITIONS."
-            elif not conditions[role]:
-                reply = "HOLD. THE DISPLAYED CONDITION IS NOT SATISFIED."
-        if role in POLL:
-            recorded = state["poll"].get(role) == "GO"
-            if not conditions[role]:
-                missing = [POLL[k] for k in ("vehicle", "weather", "range") if state["poll"].get(k) != "GO"]
-                reason = ("Complete and accept package review 05." if role == "vehicle" else "Wind 22 exceeds limit 15; receive the T+05 report."
-                          if role == "weather" else "Package review 05 and these team decisions are required: " + ", ".join(missing))
-                reply = "HOLD · " + reason
-            actions = [("06", "RETURN TO TEAM POLL")] if recorded else ([("clear-weather", "RECEIVE THE T+05 WEATHER REPORT")] if role == "weather" and not state["weather_clear"] else []) + [("go-" + role, "RECORD GO AGAINST THIS REPORT"), ("06", "RETURN TO TEAM POLL")]
-            return {"title": POLL[role], "lines": f'DECISION              {"GO RECORDED" if recorded else "HOLD · NO GO RECORDED"}\n\n' + facts[role] + "\n\nThese are fictional mission-team conditions, separate from DobeWorks and DEGS.",
-                    "reply": reply, "actions": actions}
+        weather_go = state["poll"].get("weather") == "GO"
+        director_ready = package_ready and weather_go
+        if command == "go-weather":
+            if state["weather_clear"] and not weather_go:
+                state["poll"]["weather"] = "GO"
+                weather_go = True
+                record(state, POLL["weather"], "WEATHER DECISION FOR T+05 WINDOW", "GO · WIND 9 KT WITHIN 15 KT LIMIT")
+            command = role = "weather"
+        elif command == "go-director":
+            if director_ready and state["poll"].get("director") != "GO":
+                state["poll"]["director"] = "GO"
+                record(state, POLL["director"], "AUTHORIZE FICTIONAL COUNTDOWN", "GO · PACKAGE ACCEPTED · WEATHER GO")
+            command = role = "director"
+        if role == "weather":
+            recorded = state["poll"].get("weather") == "GO"
+            observed_wind = 9 if state["weather_clear"] else 22
+            margin = 15 - observed_wind
+            decision = "GO · T+05 WINDOW" if recorded else "AWAITING OFFICER DECISION" if state["weather_clear"] else "HOLD · WIND EXCEEDS LIMIT"
+            lines = ("LAUNCH WEATHER OBSERVATION\n\n"
+                     f'OBSERVATION TIME      {"T+05" if state["weather_clear"] else "T+00"}\n'
+                     f'SURFACE WIND          {observed_wind} KT\nLIMIT                 15 KT MAXIMUM\n'
+                     f'MARGIN                {margin:+d} KT\nSOURCE                FIXED EXERCISE OBSERVATION\n\n'
+                     f'WEATHER DECISION · {decision}')
+            if recorded:
+                reply = "WEATHER GO IS RECORDED FOR THE T+05 WINDOW. THE LAUNCH DIRECTOR CAN NOW REVIEW THE COMPLETE READINESS STATE."
+                actions = [("director", "CONTINUE TO LAUNCH DIRECTOR")]
+            elif state["weather_clear"]:
+                reply = "THE T+05 OBSERVATION IS WITHIN THE FIXED WIND LIMIT. THE WEATHER OFFICER MAY RECORD GO FOR THIS WINDOW."
+                actions = [("go-weather", "RECORD WEATHER GO FOR T+05"), ("06", "VIEW READINESS BOARD")]
+            else:
+                reply = "THE T+00 WIND EXCEEDS THE FIXED LIMIT. HOLD THIS WINDOW AND RECEIVE THE T+05 OBSERVATION."
+                actions = [("clear-weather", "RECEIVE T+05 WEATHER OBSERVATION"), ("06", "VIEW READINESS BOARD")]
+            return {"title": POLL["weather"], "lines": lines, "reply": reply, "actions": actions}
+        if role == "director":
+            director_go = state["poll"].get("director") == "GO"
+            decision = "GO · SIMULATED COUNTDOWN AUTHORIZED" if director_go else "READY FOR DIRECTOR DECISION" if director_ready else "HOLD · READINESS INCOMPLETE"
+            blocking = "NONE" if director_ready else "PACKAGE ACCEPTANCE" if not package_ready else "WEATHER GO FOR CURRENT WINDOW"
+            lines = ("LAUNCH READINESS SUMMARY\n\n"
+                     f'ENGINEERING PACKAGE   {"ACCEPTED" if package_ready else "HOLD"}\n'
+                     f'WEATHER OFFICER       {"GO · T+05" if weather_go else "HOLD"}\n'
+                     f'BLOCKING ITEM         {blocking}\n\n'
+                     f'LAUNCH DIRECTOR · {decision}')
+            if director_go:
+                reply = "THE SIMULATED COUNTDOWN IS AUTHORIZED. PROGRAM 07 CAN NOW RUN THE ROCKET SIMULATION."
+                actions = [("07", "RUN THE CLEAN SIMULATED FLIGHT")]
+            elif director_ready:
+                reply = "THE ENGINEERING PACKAGE IS ACCEPTED AND WEATHER IS GO. THE LAUNCH DIRECTOR MAY AUTHORIZE THE SIMULATED COUNTDOWN."
+                actions = [("go-director", "AUTHORIZE SIMULATED COUNTDOWN"), ("06", "VIEW READINESS BOARD")]
+            else:
+                reply = "THE LAUNCH DIRECTOR REMAINS HOLD UNTIL THE DISPLAYED BLOCKING ITEM IS CLOSED."
+                actions = [("weather", "OPEN WEATHER REPORT")] if package_ready else [("05", "RETURN TO PACKAGE REVIEW")]
+            return {"title": POLL["director"], "lines": lines, "reply": reply, "actions": actions}
         package_label = "R-BAR PACKAGE" if state["scenario"].startswith("rbar") else "CRC32 PACKAGE"
-        lines = "FICTIONAL LAUNCH READINESS POLL\n\n" + f'{package_label:<22}{"ACCEPTED" if "05" in state["completed"] else "HOLD"}\n'
-        lines += "\n".join(f'{label:<22}{state["poll"].get(key, "HOLD — AWAITING REVIEW")}' for key, label in POLL.items())
-        lines += "\n\nYOU ARE PLAYING EACH ROLE IN THIS ILLUSTRATIVE MISSION."
-        ready = "05" in state["completed"] and all(state["poll"].get(k) == "GO" for k in POLL)
-        return {"title": "MISSION TEAM", "lines": lines, "reply": "ALL REQUIRED DECISIONS ARE RECORDED. THE CLEAN FLIGHT IS READY IN 07." if ready else reply,
-                "actions": [("07", "RUN THE CLEAN SIMULATED FLIGHT")] if ready else [(key, "INSPECT " + label) for key, label in POLL.items() if state["poll"].get(key) != "GO"]}
+        director_go = state["poll"].get("director") == "GO"
+        weather_state = "GO · T+05 WIND 9 KT" if weather_go else "READY · T+05 WIND 9 KT" if state["weather_clear"] else "HOLD · T+00 WIND 22 KT"
+        director_state = "GO · COUNTDOWN AUTHORIZED" if director_go else "READY FOR DECISION" if director_ready else "HOLD · WEATHER GO REQUIRED"
+        lines = ("FICTIONAL LAUNCH READINESS\n\n"
+                 f'{package_label:<22}{"ACCEPTED" if package_ready else "HOLD"}\n'
+                 f'{POLL["weather"]:<22}{weather_state}\n'
+                 f'{POLL["director"]:<22}{director_state}\n\n'
+                 "EACH DECISION IS RECORDED AGAINST THE CONDITION SHOWN.")
+        ready = package_ready and weather_go and director_go
+        if ready:
+            reply = "PACKAGE ACCEPTANCE, WEATHER GO, AND LAUNCH AUTHORIZATION ARE RECORDED. THE SIMULATED FLIGHT IS READY IN 07."
+            actions = [("07", "RUN THE CLEAN SIMULATED FLIGHT")]
+        elif not weather_go:
+            reply = "THE WEATHER OFFICER MUST REVIEW THE CURRENT OBSERVATION BEFORE THE LAUNCH DIRECTOR CAN DECIDE."
+            actions = [("weather", "OPEN WEATHER REPORT")]
+        else:
+            reply = "WEATHER IS GO. THE LAUNCH DIRECTOR MUST REVIEW THE COMPLETE READINESS STATE."
+            actions = [("director", "OPEN LAUNCH DIRECTOR REVIEW")]
+        return {"title": "LAUNCH READINESS", "lines": lines, "reply": reply, "actions": actions}
     if command == "07":
         state["counterfactual"] = False
         if state["completed"] != ["01", "02", "03", "04", "05"] or not all(state["poll"].get(k) == "GO" for k in POLL):
