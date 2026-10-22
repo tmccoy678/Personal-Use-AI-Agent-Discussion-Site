@@ -6,11 +6,13 @@ The existing Render Starter service and disk serve all three hostnames. No new p
 
 ## Interactive handoff demonstration
 
-The default front door is a three-action demonstration: hand off completed work, restore a missing R-bar and recheck, then record a separate demo acceptance. The larger rocket workflow is optional after that sequence.
+The default front door is a three-action demonstration: hand off completed work, restore a missing R-bar and recheck, then record a separate demo acceptance. A visible sequence identifies the agent result, DobeWorks Observer and Worker roles, the adapted handoff record, DEGS readiness, and separate human acceptance. The page expands DEGS as the DobeWorks Engineering Governance System. The larger eight-step rocket workflow is presented as an advanced evidence walkthrough after the short demonstration.
 
 The note is an original teaching reconstruction of the notation loss described in NASA's Mariner 1 account, not recovered guidance code. A small exact-reference check detects the omitted combining overbar in `handoff/guidance-note.md`. DobeWorks performs its real bounded synthetic inventory and retains `COMPLETED_UNACCEPTED` / `NOT_PERFORMED`. The exhibit adapter supplies a structured unresolved warning to the real DEGS CLI. A corrected note supplies consistent `NONE` / `RESOLVED` / `resolved=true` warning fields and an evidence path, rather than silently deleting the warning. Readiness then passes; visitor acceptance remains a separate simulation step. The Worker result itself is not promoted.
 
-An optional comparison keeps the candidate note and all other task fields fixed, dropping only the warning field in a separate read-only DEGS evaluation. The preserved record is BLOCKED; the completion-only record returns PASS because it no longer contains the stop. The comparison never replaces the active gate result or records acceptance. This illustrates why correct record translation is part of the protection and why the gate cannot enforce omitted information. It is a fixed teaching example, not a completed live-agent experiment.
+The first blocked handoff automatically shows a controlled comparison that keeps the candidate note and all other task fields fixed, dropping only the warning field in a separate read-only DEGS evaluation. The preserved record is BLOCKED; the completion-only record returns PASS because it no longer contains the stop. The comparison remains visible through correction and acceptance. It never replaces the active gate result or records acceptance.
+
+The demonstration also names three stop conditions from the submitted AgentVerify abstract: a stale observation, an unresolved warning, and unaccepted output. The current warning and acceptance states update as the visitor proceeds. A rule-based guide suggests questions about DobeWorks, DEGS, and the blocked decision; its answers remain deterministic and cannot change evidence or results.
 
 The note, historical context, acceptance requirement and source reference remain inspectable. Correction retains the original failed candidate in evidence.
 

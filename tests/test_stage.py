@@ -304,7 +304,10 @@ def test_refresh_starts_a_clean_game_after_redirected_interactions():
 def test_rbar_demo_preserves_warning_closure_and_separate_acceptance(real_cores):
     stage.CACHE["cores"] = real_cores
     with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
-        assert "A SHORT INTERACTIVE DEMO" in client.get("/").text
+        opening = client.get("/")
+        assert "A SHORT INTERACTIVE DEMO" in opening.text
+        assert "DOBEWORKS OBSERVES AND STAGES" in opening.text
+        assert "DOBEWORKS ENGINEERING GOVERNANCE SYSTEM" in opening.text
         response = command(client, "lesson-start", "rbar")
         original = client.get("/api/evidence").json()
         task = original["fixed_engine_run"]["degs_task"]
@@ -312,6 +315,12 @@ def test_rbar_demo_preserves_warning_closure_and_separate_acceptance(real_cores)
         assert original["fixed_engine_run"]["worker"]["state"] == "COMPLETED_UNACCEPTED"
         assert original["fixed_engine_run"]["degs"]["decision"] == "BLOCKED"
         assert "THE OPEN ISSUE SURVIVED" in response.text
+        assert "SAME WORK. DIFFERENT HANDOFF RECORD" in response.text
+        assert "HANDOFF CONTRACT · ADAPTED RECORD" in response.text
+        assert "STALE OBSERVATION" in response.text
+        assert "UNRESOLVED WARNING" in response.text
+        assert "UNACCEPTED OUTPUT" in response.text
+        assert "<title>DobeWorks · Handoff Held</title>" in response.text
         assert "05" not in original["completed_handoffs"]
         response = command(client, "lesson-compare", "rbar")
         assert "SAME WORK. DIFFERENT HANDOFF RECORD" in response.text
@@ -328,9 +337,13 @@ def test_rbar_demo_preserves_warning_closure_and_separate_acceptance(real_cores)
         assert corrected["fixed_engine_run"]["degs"]["decision"] == "PASS"
         assert corrected["prior_candidate_runs"] == [original["fixed_engine_run"]]
         assert "ACCEPTANCE IS STILL YOUR DECISION" in response.text and "05" not in corrected["completed_handoffs"]
+        assert "CLOSED IN THIS EXAMPLE" in response.text
+        assert "<title>DobeWorks · Ready for Acceptance</title>" in response.text
         response = command(client, "accept", "rbar-fixed")
         accepted = client.get("/api/evidence").json()
         assert "05" in accepted["completed_handoffs"] and "REVIEWED HANDOFF" in response.text
+        assert "ADVANCED EVIDENCE WALKTHROUGH · 8 STEPS" in response.text
+        assert "<title>DobeWorks · Handoff Accepted</title>" in response.text
         assert accepted["fixed_engine_run"]["worker"]["promotion"] == "NOT_PERFORMED"
         assert "R-BAR-NOTE" in client.get("/package").text
         client.get("/")
