@@ -14,7 +14,7 @@ PHASE4 = VENDOR / "DobeWorks/contexts/operational-system/software/phase4"
 NASA = VENDOR / "nasa-fprime"
 CORE_RECORD = VENDOR / "core-verification.json"
 TRANSCRIPTION_RECORD = ROOT / "stage_assets/transcription-check.json"
-SCENARIOS = ("clean", "stale", "missing", "unresolved", "altered")
+SCENARIOS = ("clean", "stale", "missing", "unresolved", "altered", "rbar", "rbar-fixed")
 PACKET = b"DOBEWORKS-MISSION-001|TEMP_C=21.5|VOLTAGE_V=3.30|SEQ=7\n"
 NOW = "2026-09-06T00:01:00Z"
 
@@ -201,6 +201,16 @@ def mission_package(scenario, sources, nasa):
     """Exact packet bytes shared by execution and the read-only package viewer."""
     if scenario not in SCENARIOS:
         raise ValueError("Unknown mission scenario")
+    if scenario.startswith("rbar"):
+        artifacts = {
+            "handoff/guidance-note.md": "Required guidance notation: R\u0305.\n".encode(),
+            "handoff/context.md": b"Teaching reconstruction of the notation loss described by NASA for Mariner 1. Not historical flight code. Preserve the required overbar through this handoff.\n",
+            "handoff/acceptance.md": b"Completed work remains staged. An open notation finding blocks readiness. Closing the finding requires check evidence; acceptance is separate.\n",
+            "evidence/reference.md": b"NASA: https://science.nasa.gov/mission/mariner-1/\nNASA records an omitted overbar and a guidance antenna fault. This exercise models notation preservation, not flight dynamics.\n"}
+        expected = {name: digest(data) for name, data in artifacts.items()}
+        if scenario == "rbar":
+            artifacts["handoff/guidance-note.md"] = artifacts["handoff/guidance-note.md"].replace("\u0305".encode(), b"")
+        return artifacts, expected
     artifacts = {"mission/telemetry.md": PACKET,
                  "source/TableGenerator.c": (NASA / "TableGenerator.c").read_bytes(),
                  "source/Crc32.cpp": (NASA / "Crc32.cpp").read_bytes(),
@@ -232,6 +242,10 @@ def run_mission(scenario):
         directory = Path(temporary)
         telemetry = PACKET
         artifacts, expected_manifest = mission_package(scenario, sources, nasa)
+        expected_crc = "B8BD3EAE"
+        if scenario.startswith("rbar"):
+            telemetry = artifacts["handoff/guidance-note.md"]
+            expected_crc = crc("Required guidance notation: R\u0305.\n".encode())
         worker, inventory, envelope = stage_inventory(directory, artifacts)
         ui.RUNS = directory
         observer = ui.run_observer(directory, stale=scenario == "stale")
@@ -240,8 +254,8 @@ def run_mission(scenario):
         task = ui.observer_task(observer, Path("evidence/observer.json"), scenario == "stale")
         actual_crc = crc(telemetry)
         actual_manifest = {name: digest(data) for name, data in artifacts.items()}
-        behavior = source_behavior(artifacts["source/TableGenerator.c"])
-        intact = actual_manifest == expected_manifest and actual_crc == "B8BD3EAE" and behavior["result"] == "PASS"
+        behavior = source_behavior(artifacts.get("source/TableGenerator.c", (NASA / "TableGenerator.c").read_bytes()))
+        intact = actual_manifest == expected_manifest and actual_crc == expected_crc and behavior["result"] == "PASS"
         task.update(task_id="DEGS-STAGE-MISSION-001", title="Fictional mission packet handoff",
                     objective="Inspect a fictional packet; no launch or operational authority.")
         task["scope"]["description"] = "Read the Observer, source-identity comparison and CRC known-answer result for this handoff."
@@ -256,18 +270,31 @@ def run_mission(scenario):
             task["unresolved_items"] = ["The candidate source or its known-answer test differs from the published baseline."]
         if scenario == "unresolved":
             task["unresolved_items"] = ["MISSION-001: the independent checksum review remains open."]
+        notation = None
+        if scenario.startswith("rbar"):
+            note = artifacts["handoff/guidance-note.md"]
+            intact = digest(note) == expected_manifest["handoff/guidance-note.md"]
+            notation = {"required": "R\u0305", "received": "R\u0305" if intact else "R", "result": "PASS" if intact else "FAIL",
+                        "evidence_sha256": digest(note), "detector": "Exact match to the supplied reference note; not a guidance-equation verifier."}
+            (directory / "notation-check.json").write_bytes(encode(notation))
+            task.update(title="Preserve the R-bar finding at a handoff", status="READY_FOR_EXECUTION",
+                        requirements=["Preserve the required R-bar notation.", "An unresolved finding must remain a stop across translation."],
+                        unresolved_items=[], warnings=[{"severity": "NONE" if intact else "CRITICAL", "resolved": intact,
+                            "status": "RESOLVED" if intact else "UNRESOLVED", "evidence_path": str(directory / "notation-check.json")}])
+            task["scope"]["description"] = "Read a teaching notation check and preserve its warning state. No flight operation or promotion."
+            task["verification"] = {"status": notation["result"], "evidence_path": str(directory / "notation-check.json")}
         (directory / "task.json").write_bytes(encode(task))
         gate = ui.run_degs_task(task, directory, "mission")
         if gate["validate_exit"] != 0 or gate["validate_decision"] != "PASS":
             raise RuntimeError("Scenario task failed the real DEGS schema")
-        expected_decision = "PASS" if scenario == "clean" else "BLOCKED"
-        expected_exit = 0 if scenario == "clean" else 2
+        expected_decision = "PASS" if scenario in {"clean", "rbar-fixed"} else "BLOCKED"
+        expected_exit = 0 if expected_decision == "PASS" else 2
         if (gate["evaluate_exit"], gate["evaluate_decision"]) != (expected_exit, expected_decision):
             raise RuntimeError("Scenario produced an unexpected real gate decision")
         report = {"schema_version": "dobeworks.stage.mission.v1", "scenario": scenario,
                   "mission": "DEMO-001", "simulation": True, "operational_authority": "NONE",
                   "source_identity": sources, "nasa": {"repository": "https://github.com/nasa/fprime", "commit": nasa["upstream_commit"], "known_vector": "CBF43926", "generated_values_checked": 1024},
-                  "packet": {"text": telemetry.decode(), "expected_crc32": "B8BD3EAE", "actual_crc32": actual_crc,
+                  "packet": {"text": telemetry.decode(), "expected_crc32": expected_crc, "actual_crc32": actual_crc,
                              "integrity": "PASS" if intact else "BLOCKED", "expected_manifest": expected_manifest,
                              "actual_manifest": actual_manifest},
                   "worker": worker, "worker_input": inventory, "worker_envelope": envelope,
@@ -275,6 +302,16 @@ def run_mission(scenario):
                   "package_sha256": digest(encode(actual_manifest)),
                   "observer": observer, "degs_task": task, "degs": gate["evaluate"],
                   "degs_exit": gate["evaluate_exit"], "handoff": "READY_FOR_REVIEW" if expected_decision == "PASS" else "HOLD"}
+        if notation:
+            report["notation_check"] = notation
+            # This separate evaluation illustrates a broken adapter; it never drives the actual handoff.
+            lost = dict(task, warnings=[])
+            trial = ui.run_degs_task(lost, directory, "completion-only")
+            if (trial["validate_exit"], trial["evaluate_exit"], trial["evaluate_decision"]) != (0, 0, "PASS"):
+                raise RuntimeError("Completion-only teaching comparison did not match the fixed record")
+            report["translation_comparison"] = {"changed_field": "warnings", "completion_only_task": lost,
+                "completion_only_decision": trial["evaluate"], "actual_execution": "NONE",
+                "same_candidate_sha256": digest(encode(actual_manifest))}
         # Temporary execution paths are not part of the portable public evidence.
         return json.loads(json.dumps(report).replace(str(directory), "evidence"))
 

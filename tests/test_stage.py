@@ -42,12 +42,14 @@ def test_all_real_scenarios_and_source_identity():
                                  capture_output=True, text=True, timeout=15)
         assert process.returncode == 0 and not process.stderr
         report = json.loads(process.stdout)
-        assert report["degs"]["decision"] == ("PASS" if scenario == "clean" else "BLOCKED")
-        assert report["handoff"] == ("READY_FOR_REVIEW" if scenario == "clean" else "HOLD")
+        ready = scenario in {"clean", "rbar-fixed"}
+        assert report["degs"]["decision"] == ("PASS" if ready else "BLOCKED")
+        assert report["handoff"] == ("READY_FOR_REVIEW" if ready else "HOLD")
         assert report["worker"]["promotion"] == "NOT_PERFORMED"
         assert report["nasa"]["generated_values_checked"] == 1024
         assert report["operational_authority"] == "NONE"
-        assert report["packet"]["expected_manifest"]["source/TableGenerator.c"] == before[1]["files"]["TableGenerator.c"]["sha256"]
+        if not scenario.startswith("rbar"):
+            assert report["packet"]["expected_manifest"]["source/TableGenerator.c"] == before[1]["files"]["TableGenerator.c"]["sha256"]
         if scenario == "altered":
             assert report["packet"]["actual_crc32"] == report["packet"]["expected_crc32"]
             assert report["packet"]["actual_manifest"]["source/TableGenerator.c"] != report["packet"]["expected_manifest"]["source/TableGenerator.c"]
@@ -297,3 +299,52 @@ def test_refresh_starts_a_clean_game_after_redirected_interactions():
         assert evidence["completed_handoffs"] == [] and evidence["handoff_record"] == []
         assert evidence["fictional_role_poll"] == {} and evidence["fixed_engine_run"] is None
         assert not evidence["simulated_flight_completed"]
+
+
+def test_rbar_demo_preserves_warning_closure_and_separate_acceptance(real_cores):
+    stage.CACHE["cores"] = real_cores
+    with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
+        assert "A SHORT INTERACTIVE DEMO" in client.get("/").text
+        response = command(client, "lesson-start", "rbar")
+        original = client.get("/api/evidence").json()
+        task = original["fixed_engine_run"]["degs_task"]
+        assert task["warnings"][0]["resolved"] is False
+        assert original["fixed_engine_run"]["worker"]["state"] == "COMPLETED_UNACCEPTED"
+        assert original["fixed_engine_run"]["degs"]["decision"] == "BLOCKED"
+        assert "THE OPEN ISSUE SURVIVED" in response.text
+        assert "05" not in original["completed_handoffs"]
+        response = command(client, "lesson-compare", "rbar")
+        assert "SAME WORK. DIFFERENT HANDOFF RECORD" in response.text
+        trial = original["fixed_engine_run"]["translation_comparison"]
+        assert trial["completion_only_decision"]["decision"] == "PASS"
+        assert trial["same_candidate_sha256"] == original["fixed_engine_run"]["package_sha256"]
+        assert client.get("/api/evidence").json() == original
+        command(client, "accept", "rbar")
+        assert "05" not in client.get("/api/evidence").json()["completed_handoffs"]
+        response = command(client, "lesson-fix", "rbar")
+        corrected = client.get("/api/evidence").json()
+        warning = corrected["fixed_engine_run"]["degs_task"]["warnings"][0]
+        assert warning["resolved"] is True and warning["status"] == "RESOLVED" and warning["evidence_path"]
+        assert corrected["fixed_engine_run"]["degs"]["decision"] == "PASS"
+        assert corrected["prior_candidate_runs"] == [original["fixed_engine_run"]]
+        assert "ACCEPTANCE IS STILL YOUR DECISION" in response.text and "05" not in corrected["completed_handoffs"]
+        response = command(client, "accept", "rbar-fixed")
+        accepted = client.get("/api/evidence").json()
+        assert "05" in accepted["completed_handoffs"] and "REVIEWED HANDOFF" in response.text
+        assert accepted["fixed_engine_run"]["worker"]["promotion"] == "NOT_PERFORMED"
+        assert "R-BAR-NOTE" in client.get("/package").text
+        client.get("/")
+        assert not client.get("/api/evidence").json()["completed_handoffs"]
+
+
+def test_ready_poll_has_a_next_step_and_recorded_teams_are_clear():
+    import asyncio
+    state = stage.new_state()
+    state["completed"] = ["01", "02", "03", "04", "05"]
+    state["poll"] = {role: "GO" for role in stage.POLL}
+    state["weather_clear"] = True
+    result = asyncio.run(stage.program(state, "06"))
+    assert result["actions"] == [("07", "RUN THE CLEAN SIMULATED FLIGHT")]
+    inspected = asyncio.run(stage.program(state, "weather"))
+    assert "GO RECORDED" in inspected["lines"]
+    assert all(command != "go-weather" for command, _ in inspected["actions"])

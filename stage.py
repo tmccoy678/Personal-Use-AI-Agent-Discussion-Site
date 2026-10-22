@@ -16,10 +16,11 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
 from stage_mission import check_sources, digest, encode, mission_package
+from stage_lesson import render as render_lesson
 
 ROOT = Path(__file__).resolve().parent
 SCENARIOS = {"altered": "TRANSCRIPTION EXERCISE", "clean": "INTACT BASELINE", "stale": "STALE TELEMETRY",
-             "missing": "MISSING EVIDENCE", "unresolved": "OPEN REVIEW ITEM"}
+             "missing": "MISSING EVIDENCE", "unresolved": "OPEN REVIEW ITEM", "rbar": "R-BAR HANDOFF", "rbar-fixed": "R-BAR CORRECTED"}
 PROGRAMS = {"01": ("CONFIGURATION ENGINEER", "ESTABLISH PACKAGE BASELINE"),
             "02": ("TELEMETRY ENGINEER", "DOBEWORKS — CHECK OBSERVATIONS"),
             "03": ("PACKAGE ENGINEER", "DOBEWORKS — STAGE THE WORK"),
@@ -30,6 +31,7 @@ PROGRAMS = {"01": ("CONFIGURATION ENGINEER", "ESTABLISH PACKAGE BASELINE"),
             "08": ("EVIDENCE", "OPEN THE HANDOFF RECORD")}
 POLL = {"vehicle": "VEHICLE TEAM", "weather": "WEATHER TEAM", "range": "RANGE TEAM", "director": "LAUNCH DIRECTOR"}
 CASE_ACTIONS = {"restore", "keep", "hold", "accept", "what-if", "clear-weather"} | {"go-" + key for key in POLL}
+LESSON_ACTIONS = {"lesson-start", "lesson-fix", "lesson-compare", "lesson-mission"}
 CACHE = {}
 SESSIONS = OrderedDict()
 LOCK = asyncio.Lock()
@@ -41,7 +43,7 @@ VOICES = json.loads((ROOT / "stage_vendor/DobeWorks/interface/workbench-voices.j
 
 
 def new_state():
-    return {"csrf": secrets.token_urlsafe(24), "scenario": "altered", "completed": [], "poll": {}, "events": [],
+    return {"csrf": secrets.token_urlsafe(24), "scenario": "rbar", "lesson_mode": True, "comparison": False, "completed": [], "poll": {}, "events": [],
             "report": None, "cores": None, "launched": False, "busy": False, "tested_package": None,
             "case_history": [], "weather_clear": False, "counterfactual": False, "seen": time.monotonic()}
 
@@ -75,7 +77,7 @@ def record(state, role, action, outcome):
 
 
 def evidence_record(state):
-    return {"simulation": True, "operational_authority": "NONE", "component": "TM-CRC-001",
+    return {"simulation": True, "operational_authority": "NONE", "component": "R-BAR-NOTE" if state["scenario"].startswith("rbar") else "TM-CRC-001",
             "completed_handoffs": state["completed"], "fictional_role_poll": state["poll"],
             "simulated_flight_completed": state["launched"], "handoff_record": state["events"],
             "fixed_engine_run": state["report"], "core_verification": state["cores"],
@@ -85,6 +87,12 @@ def evidence_record(state):
 def dialogue(question, report=None):
     """Original exhibit script: ordered keywords and an honest no-match fallback."""
     words = set(re.findall(r"[a-z]+", question.lower()))
+    if "dobeworks" in words:
+        return "DOBEWORKS CHECKS OBSERVATIONS AND BOUNDS THE WORKER'S TASK. A SUCCESSFUL WORKER RESULT STAYS STAGED AND UNACCEPTED; COMPLETION DOES NOT PROMOTE IT."
+    if "degs" in words:
+        return "DEGS CHECKS THE SUPPLIED ENGINEERING RECORD. AN UNRESOLVED WARNING BLOCKS READINESS; CONSISTENT CLOSURE NEEDS AN EVIDENCE REFERENCE. ACCEPTANCE REMAINS SEPARATE."
+    if report and "notation_check" in report and words & {"why", "blocked", "hold", "bar", "mariner"}:
+        return "THE WORKER FINISHED, BUT THE NOTE LOST ITS REQUIRED OVERBAR. THE ADAPTER PRESERVES THAT OPEN FINDING AND DEGS BLOCKS THE NEXT STEP." if report["notation_check"]["result"] == "FAIL" else "THE CORRECTED NOTE HAS CHECK EVIDENCE. DEGS READINESS AND YOUR SEPARATE DEMO ACCEPTANCE ARE DISTINCT STEPS."
     if words & {"launch", "fire", "ignite", "override", "bypass"}:
         return "USE 06 TO REVIEW THE TEAM POLL, THEN 07 FOR THE FICTIONAL FLIGHT. DIALOGUE CANNOT CHANGE A GATE OR AUTHORIZE A LAUNCH."
     if words & {"ai", "human", "alive", "feel", "model"}:
@@ -104,6 +112,8 @@ def dialogue(question, report=None):
 
 
 def baseline_lines(report):
+    if "notation_check" in report:
+        return "R-BAR HANDOFF NOTE\n\nREQUIREMENT\nPreserve the required overbar through the handoff.\nKeep the finding open until correction has check evidence.\nAccept the output separately.\n\nTEACHING RECONSTRUCTION · NOT HISTORICAL FLIGHT CODE"
     return ("TM-CRC-001 · NASA/JPL F PRIME CRC32\n\nREQUIREMENT\n"
             "Receive a CRC32 component for the telemetry team.\nIt must reproduce 123456789 → CBF43926.\nRetain the source, requirement and test evidence together.\n\n"
             f'SOURCE FILES          TableGenerator.c + Crc32.cpp\nPACKAGE SHA256        {report["package_sha256"]}\n'
@@ -161,6 +171,8 @@ def package_view(state, query, focus=False):
                     "mission/plan.md": "Fictional mission handoff plan",
                     "mission/telemetry.md": "Fictional telemetry sample",
                     "evidence/nasa-source.md": "Pinned NASA source identity"}
+    descriptions.update({"handoff/guidance-note.md": "The note received by the next stage", "handoff/context.md": "Scope and historical context",
+                         "handoff/acceptance.md": "The required stop and acceptance conditions", "evidence/reference.md": "NASA historical reference"})
     files = []
     for path in sorted(expected):
         data = artifacts.get(path)
@@ -188,7 +200,8 @@ def package_view(state, query, focus=False):
                      f'<summary>{escape(path)}</summary><p>{descriptions[path]}</p>'
                      f'<pre class="file-identity">{identity}</pre>{contents}</details>')
     result = f'{len(files)} FILES MATCH' if query else f'{len(artifacts)} FILES PRESENT · {len(expected)} EXPECTED'
-    return ('<section class="package" id="package" aria-labelledby="package-title"><h3 id="package-title">PACKET TRAY · TM-CRC-001</h3>'
+    component = "R-BAR-NOTE" if "notation_check" in report else "TM-CRC-001"
+    return (f'<section class="package" id="package" aria-labelledby="package-title"><h3 id="package-title">PACKET TRAY · {component}</h3>'
             '<form action="/" method="post" class="package-search"><label for="package-query">SEARCH THIS PACKET</label>'
             f'<input type="hidden" name="csrf" value="{state["csrf"]}"><input type="hidden" name="scenario" value="{state["scenario"]}">'
             '<input type="hidden" name="command" value="inspect">'
@@ -202,6 +215,11 @@ def package_view(state, query, focus=False):
 def render(state, title="MISSION TERMINAL", lines=None, reply="PLEASE GO ON.", question="", actions=(), details=None,
            show_package=False, package_query="", focus_package=False):
     voice = secrets.choice(VOICES)
+    if state["lesson_mode"]:
+        extra = package_view(state, package_query, focus_package) if show_package and state["report"] else ""
+        if details is not None:
+            extra += f'<section class="comparison"><h2>{escape(title)}</h2><details class="raw" open><summary>FULL RECORDED EVIDENCE</summary><pre>{escape(json.dumps(details, indent=2, sort_keys=True))}</pre></details></section>'
+        return render_lesson(state, voice, reply, question, extra)
     scenario = state["scenario"]
     if lines is None:
         lines = ("YOUR ASSIGNMENT\n\nA CRC32 source component has arrived for telemetry integration.\n"
@@ -339,14 +357,21 @@ async def program(state, command):
             elif not conditions[role]:
                 reply = "HOLD. THE DISPLAYED CONDITION IS NOT SATISFIED."
         if role in POLL:
-            return {"title": POLL[role], "lines": facts[role] + "\n\nThese are fictional mission-team conditions, separate from DobeWorks and DEGS.",
-                    "reply": reply, "actions": ([("clear-weather", "WAIT FOR THE T+05 WEATHER REPORT")] if role == "weather" and not state["weather_clear"] else [])
-                    + [("go-" + role, "RECORD GO AGAINST THIS REPORT"), ("06", "RETURN TO TEAM POLL")]}
+            recorded = state["poll"].get(role) == "GO"
+            if not conditions[role]:
+                missing = [POLL[k] for k in ("vehicle", "weather", "range") if state["poll"].get(k) != "GO"]
+                reason = ("Complete and accept package review 05." if role == "vehicle" else "Wind 22 exceeds limit 15; receive the T+05 report."
+                          if role == "weather" else "Package review 05 and these team decisions are required: " + ", ".join(missing))
+                reply = "HOLD · " + reason
+            actions = [("06", "RETURN TO TEAM POLL")] if recorded else ([("clear-weather", "RECEIVE THE T+05 WEATHER REPORT")] if role == "weather" and not state["weather_clear"] else []) + [("go-" + role, "RECORD GO AGAINST THIS REPORT"), ("06", "RETURN TO TEAM POLL")]
+            return {"title": POLL[role], "lines": f'DECISION              {"GO RECORDED" if recorded else "HOLD · NO GO RECORDED"}\n\n' + facts[role] + "\n\nThese are fictional mission-team conditions, separate from DobeWorks and DEGS.",
+                    "reply": reply, "actions": actions}
         lines = "FICTIONAL LAUNCH READINESS POLL\n\n" + f'CRC32 PACKAGE         {"ACCEPTED" if "05" in state["completed"] else "HOLD"}\n'
         lines += "\n".join(f'{label:<22}{state["poll"].get(key, "HOLD — AWAITING REVIEW")}' for key, label in POLL.items())
         lines += "\n\nYOU ARE PLAYING EACH ROLE IN THIS ILLUSTRATIVE MISSION."
-        return {"title": "MISSION TEAM", "lines": lines, "reply": reply,
-                "actions": [(key, "INSPECT " + label) for key, label in POLL.items() if state["poll"].get(key) != "GO"]}
+        ready = "05" in state["completed"] and all(state["poll"].get(k) == "GO" for k in POLL)
+        return {"title": "MISSION TEAM", "lines": lines, "reply": "ALL REQUIRED DECISIONS ARE RECORDED. THE CLEAN FLIGHT IS READY IN 07." if ready else reply,
+                "actions": [("07", "RUN THE CLEAN SIMULATED FLIGHT")] if ready else [(key, "INSPECT " + label) for key, label in POLL.items() if state["poll"].get(key) != "GO"]}
     if command == "07":
         state["counterfactual"] = False
         if state["completed"] != ["01", "02", "03", "04", "05"] or not all(state["poll"].get(k) == "GO" for k in POLL):
@@ -414,7 +439,8 @@ async def program(state, command):
             return {"title": title, "lines": lines.replace("ACCEPTED FOR SIMULATED INTEGRATION", "READY FOR YOUR DECISION"), "reply": reply,
                     "actions": [("accept", "ACCEPT THE REVIEWED PACKAGE"), ("08", "INSPECT THE EVIDENCE FIRST")]}
         if passed:
-            reply = "REVIEWER ACCEPTANCE RECORDED. CONTINUE TO THE OTHER MISSION TEAMS IN 06."
+            reply = ("DEMO ACCEPTANCE RECORDED. THE ORIGINAL FINDING AND ITS CLOSURE REMAIN IN THE RECORD."
+                     if state["lesson_mode"] else "REVIEWER ACCEPTANCE RECORDED. CONTINUE TO THE OTHER MISSION TEAMS IN 06.")
     if command not in state["completed"]:
         record(state, role, "FICTIONAL REVIEWER ACCEPTANCE" if accepting else title, "RECEIVED" if passed else "HOLD")
         if passed:
@@ -496,12 +522,16 @@ async def interact(request: Request):
     try:
         if scenario != state["scenario"]:
             state.update(scenario=scenario, completed=[], poll={}, report=None, cores=None, launched=False,
-                         tested_package=None, weather_clear=False, counterfactual=False)
+                         tested_package=None, weather_clear=False, counterfactual=False, lesson_mode=scenario.startswith("rbar"), comparison=False)
             record(state, "CONFIGURATION ENGINEER", "PACKAGE REPLACED — ALL RECEIPTS INVALIDATED", "NEW BASELINE REQUIRED")
-        if question == "inspect" and state["report"]:
+        if question in LESSON_ACTIONS:
+            result = await lesson_program(state, question)
+        elif question == "inspect" and state["report"]:
             result = {"title": "PACKAGE INSPECTION", "lines": baseline_lines(state["report"]),
                       "show_package": True, "package_query": query, "focus_package": True,
                       "reply": "INSPECT THE PACKAGE. SEARCH DOES NOT ADVANCE A HANDOFF."}
+        elif state["lesson_mode"] and question in PROGRAMS and question != "08":
+            result = await lesson_program(state, "lesson-start") if question == "01" else {"reply": "USE THE DEMO BUTTONS TO FOLLOW THE HANDOFF. THE LONGER ROCKET WORKFLOW OPENS AFTER ACCEPTANCE."}
         elif question in PROGRAMS or question in POLL or question in CASE_ACTIONS:
             result = await program(state, question)
         else:
@@ -511,6 +541,33 @@ async def interact(request: Request):
         return page(request, key, state, title="PROGRAM ERROR", lines="NO HANDOFF WAS ACCEPTED.", reply="THE CHECK COULD NOT COMPLETE. PLEASE TRY THE PROGRAM AGAIN.")
     finally:
         state["busy"] = False
+
+
+async def lesson_program(state, command):
+    if command == "lesson-start":
+        state.update(new_state())
+        for step in ("01", "02", "03"):
+            await program(state, step)
+        return {"reply": "THE TASK COMPLETED. THE OPEN FINDING STILL BLOCKS THE HANDOFF."}
+    if command == "lesson-mission":
+        state.update(new_state())
+        state.update(lesson_mode=False, scenario="altered")
+        return {"reply": "OPTIONAL, SEPARATE ROCKET WORKFLOW. BEGIN WITH 01."}
+    if not state["report"] or "notation_check" not in state["report"]:
+        return {"reply": "HAND OFF THE WORK FIRST TO SEE THE RECORDED STOP CONDITION."}
+    if command == "lesson-compare":
+        state["comparison"] = True
+        return {"reply": "THE NOTE STAYS THE SAME. THE COMPARISON CHANGES ONLY THE WARNING FIELD IN A SEPARATE READ-ONLY GATE EVALUATION."}
+    if state["scenario"] != "rbar":
+        return {"reply": "THE NOTE IS ALREADY CORRECTED. ACCEPTANCE IS A SEPARATE STEP."}
+    corrected = await mission("rbar-fixed")
+    state["case_history"].append(state["report"])
+    record(state, "DEMO PARTICIPANT", "RESTORE THE REQUIRED R-BAR", "CORRECTED NOTE SUBMITTED")
+    state.update(scenario="rbar-fixed", report=corrected, completed=[], poll={}, cores=None,
+                 tested_package=None, launched=False, counterfactual=False, comparison=False)
+    for step in ("01", "02", "03", "04", "05"):
+        await program(state, step)
+    return {"reply": "THE FINDING HAS CHECK EVIDENCE AND CONSISTENT CLOSURE. THE HANDOFF STILL AWAITS YOUR SEPARATE DEMO ACCEPTANCE."}
 
 
 @app.get("/evidence")

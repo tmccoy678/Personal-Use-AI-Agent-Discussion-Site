@@ -1,10 +1,20 @@
 # stage.dobeworks.com
 
-A fictional engineering desk carries one important component through several team handoffs. The packet is based on the actual NASA/JPL F´ `TableGenerator.c`, `Crc32.cpp` and license, plus an explicit requirement, source identities and fictional telemetry/evidence. The source component supports data integrity; this exhibit does not run flight guidance or vehicle control. The wider mission and all role decisions are fictional.
+A short interactive demonstration shows why completed work can still need to stop. An optional fictional engineering desk then carries one important component through several team handoffs. The packet is based on the actual NASA/JPL F´ `TableGenerator.c`, `Crc32.cpp` and license, plus an explicit requirement, source identities and fictional telemetry/evidence. The source component supports data integrity; this exhibit does not run flight guidance or vehicle control. The wider mission and all role decisions are fictional.
 
 The existing Render Starter service and disk serve all three hostnames. No new paid service, model provider or per-visitor AI call is required. Existing hosting bandwidth/resource charges still apply. Dialogue is an original keyword/no-match script inspired by [Weizenbaum's 1966 ELIZA paper](https://doi.org/10.1145/365153.365168); it cannot change an engine result or a mission receipt.
 
-## Mission workflow
+## Interactive handoff demonstration
+
+The default front door is a three-action demonstration: hand off completed work, restore a missing R-bar and recheck, then record a separate demo acceptance. The larger rocket workflow is optional after that sequence.
+
+The note is an original teaching reconstruction of the notation loss described in NASA's Mariner 1 account, not recovered guidance code. A small exact-reference check detects the omitted combining overbar in `handoff/guidance-note.md`. DobeWorks performs its real bounded synthetic inventory and retains `COMPLETED_UNACCEPTED` / `NOT_PERFORMED`. The exhibit adapter supplies a structured unresolved warning to the real DEGS CLI. A corrected note supplies consistent `NONE` / `RESOLVED` / `resolved=true` warning fields and an evidence path, rather than silently deleting the warning. Readiness then passes; visitor acceptance remains a separate simulation step. The Worker result itself is not promoted.
+
+An optional comparison keeps the candidate note and all other task fields fixed, dropping only the warning field in a separate read-only DEGS evaluation. The preserved record is BLOCKED; the completion-only record returns PASS because it no longer contains the stop. The comparison never replaces the active gate result or records acceptance. This illustrates why correct record translation is part of the protection and why the gate cannot enforce omitted information. It is a fixed teaching example, not a completed live-agent experiment.
+
+The note, historical context, acceptance requirement and source reference remain inspectable. Correction retains the original failed candidate in evidence.
+
+## Optional rocket workflow
 
 1. Configuration engineer: establish the bounded CRC32 source package and requirement.
 2. Telemetry engineer: inspect the real Observer's fresh/stale synthetic fixture result.
@@ -15,7 +25,7 @@ The existing Render Starter service and disk serve all three hostnames. No new p
 7. Run the clean fictional flight after all handoffs and the complete poll. A separately labelled what-if branch illustrates a launch with the known checksum error while preserving the real BLOCKED decision and leaving package acceptance and successful-flight state unset.
 8. View the recorded evidence inline. No checks rerun and no program downloads a file.
 
-The focused teaching case is a quiet transcription error: the default received copy changes exactly one ASCII character in `TableGenerator.c`, line 44, from `0xEDB88320` to `0xEDB88321`. Its size stays the same and both C generators compile. Preparation runs the real C code for the altered copy, retains all 1,024 generated table values and build commands in ignored `stage_assets/transcription-check.json`, and runtime rechecks those values against the fixed candidate polynomial and exact source digest. The known input `123456789` produces `CFBDC920` instead of `CBF43926`. For the fictional telemetry sample, the changed component produces `9B0624A9` instead of the receiver's expected `B8BD3EAE`. The original telemetry's CRC can still be intact while its proposed generating component is wrong.
+The optional rocket case uses a quiet transcription error: its received copy changes exactly one ASCII character in `TableGenerator.c`, line 44, from `0xEDB88320` to `0xEDB88321`. Its size stays the same and both C generators compile. Preparation runs the real C code for the altered copy, retains all 1,024 generated table values and build commands in ignored `stage_assets/transcription-check.json`, and runtime rechecks those values against the fixed candidate polynomial and exact source digest. The known input `123456789` produces `CFBDC920` instead of `CBF43926`. For the fictional telemetry sample, the changed component produces `9B0624A9` instead of the receiver's expected `B8BD3EAE`. The original telemetry's CRC can still be intact while its proposed generating component is wrong.
 
 A visual chain links source, behavior, actual DEGS record decision, fictional receiver rejection and countdown hold. The alternative error-flight illustration does not predict a spacecraft trajectory or crash. Restoring the published digit submits a new copy, invalidates prior reviews, and retains the failed candidate beside the corrected run in evidence. Repeat the checks before accepting it. The clean-flight summary connects the corrected behavior to the received result.
 
