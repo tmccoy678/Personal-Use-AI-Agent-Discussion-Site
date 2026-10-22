@@ -12,7 +12,7 @@
 <form action="/" method="post"><input type="hidden" name="csrf" value="{{csrf}}"><label class="scenario">MISSION PACKET <select name="scenario">{{options}}</select></label>
 <div class="programs">{{programs}}<button class="reset" name="command" value="00">00  RESET INTERFACE</button></div></form>
 <section class="output" aria-label="Program results"><h2>{{title}}</h2><pre class="result" aria-live="polite">{{result}}</pre>{{details}}</section>
-</section><aside aria-label="Fictional mission"><h1>MISSION 001</h1><div class="mission-board"><div class="launch-display"><pre class="rocket {{flight_class}}" aria-label="Simple text rocket">
+</section><aside aria-label="Fictional mission"><h1>MISSION 001</h1>{{mission_progress}}<div class="mission-board"><div class="launch-display"><pre class="rocket {{flight_class}}" aria-label="Simple text rocket">
          /\
         /  \
        /    \

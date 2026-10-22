@@ -117,6 +117,68 @@ def evidence_record(state):
             "prior_candidate_runs": state["case_history"], "counterfactual_flight_with_errors": state["counterfactual"]}
 
 
+def workflow_progress(state):
+    """Return the visible mission position without changing engine or gate state."""
+    completed = set(state["completed"])
+    poll_complete = all(state["poll"].get(role) == "GO" for role in POLL)
+    if poll_complete:
+        completed.add("06")
+    if state["launched"]:
+        completed.add("07")
+
+    current = next((key for key in ("01", "02", "03", "04", "05") if key not in completed), None)
+    if current is None:
+        current = "06" if "06" not in completed else "07" if "07" not in completed else "08"
+
+    held = False
+    if current in {"01", "02", "03", "04", "05"} and state["events"]:
+        last = state["events"][-1]
+        held = last["outcome"] == "HOLD" and last["role"] == PROGRAMS[current][0]
+    report = state["report"]
+    tested = report is not None and state["tested_package"] == report["package_sha256"]
+    if current == "03" and tested:
+        check = report.get("notation_check") or report.get("source_behavior")
+        held = check is not None and check.get("result") == "FAIL"
+    return completed, current, held, min(len(completed & set(PROGRAMS)), 7)
+
+
+def program_menu(state):
+    completed, current, held, _ = workflow_progress(state)
+    rows = []
+    for key, (_, label) in PROGRAMS.items():
+        if key in completed:
+            status, class_name = "DONE", "is-complete"
+        elif key == current:
+            status, class_name = ("HOLD", "is-held") if held else ("NEXT", "is-current")
+        else:
+            status, class_name = "", "is-waiting"
+        current_attribute = ' aria-current="step"' if key == current else ""
+        rows.append(
+            f'<button class="program {class_name}" name="command" value="{key}"{current_attribute}>'
+            f'<span class="program-number">{key}</span><span class="program-label">{escape(label)}</span>'
+            f'<span class="program-status">{status}</span></button>'
+        )
+    return "".join(rows)
+
+
+def mission_progress(state):
+    _, current, held, count = workflow_progress(state)
+    segments = "".join(
+        f'<span class="mission-segment {"is-complete" if number <= count else ""}" aria-hidden="true"></span>'
+        for number in range(1, 8)
+    )
+    position = f'{count} OF 7 CONDITIONS RECORDED'
+    if held:
+        position += f' · PROGRAM {current} HOLD'
+    elif current != "08":
+        position += f' · PROGRAM {current} NEXT'
+    else:
+        position += ' · FLIGHT COMPLETE'
+    return (f'<div class="mission-progress" role="progressbar" aria-label="{escape(position)}" '
+            f'aria-valuemin="0" aria-valuemax="7" aria-valuenow="{count}">'
+            f'<div class="mission-rail">{segments}</div><p>{escape(position)}</p></div>')
+
+
 def dialogue(question, report=None):
     """Original exhibit script: ordered keywords and an honest no-match fallback."""
     words = set(re.findall(r"[a-z]+", question.lower()))
@@ -172,13 +234,13 @@ def impact_view(state):
                  ("02 · DOBEWORKS", "Awaiting bounded work"),
                  ("03 · HANDOFF CHECK", "Awaiting exact notation check"),
                  ("04 · DEGS", "Awaiting the preserved record"),
-                 ("05 · COUNTDOWN", "HOLD · package not accepted")]
+                 ("05 · COUNTDOWN", "Awaiting package acceptance")]
     else:
         nodes = [("01 · SOURCE", "One component received"),
                  ("02 · DOBEWORKS", "Awaiting bounded work"),
                  ("03 · BEHAVIOR", "Awaiting the known-answer check"),
                  ("04 · DEGS", "Awaiting the preserved record"),
-                 ("05 · COUNTDOWN", "HOLD · package not accepted")]
+                 ("05 · COUNTDOWN", "Awaiting package acceptance")]
     if tested and check:
         nodes[0] = ("01 · GUIDANCE NOTE", f'Required {check["required"]} · received {check["received"]}')
         nodes[1] = ("02 · DOBEWORKS", f'{report["worker"]["state"]} · {report["worker"]["promotion"]}')
@@ -195,6 +257,12 @@ def impact_view(state):
         nodes[4] = ("05 · COUNTDOWN", "Package accepted · awaiting other teams")
     if state["launched"]:
         nodes[4] = ("05 · COUNTDOWN", "Simulated flight · corrected component received" if state["case_history"] else "Simulated flight · verified baseline received")
+    elif all(state["poll"].get(role) == "GO" for role in POLL):
+        nodes[4] = ("05 · COUNTDOWN", "Countdown authorized · ready for simulated flight")
+    elif state["poll"].get("weather") == "GO":
+        nodes[4] = ("05 · COUNTDOWN", "Weather GO · launch decision waiting")
+    elif state["weather_clear"]:
+        nodes[4] = ("05 · COUNTDOWN", "Weather observation updated · decision waiting")
     caption = ("The what-if launch bypasses the blocked record. The downstream vehicle outcome is outside this exercise." if state["counterfactual"] and rbar_case
                else "Exercise consequence: launched with a failed checksum; the receiver rejects the result." if state["counterfactual"]
                else "All exercise checks pass; the corrected handoff reaches the receiving team." if state["launched"] and rbar_case
@@ -202,7 +270,30 @@ def impact_view(state):
                else "This check passed. Package review and the other teams still govern countdown." if tested and not failed
                else "The unresolved notation finding keeps this mission on the pad." if rbar_case
                else "The failed checksum keeps this mission on the pad.")
-    cards = ''.join(f'<li><small>{escape(title)}</small><span>{escape(value)}</span></li>' for title, value in nodes)
+    completed, current, _, _ = workflow_progress(state)
+    node_states = ["is-waiting"] * len(nodes)
+    if "01" in completed:
+        node_states[0] = "is-complete"
+    elif current == "01":
+        node_states[0] = "is-current"
+    if tested:
+        node_states[1] = "is-complete"
+        node_states[2] = "is-held" if failed else "is-complete"
+        node_states[3] = "is-held" if failed else "is-complete"
+    elif current in {"02", "03"}:
+        node_states[1] = "is-current"
+    if state["launched"]:
+        node_states[4] = "is-complete"
+    elif failed or state["counterfactual"]:
+        node_states[4] = "is-held"
+    elif "05" in completed:
+        node_states[4] = "is-current"
+    status_names = {"is-complete": "DONE", "is-current": "ACTIVE", "is-held": "HOLD", "is-waiting": "WAIT"}
+    cards = ''.join(
+        f'<li class="{status}"><small>{escape(title)}<b>{status_names[status]}</b></small>'
+        f'<span>{escape(value)}</span></li>'
+        for (title, value), status in zip(nodes, node_states)
+    )
     difference = ""
     if failed and check:
         difference = ('<details class="difference" open><summary>THE MISSING MARK</summary>'
@@ -219,7 +310,7 @@ def impact_view(state):
             f'{behavior["candidate_packet_crc32"]} for the same telemetry sample. Its integrity result cannot be accepted.</p></details>')
     heading = "ONE MARK · STOPPED BEFORE LAUNCH" if rbar_case else "ONE CHARACTER · DOWNSTREAM"
     return (f'<section class="impact" aria-label="Effect on this fictional mission"><h2>{heading}</h2>'
-            f'<ol class="{"held" if failed else ""}">{cards}</ol>{difference}'
+            f'<ol>{cards}</ol>{difference}'
             f'<p class="impact-caption">{caption}</p></section>')
 
 
@@ -308,7 +399,8 @@ def render(state, title="MISSION TERMINAL", lines=None, reply="PLEASE GO ON.", q
     if scenario == "rbar-fixed":
         menu = {"rbar-fixed": "R-BAR CORRECTED · CURRENT PACKET", **menu}
     options = "".join(f'<option value="{key}" {"selected" if key == scenario else ""}>{value}</option>' for key, value in menu.items())
-    programs = "".join(f'<button name="command" value="{key}">{key}  {label}</button>' for key, (_, label) in PROGRAMS.items())
+    programs = program_menu(state)
+    progress_display = mission_progress(state)
     controls = "".join(f'<button class="enter" name="command" value="{key}">{escape(label)}</button>' for key, label in actions)
     raw = f'<details class="raw"><summary>FULL RECORDED EVIDENCE</summary><pre>{escape(json.dumps(details, indent=2, sort_keys=True))}</pre></details>' if details is not None else ""
     milestones = ("PACKAGE IDENTIFIED", "OBSERVATIONS RECEIVED", "WORK STAGED FOR REVIEW", "ENGINE TESTS VERIFIED", "REVIEWER RECEIVED PACKAGE")
@@ -336,6 +428,7 @@ def render(state, title="MISSION TERMINAL", lines=None, reply="PLEASE GO ON.", q
         html = html.replace("{{" + key + "}}", escape(str(value)))
     return (html.replace("{{options}}", options).replace("{{programs}}", programs).replace("{{actions}}", controls)
             .replace("{{details}}", raw).replace("{{progress}}", progress)
+            .replace("{{mission_progress}}", progress_display)
             .replace("{{impact}}", impact_view(state))
             .replace("{{package}}", package_view(state, package_query, focus_package) if state["report"] else
                      f'<p class=empty-tray>PACKET TRAY · {"R-BAR-NOTE" if scenario.startswith("rbar") else "TM-CRC-001"}<br>USE 01 TO OPEN THE PACKAGE.</p>'))

@@ -59,6 +59,48 @@ def test_stage_voice_bank_rejects_incomplete_provenance(tmp_path):
         stage.load_workbench_voices(bank)
 
 
+def test_mission_position_is_persistent_and_programmatic():
+    state = stage.new_state()
+    completed, current, held, count = stage.workflow_progress(state)
+    assert completed == set() and current == "01" and held is False and count == 0
+    menu = stage.program_menu(state)
+    assert 'value="01" aria-current="step"' in menu
+    assert '<span class="program-status">NEXT</span>' in menu
+    progress = stage.mission_progress(state)
+    assert 'role="progressbar"' in progress and 'aria-valuenow="0"' in progress
+
+
+def test_out_of_order_program_keeps_the_required_step_visible():
+    with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
+        response = command(client, "04", "rbar")
+        assert "HANDOFF HOLD" in response.text
+        assert 'value="01" aria-current="step"' in response.text
+        assert 'aria-valuenow="0"' in response.text
+
+
+def test_mission_position_advances_and_holds_at_the_failed_boundary():
+    state = stage.new_state()
+    state["completed"] = ["01", "02"]
+    state["report"] = {"package_sha256": "packet", "notation_check": {"result": "FAIL"}}
+    state["tested_package"] = "packet"
+    completed, current, held, count = stage.workflow_progress(state)
+    assert completed == {"01", "02"} and current == "03" and held is True and count == 2
+    menu = stage.program_menu(state)
+    assert 'class="program is-held" name="command" value="03" aria-current="step"' in menu
+    assert '<span class="program-status">HOLD</span>' in menu
+
+
+def test_mission_position_moves_from_poll_to_flight_and_evidence():
+    state = stage.new_state()
+    state["completed"] = ["01", "02", "03", "04", "05"]
+    assert stage.workflow_progress(state)[1:] == ("06", False, 5)
+    state["poll"] = {role: "GO" for role in stage.POLL}
+    assert stage.workflow_progress(state)[1:] == ("07", False, 6)
+    state["launched"] = True
+    assert stage.workflow_progress(state)[1:] == ("08", False, 7)
+    assert 'aria-valuenow="7"' in stage.mission_progress(state)
+
+
 def test_all_real_scenarios_and_source_identity():
     before = stage_mission.check_sources()
     for scenario in stage.SCENARIOS:
