@@ -77,9 +77,9 @@ DOBEWORKS_DEGS_ROOT=/path/to/DEGS python3 -B -m unittest discover -s interface -
 
 ## Voices and design sources
 
-One line from the [100-entry voice bank](workbench-voices.json) appears on each menu render, in quotation marks with its attribution. ELIZA, Colossus, and Guardian have equal selection probability. The bank preserves 98 original Workbench lines assigned to those voices, plus two short historical excerpts: `PLEASE GO ON.` from Weizenbaum's DOCTOR script and `THIS IS THE VOICE OF WORLD CONTROL.` from the film. Original lines are stylistic dialogue, not historical quotations from the named characters or their actors. The voice bank retains its per-entry origin information.
+One line from the [six-entry verified voice bank](workbench-voices.json) appears on each menu render, in quotation marks with its attribution. ELIZA, Colossus, and the joint post-fusion Colossus + Guardian voice have equal selection probability, with two entries each. Every entry records its primary source and exact locator, and the loader fails closed if that provenance or the balanced speaker set is missing.
 
-The display is a visual homage to ELIZA-era printed terminals and the central-computer control room of *Colossus: The Forbin Project* (1970). It uses original interface code and text alongside the two identified excerpts; it imports no film graphics or third-party application code.
+The display is a visual homage to ELIZA-era printed terminals and the central-computer control room of *Colossus: The Forbin Project* (1970). Guardian has no independently spoken English output before the systems fuse, so the bank does not invent a solo Guardian quotation. The [verification record](../docs/research/verified-workbench-voices.md) documents the source review, integrity data, local-clip audit, and attribution decision. The interface imports no film graphics or third-party application code.
 
 - Weizenbaum, J. (1966). [ELIZA—A computer program for the study of natural language communication between man and machine](https://doi.org/10.1145/365153.365168). *Communications of the ACM, 9*(1), 36–45.
 - MIT CTSS history. [The IBM 7094 and CTSS at MIT](https://people.csail.mit.edu/saltzer/CTSS/CTSS-Documents/CTSS_50th_anniversary_web_03.pdf).

@@ -49,10 +49,10 @@ The scenario is informed by NASA's [configuration management](https://www.nasa.g
 
 `stage_vendor/sources.json` freezes selected runtime files, tests, fixtures, support files and notices at these default-branch heads, checked on 2026-10-21:
 
-- DobeWorks: `20ac2bc684cda9d0d4ce799e9379e44b2a1c51a9`
+- DobeWorks: `ab7fd6019b6a8ae799213d485dea1d77eb2ed2ce`
 - DEGS: `29632112ea809e7a589bf04031ecb433ec169888`
 
-These files are unmodified. The selected runtime files match the earlier `initial-release-final` snapshots. `check_sources()` verifies every selected file before a run. No runtime GitHub fetching or automatic upstream updates occur. The existing shared interface's task adapter, strict CLI result decoder, test commands and test summary parser are reused. DEGS evaluates the submitted read-only record; it does not independently inspect packet files. The exhibit performs the manifest comparison and maps a failed comparison to a blocked record. Worker output remains `COMPLETED_UNACCEPTED`, promotion `NOT_PERFORMED`; the separate simulated reviewer receipt does not promote that engine output or authorize real execution.
+These files are unmodified. The selected engine runtime files still match the earlier `initial-release-final` snapshots; the DobeWorks interface and voice-bank files now come from the later verified-voice commit identified above. `check_sources()` verifies every selected file before a run. No runtime GitHub fetching or automatic upstream updates occur. The existing shared interface's task adapter, strict CLI result decoder, test commands and test summary parser are reused. DEGS evaluates the submitted read-only record; it does not independently inspect packet files. The exhibit performs the manifest comparison and maps a failed comparison to a blocked record. Worker output remains `COMPLETED_UNACCEPTED`, promotion `NOT_PERFORMED`; the separate simulated reviewer receipt does not promote that engine output or authorize real execution.
 
 NASA/JPL F´ is pinned at `a37ffa40871e567481d0a7626c12b24d8acdbf15`. Preparation compiles its real C99 table generator and compares all 1,024 values to the pinned C++ reference. The exhibit's small checksum loop checks `123456789 → CBF43926` before using the generated table. Caltech's Apache-2.0 header and Stephan Brumme's embedded notice are retained. Full provenance is in `stage_vendor/nasa-fprime/`; no NASA endorsement is claimed.
 

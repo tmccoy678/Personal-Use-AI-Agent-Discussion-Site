@@ -108,4 +108,6 @@ def render(state, voice, reply, question, extra=""):
         '<p>The comparison uses the same candidate and the real gate, changing only the warning field in a separate read-only evaluation. It performs no execution or promotion.</p>'
         '<p><a href="/evidence">RECORDED INPUTS &amp; OUTPUTS</a> · <a href="/package">INSPECT THE NOTE AND CONTEXT</a> · <a href="/sources">FROZEN SOURCE IDENTITIES</a></p></details>' + extra +
         '<footer>REAL FROZEN COMPONENTS · SIMULATED ACCEPTANCE · NO MODEL CALLS<br>'
+        '<a href="https://doi.org/10.1145/365153.365168">ELIZA, WEIZENBAUM 1966</a> · '
+        '<a href="https://catalog.afi.com/Film/23505-THE-FORBIN-PROJECT">COLOSSUS: THE FORBIN PROJECT, 1970</a><br>'
         '<a href="https://dobeworks.com">DOBEWORKS</a> · <a href="https://lab.dobeworks.com">LAB</a></footer></main></body></html>')

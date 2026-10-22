@@ -42,7 +42,37 @@ ATTEMPTS = deque(maxlen=60)
 COOKIE = "stage_mission"
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 TEMPLATE = (ROOT / "stage_assets/index.html").read_text()
-VOICES = json.loads((ROOT / "stage_vendor/DobeWorks/interface/workbench-voices.json").read_text())
+
+
+def load_workbench_voices(path=None):
+    """Load only the balanced, primary-source-verified public header bank."""
+    bank = Path(path) if path is not None else ROOT / "stage_vendor/DobeWorks/interface/workbench-voices.json"
+    entries = json.loads(bank.read_text())
+    expected = {"ELIZA": 2, "COLOSSUS": 2, "COLOSSUS + GUARDIAN": 2}
+    if not isinstance(entries, list) or len(entries) != sum(expected.values()):
+        raise RuntimeError("The stage voice bank must contain exactly six verified outputs")
+    counts = {speaker: 0 for speaker in expected}
+    for entry in entries:
+        if not isinstance(entry, dict):
+            raise RuntimeError("Every stage voice entry must be an object")
+        speaker = entry.get("speaker")
+        if (
+            speaker not in counts
+            or not entry.get("text")
+            or not entry.get("attribution")
+            or not entry.get("source")
+            or not entry.get("locator")
+            or entry.get("verification") != "primary-source-verified"
+            or re.fullmatch(r"[0-9a-f]{64}", entry.get("source_sha256", "")) is None
+        ):
+            raise RuntimeError("Every stage voice requires verified primary-source provenance")
+        counts[speaker] += 1
+    if counts != expected:
+        raise RuntimeError("The stage voice bank must contain two outputs per supported voice")
+    return entries
+
+
+VOICES = load_workbench_voices()
 
 
 def new_state():
