@@ -23,7 +23,18 @@
       /|    |\
      /_|____|_\
         /__\
-</pre><p class="pad">──────────────────<br>{{flight_label}}</p></div>
+</pre><svg class="launch-plume" viewBox="0 0 90 38" aria-hidden="true" focusable="false"><path d="M33 2 27 16 34 12 39 34 45 19 51 34 56 12 63 16 57 2M40 3 45 13 50 3"/></svg><p class="pad">──────────────────<br>{{flight_label}}</p>
+<figure class="handoff-signal signal-{{signal_phase}}">
+<svg class="signal-diagram" viewBox="0 0 240 70" aria-hidden="true" focusable="false">
+<path class="signal-route" d="M40 38H220M213 33l7 5-7 5"/>
+<path class="signal-receiver" d="M211 20h18v38h-18"/>
+<circle class="signal-pivot" cx="146" cy="61" r="3"/>
+<path class="signal-barrier" d="M146 15V58"/>
+<g class="signal-packet"><path class="signal-paper" d="M18 24h13l7 7v21H18Z"/><path d="M31 24v7h7M23 37h10M23 43h10"/></g>
+</svg>
+<div class="signal-labels" aria-hidden="true"><span>PACKET</span><span>REVIEW</span><span>NEXT</span></div>
+<figcaption><strong>{{signal_title}}</strong><span>{{signal_caption}}</span></figcaption>
+</figure></div>
 {{impact}}</div>
 <p class="state">{{mission_state}}</p><details class="handoff-ledger"><summary>ENGINEERING HANDOFFS</summary>{{progress}}</details>{{package}}
 <p class="fixture-clock">SIMULATED FIXTURE CLOCK · NO LIVE DEVICE TELEMETRY</p>
