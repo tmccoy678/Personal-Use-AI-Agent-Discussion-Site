@@ -301,51 +301,59 @@ def test_refresh_starts_a_clean_game_after_redirected_interactions():
         assert not evidence["simulated_flight_completed"]
 
 
-def test_rbar_demo_preserves_warning_closure_and_separate_acceptance(real_cores):
+def test_rbar_rocket_mission_stops_before_launch_then_rechecks_correction(real_cores):
     stage.CACHE["cores"] = real_cores
     with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
         opening = client.get("/")
-        assert "A SHORT INTERACTIVE DEMO" in opening.text
-        assert "DOBEWORKS OBSERVES AND STAGES" in opening.text
-        assert "DOBEWORKS ENGINEERING GOVERNANCE SYSTEM" in opening.text
-        response = command(client, "lesson-start", "rbar")
+        assert "MISSING R-BAR · PRIMARY CASE" in opening.text
+        assert "0 → 1 SOURCE TRANSCRIPTION · SECOND CASE" in opening.text
+        assert "ONE MARK · STOPPED BEFORE LAUNCH" in opening.text
+        for number in ("01", "02", "03"):
+            response = command(client, number, "rbar")
         original = client.get("/api/evidence").json()
         task = original["fixed_engine_run"]["degs_task"]
         assert task["warnings"][0]["resolved"] is False
         assert original["fixed_engine_run"]["worker"]["state"] == "COMPLETED_UNACCEPTED"
         assert original["fixed_engine_run"]["degs"]["decision"] == "BLOCKED"
-        assert "THE OPEN ISSUE SURVIVED" in response.text
-        assert "SAME WORK. DIFFERENT HANDOFF RECORD" in response.text
-        assert "HANDOFF CONTRACT · ADAPTED RECORD" in response.text
-        assert "STALE OBSERVATION" in response.text
-        assert "UNRESOLVED WARNING" in response.text
-        assert "UNACCEPTED OUTPUT" in response.text
-        assert "<title>DobeWorks · Handoff Held</title>" in response.text
+        assert "EXACT NOTATION CHECK  FAIL" in response.text
+        assert "PACKAGE HANDOFF · HOLD BEFORE LAUNCH" in response.text
+        assert "THE MISSING MARK" in response.text
+        assert "DEGS" in response.text and "COUNTDOWN" in response.text
         assert "05" not in original["completed_handoffs"]
-        response = command(client, "lesson-compare", "rbar")
-        assert "SAME WORK. DIFFERENT HANDOFF RECORD" in response.text
         trial = original["fixed_engine_run"]["translation_comparison"]
         assert trial["completion_only_decision"]["decision"] == "PASS"
         assert trial["same_candidate_sha256"] == original["fixed_engine_run"]["package_sha256"]
-        assert client.get("/api/evidence").json() == original
+        assert "WHAT-IF · LAUNCH WITH BLOCKED NOTATION" in command(client, "what-if", "rbar").text
+        bypass = client.get("/api/evidence").json()
+        assert bypass["counterfactual_flight_with_errors"] is True
+        assert bypass["simulated_flight_completed"] is False
+        command(client, "hold", "rbar")
         command(client, "accept", "rbar")
         assert "05" not in client.get("/api/evidence").json()["completed_handoffs"]
-        response = command(client, "lesson-fix", "rbar")
+        response = command(client, "restore", "rbar")
         corrected = client.get("/api/evidence").json()
         warning = corrected["fixed_engine_run"]["degs_task"]["warnings"][0]
         assert warning["resolved"] is True and warning["status"] == "RESOLVED" and warning["evidence_path"]
         assert corrected["fixed_engine_run"]["degs"]["decision"] == "PASS"
         assert corrected["prior_candidate_runs"] == [original["fixed_engine_run"]]
-        assert "ACCEPTANCE IS STILL YOUR DECISION" in response.text and "05" not in corrected["completed_handoffs"]
-        assert "CLOSED IN THIS EXAMPLE" in response.text
-        assert "<title>DobeWorks · Ready for Acceptance</title>" in response.text
+        assert "THE REQUIRED OVERBAR IS RESTORED" in response.text
+        assert corrected["completed_handoffs"] == ["01"]
+        for number in ("02", "03", "04", "05"):
+            response = command(client, number, "rbar-fixed")
+        assert "READY FOR YOUR DECISION" in response.text
         response = command(client, "accept", "rbar-fixed")
         accepted = client.get("/api/evidence").json()
-        assert "05" in accepted["completed_handoffs"] and "REVIEWED HANDOFF" in response.text
-        assert "ADVANCED EVIDENCE WALKTHROUGH · 8 STEPS" in response.text
-        assert "<title>DobeWorks · Handoff Accepted</title>" in response.text
+        assert "05" in accepted["completed_handoffs"]
+        assert "CONTINUE TO THE OTHER MISSION TEAMS" in response.text
         assert accepted["fixed_engine_run"]["worker"]["promotion"] == "NOT_PERFORMED"
         assert "R-BAR-NOTE" in client.get("/package").text
+        command(client, "clear-weather", "rbar-fixed")
+        for role in ("vehicle", "weather", "range", "director"):
+            command(client, "go-" + role, "rbar-fixed")
+        flight = command(client, "07", "rbar-fixed")
+        assert "EXACT NOTATION CHECK PASSED" in flight.text
+        assert "receiving team obtains the required notation" in flight.text
+        assert client.get("/api/evidence").json()["simulated_flight_completed"] is True
         client.get("/")
         assert not client.get("/api/evidence").json()["completed_handoffs"]
 
