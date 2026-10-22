@@ -21,6 +21,9 @@ from stage_lesson import render as render_lesson
 ROOT = Path(__file__).resolve().parent
 SCENARIOS = {"altered": "TRANSCRIPTION EXERCISE", "clean": "INTACT BASELINE", "stale": "STALE TELEMETRY",
              "missing": "MISSING EVIDENCE", "unresolved": "OPEN REVIEW ITEM", "rbar": "R-BAR HANDOFF", "rbar-fixed": "R-BAR CORRECTED"}
+VISIBLE_SCENARIOS = {"rbar": "MISSING R-BAR · PRIMARY CASE", "altered": "0 → 1 SOURCE TRANSCRIPTION · SECOND CASE",
+                     "stale": "STALE OBSERVATION", "missing": "MISSING EVIDENCE",
+                     "unresolved": "OPEN REVIEW ITEM", "clean": "INTACT SOURCE BASELINE"}
 PROGRAMS = {"01": ("CONFIGURATION ENGINEER", "ESTABLISH PACKAGE BASELINE"),
             "02": ("TELEMETRY ENGINEER", "DOBEWORKS — CHECK OBSERVATIONS"),
             "03": ("PACKAGE ENGINEER", "DOBEWORKS — STAGE THE WORK"),
@@ -43,7 +46,7 @@ VOICES = json.loads((ROOT / "stage_vendor/DobeWorks/interface/workbench-voices.j
 
 
 def new_state():
-    return {"csrf": secrets.token_urlsafe(24), "scenario": "rbar", "lesson_mode": True, "comparison": False, "completed": [], "poll": {}, "events": [],
+    return {"csrf": secrets.token_urlsafe(24), "scenario": "rbar", "lesson_mode": False, "comparison": False, "completed": [], "poll": {}, "events": [],
             "report": None, "cores": None, "launched": False, "busy": False, "tested_package": None,
             "case_history": [], "weather_clear": False, "counterfactual": False, "seen": time.monotonic()}
 
@@ -113,7 +116,14 @@ def dialogue(question, report=None):
 
 def baseline_lines(report):
     if "notation_check" in report:
-        return "R-BAR HANDOFF NOTE\n\nREQUIREMENT\nPreserve the required overbar through the handoff.\nKeep the finding open until correction has check evidence.\nAccept the output separately.\n\nTEACHING RECONSTRUCTION · NOT HISTORICAL FLIGHT CODE"
+        check = report["notation_check"]
+        return ("R-BAR-NOTE · GUIDANCE NOTATION HANDOFF\n\nREQUIREMENT\n"
+                "Preserve the required overbar through every engineering handoff.\n"
+                "An unresolved notation finding must remain a stop.\n"
+                "Closing the finding requires check evidence; acceptance remains separate.\n\n"
+                f'REQUIRED NOTE         {check["required"]}\nRECEIVED NOTE         {check["received"]}\n'
+                f'EXACT NOTATION CHECK  {check["result"]}\nPACKAGE SHA256        {report["package_sha256"]}\n'
+                f'BASELINE FILES        {len(report["packet"]["expected_manifest"])}\nNEXT ROLE             TELEMETRY ENGINEER')
     return ("TM-CRC-001 · NASA/JPL F PRIME CRC32\n\nREQUIREMENT\n"
             "Receive a CRC32 component for the telemetry team.\nIt must reproduce 123456789 → CBF43926.\nRetain the source, requirement and test evidence together.\n\n"
             f'SOURCE FILES          TableGenerator.c + Crc32.cpp\nPACKAGE SHA256        {report["package_sha256"]}\n'
@@ -123,36 +133,62 @@ def baseline_lines(report):
 def impact_view(state):
     report = state["report"]
     tested = report is not None and state["tested_package"] == report["package_sha256"]
+    rbar_case = state["scenario"].startswith("rbar")
     behavior = report["source_behavior"] if tested else None
-    failed = tested and behavior["result"] == "FAIL"
-    nodes = [("01 · SOURCE", "One component received"), ("02 · BEHAVIOR", "Awaiting the known-answer check"),
-             ("03 · DEGS", "Awaiting checked record"), ("04 · RECEIVING TEAM", "Waiting for verification"),
-             ("05 · COUNTDOWN", "HOLD · package not accepted")]
-    if tested:
+    check = report.get("notation_check") if tested else None
+    failed = tested and (check["result"] == "FAIL" if check else behavior["result"] == "FAIL")
+    if rbar_case:
+        nodes = [("01 · GUIDANCE NOTE", "Awaiting the received notation"),
+                 ("02 · DOBEWORKS", "Awaiting bounded work"),
+                 ("03 · HANDOFF CHECK", "Awaiting exact notation check"),
+                 ("04 · DEGS", "Awaiting the preserved record"),
+                 ("05 · COUNTDOWN", "HOLD · package not accepted")]
+    else:
+        nodes = [("01 · SOURCE", "One component received"),
+                 ("02 · DOBEWORKS", "Awaiting bounded work"),
+                 ("03 · BEHAVIOR", "Awaiting the known-answer check"),
+                 ("04 · DEGS", "Awaiting the preserved record"),
+                 ("05 · COUNTDOWN", "HOLD · package not accepted")]
+    if tested and check:
+        nodes[0] = ("01 · GUIDANCE NOTE", f'Required {check["required"]} · received {check["received"]}')
+        nodes[1] = ("02 · DOBEWORKS", f'{report["worker"]["state"]} · {report["worker"]["promotion"]}')
+        nodes[2] = ("03 · HANDOFF CHECK", check["result"] + " · exact supplied reference")
+        nodes[3] = ("04 · DEGS", report["degs"]["decision"] + " · unresolved state preserved")
+    elif tested:
         nodes[0] = ("01 · SOURCE", f'Polynomial {behavior["polynomial"]} · C compilation PASS')
-        nodes[1] = ("02 · BEHAVIOR", f'123456789 → {behavior["actual_crc32"]} · {behavior["result"]}')
-        nodes[2] = ("03 · DEGS", report["degs"]["decision"] + " · submitted engineering record")
-        nodes[3] = ("04 · RECEIVING TEAM", "Rejects this checksum result" if failed else "Known-answer check verified")
+        nodes[1] = ("02 · DOBEWORKS", f'{report["worker"]["state"]} · {report["worker"]["promotion"]}')
+        nodes[2] = ("03 · BEHAVIOR", f'123456789 → {behavior["actual_crc32"]} · {behavior["result"]}')
+        nodes[3] = ("04 · DEGS", report["degs"]["decision"] + " · submitted engineering record")
     if state["counterfactual"]:
-        nodes[4] = ("05 · WHAT-IF FLIGHT", "Launched with error · telemetry rejected")
+        nodes[4] = ("05 · WHAT-IF FLIGHT", "Launched despite the blocked handoff")
     if "05" in state["completed"]:
         nodes[4] = ("05 · COUNTDOWN", "Package accepted · awaiting other teams")
     if state["launched"]:
         nodes[4] = ("05 · COUNTDOWN", "Simulated flight · corrected component received" if state["case_history"] else "Simulated flight · verified baseline received")
-    caption = ("Exercise consequence: launched with a failed checksum; the receiver rejects the result." if state["counterfactual"]
+    caption = ("The what-if launch bypasses the blocked record. The downstream vehicle outcome is outside this exercise." if state["counterfactual"] and rbar_case
+               else "Exercise consequence: launched with a failed checksum; the receiver rejects the result." if state["counterfactual"]
+               else "All exercise checks pass; the corrected handoff reaches the receiving team." if state["launched"] and rbar_case
                else "All exercise checks pass; the receiver obtains the expected result." if state["launched"]
                else "This check passed. Package review and the other teams still govern countdown." if tested and not failed
-               else "Exercise consequence: unverified telemetry keeps this mission on the pad.")
+               else "The unresolved notation finding keeps this mission on the pad." if rbar_case
+               else "The failed checksum keeps this mission on the pad.")
     cards = ''.join(f'<li><small>{escape(title)}</small><span>{escape(value)}</span></li>' for title, value in nodes)
     difference = ""
-    if failed:
-        difference = (f'<details class="difference"><summary>INVESTIGATE THE ONE-CHARACTER DIFFERENCE</summary>'
+    if failed and check:
+        difference = ('<details class="difference" open><summary>THE MISSING MARK</summary>'
+            '<p>The received note differs from its supplied reference by one combining overbar.</p>'
+            f'<p>REQUIRED <code><mark>{escape(check["required"])}</mark></code><br>'
+            f'RECEIVED&nbsp; <code><mark>{escape(check["received"])}</mark></code></p>'
+            '<p>DobeWorks completed and staged its bounded work without promoting it. The failed check remains unresolved in the adapted record, so DEGS returns BLOCKED before launch review.</p></details>')
+    elif failed:
+        difference = (f'<details class="difference" open><summary>INVESTIGATE THE ONE-CHARACTER DIFFERENCE</summary>'
             f'<p>source/TableGenerator.c · line {behavior["line"]}. Modified demo copy.</p>'
             '<p>PUBLISHED <code>0xEDB8832<mark>0</mark></code><br>RECEIVED  <code>0xEDB8832<mark>1</mark></code></p>'
             '<p>Both compile. Both have the same file size. They compute different results.</p>'
             f'<p>The exercise receiver expects {behavior["receiver_expected_crc32"]}; the changed component computes '
             f'{behavior["candidate_packet_crc32"]} for the same telemetry sample. Its integrity result cannot be accepted.</p></details>')
-    return ('<section class="impact" aria-label="Effect on this fictional mission"><h2>ONE CHARACTER · DOWNSTREAM</h2>'
+    heading = "ONE MARK · STOPPED BEFORE LAUNCH" if rbar_case else "ONE CHARACTER · DOWNSTREAM"
+    return (f'<section class="impact" aria-label="Effect on this fictional mission"><h2>{heading}</h2>'
             f'<ol class="{"held" if failed else ""}">{cards}</ol>{difference}'
             f'<p class="impact-caption">{caption}</p></section>')
 
@@ -222,12 +258,26 @@ def render(state, title="MISSION TERMINAL", lines=None, reply="PLEASE GO ON.", q
         return render_lesson(state, voice, reply, question, extra)
     scenario = state["scenario"]
     if lines is None:
-        lines = ("YOUR ASSIGNMENT\n\nA CRC32 source component has arrived for telemetry integration.\n"
-                 "One character was mistyped in the exercise copy. The C program still compiles.\n\n"
-                 "DOBEWORKS supplies checked observations and stages bounded work for review.\n"
-                 "The test harness checks behavior. DEGS stops the handoff while the finding is open.\n\n"
-                 "Begin with 01. Investigate in 03, correct the source, then repeat the reviews.")
-    options = "".join(f'<option value="{key}" {"selected" if key == scenario else ""}>{value}</option>' for key, value in SCENARIOS.items())
+        assignments = {
+            "rbar": ("YOUR ASSIGNMENT\n\nA completed guidance-note package is moving toward simulated launch.\n"
+                     "One required overbar is missing from the received handoff.\n\n"
+                     "DOBEWORKS supplies checked observations and stages the bounded work without promotion.\n"
+                     "The exact notation check preserves the failure. DEGS keeps the unresolved finding BLOCKED.\n\n"
+                     "Begin with 01. Investigate in 03, restore the mark, then repeat every review before launch."),
+            "rbar-fixed": ("YOUR ASSIGNMENT\n\nThe required overbar has been restored in a new package.\n"
+                           "Every receipt from the failed candidate has been invalidated.\n\n"
+                           "Begin with 01 and carry the corrected evidence through each review before launch."),
+            "altered": ("YOUR ASSIGNMENT\n\nA 19,581-byte CRC32 source pair has arrived for telemetry integration.\n"
+                        "One character changed from 0 to 1. Both C programs still compile.\n\n"
+                        "DOBEWORKS supplies checked observations and stages bounded work for review.\n"
+                        "The known-answer test exposes the changed behavior. DEGS keeps the finding BLOCKED.\n\n"
+                        "Begin with 01. Investigate in 03, restore the digit, then repeat every review before launch."),
+        }
+        lines = assignments.get(scenario, "YOUR ASSIGNMENT\n\nFollow the selected stop condition through DobeWorks, DEGS, review and the launch decision.\n\nBegin with 01.")
+    menu = dict(VISIBLE_SCENARIOS)
+    if scenario == "rbar-fixed":
+        menu = {"rbar-fixed": "R-BAR CORRECTED · CURRENT PACKET", **menu}
+    options = "".join(f'<option value="{key}" {"selected" if key == scenario else ""}>{value}</option>' for key, value in menu.items())
     programs = "".join(f'<button name="command" value="{key}">{key}  {label}</button>' for key, (_, label) in PROGRAMS.items())
     controls = "".join(f'<button class="enter" name="command" value="{key}">{escape(label)}</button>' for key, label in actions)
     raw = f'<details class="raw"><summary>FULL RECORDED EVIDENCE</summary><pre>{escape(json.dumps(details, indent=2, sort_keys=True))}</pre></details>' if details is not None else ""
@@ -236,21 +286,29 @@ def render(state, title="MISSION TERMINAL", lines=None, reply="PLEASE GO ON.", q
         f'<li class="{"received" if key in state["completed"] else "waiting"}"><span>{key} · {milestone}</span>'
         f'<small>{"RECEIVED" if key in state["completed"] else "AWAITING HANDOFF"}</small></li>'
         for key, milestone in zip(("01", "02", "03", "04", "05"), milestones)) + '</ol>'
-    mission_state = ("CLEAN SIMULATED FLIGHT" if state["launched"] else "WHAT-IF FLIGHT · CHECKSUM ERROR" if state["counterfactual"]
+    counterfactual_label = "WHAT-IF FLIGHT · UNRESOLVED NOTATION" if scenario.startswith("rbar") else "WHAT-IF FLIGHT · CHECKSUM ERROR"
+    mission_state = ("CLEAN SIMULATED FLIGHT" if state["launched"] else counterfactual_label if state["counterfactual"]
                      else "PACKAGE ACCEPTED · TEAM POLL OPEN" if "05" in state["completed"] else "PACKAGE HANDOFF IN PROGRESS" if state["completed"] else "AWAITING PACKAGE")
+    mission_briefs = {
+        "rbar": "A required overbar is missing. Follow the completed work through DobeWorks and DEGS to see the handoff stop before launch.",
+        "rbar-fixed": "The overbar has been restored. Repeat every handoff on the corrected packet before the launch team can proceed.",
+        "altered": "19,581 source bytes. One character changes 0 to 1. Both C programs still compile; follow the failed behavior to the launch hold.",
+    }
+    mission_brief = mission_briefs.get(scenario, "Follow the selected stop condition through DobeWorks, DEGS, review, and the launch decision.")
     replacements = {"quote": f'“{voice["text"]}”', "attribution": voice["attribution"], "reply": reply,
         "question": question, "result": lines, "title": title, "mission_state": mission_state,
-        "scenario": scenario, "csrf": state["csrf"],
+        "scenario": scenario, "csrf": state["csrf"], "mission_brief": mission_brief,
         "command_focus": "" if show_package else "autofocus",
         "flight_class": "flight" if state["launched"] else "fault-flight" if state["counterfactual"] else "",
-        "flight_label": "CLEAN FLIGHT" if state["launched"] else "WHAT-IF · TELEMETRY ERROR" if state["counterfactual"] else "THE PAD"}
+        "flight_label": "CLEAN FLIGHT" if state["launched"] else ("WHAT-IF · NOTATION BYPASSED" if scenario.startswith("rbar") else "WHAT-IF · TELEMETRY ERROR") if state["counterfactual"] else "THE PAD"}
     html = TEMPLATE
     for key, value in replacements.items():
         html = html.replace("{{" + key + "}}", escape(str(value)))
     return (html.replace("{{options}}", options).replace("{{programs}}", programs).replace("{{actions}}", controls)
             .replace("{{details}}", raw).replace("{{progress}}", progress)
             .replace("{{impact}}", impact_view(state))
-            .replace("{{package}}", package_view(state, package_query, focus_package) if state["report"] else "<p class=empty-tray>PACKET TRAY · TM-CRC-001<br>USE 01 TO OPEN THE PACKAGE.</p>"))
+            .replace("{{package}}", package_view(state, package_query, focus_package) if state["report"] else
+                     f'<p class=empty-tray>PACKET TRAY · {"R-BAR-NOTE" if scenario.startswith("rbar") else "TM-CRC-001"}<br>USE 01 TO OPEN THE PACKAGE.</p>'))
 
 
 def page(request, key, state, **kwargs):
@@ -300,21 +358,39 @@ async def program(state, command):
         return {"title": "RUN EVIDENCE", "lines": lines, "details": evidence_record(state), "reply": "RECORDED EVIDENCE. NO CHECK WAS RERUN."}
     if command in {"restore", "keep", "hold", "what-if"}:
         report = state["report"]
-        if (report is None or state["scenario"] != "altered" or state["tested_package"] != report["package_sha256"]):
-            return {"title": "INVESTIGATE FIRST", "lines": "RUN 03 ON THE TRANSCRIPTION EXERCISE BEFORE CHOOSING A RESPONSE."}
+        fault_case = state["scenario"] in {"altered", "rbar"}
+        if (report is None or not fault_case or state["tested_package"] != report["package_sha256"]):
+            return {"title": "INVESTIGATE FIRST", "lines": "RUN 03 ON THE SELECTED FAILURE CASE BEFORE CHOOSING A RESPONSE."}
         if command == "restore":
-            corrected = await mission("clean")
+            rbar_case = state["scenario"] == "rbar"
+            corrected_scenario = "rbar-fixed" if rbar_case else "clean"
+            corrected = await mission(corrected_scenario)
             state["case_history"].append(report)
-            record(state, "PACKAGE ENGINEER", "RESTORE PUBLISHED POLYNOMIAL: 1 → 0", "CORRECTED COPY SUBMITTED")
-            state.update(scenario="clean", report=corrected, completed=[], poll={}, cores=None, launched=False,
+            action = "RESTORE REQUIRED OVERBAR" if rbar_case else "RESTORE PUBLISHED POLYNOMIAL: 1 → 0"
+            record(state, "PACKAGE ENGINEER", action, "CORRECTED COPY SUBMITTED")
+            state.update(scenario=corrected_scenario, report=corrected, completed=[], poll={}, cores=None, launched=False,
                          tested_package=None, weather_clear=False, counterfactual=False)
             result = await program(state, "01")
-            result["reply"] = "ONE CHARACTER RESTORED. PRIOR REVIEWS ARE INVALIDATED. REPEAT 02–05 ON THE CORRECTED COPY; THE ORIGINAL FAILURE REMAINS IN 08."
+            result["reply"] = (("THE REQUIRED OVERBAR IS RESTORED. " if rbar_case else "ONE CHARACTER RESTORED. ")
+                               + "PRIOR REVIEWS ARE INVALIDATED. REPEAT 02–05 ON THE CORRECTED COPY; THE ORIGINAL FAILURE REMAINS IN 08.")
             return result
         if command == "what-if":
             if not state["counterfactual"]:
-                record(state, "COUNTERFACTUAL", "ILLUSTRATE LAUNCH DESPITE BLOCKED CHECK", "TELEMETRY CHECKSUM REJECTED")
+                outcome = "UNRESOLVED NOTATION BYPASSED" if state["scenario"] == "rbar" else "TELEMETRY CHECKSUM REJECTED"
+                record(state, "COUNTERFACTUAL", "ILLUSTRATE LAUNCH DESPITE BLOCKED CHECK", outcome)
                 state["counterfactual"] = True
+            if state["scenario"] == "rbar":
+                check = report["notation_check"]
+                return {"title": "WHAT-IF · LAUNCH WITH BLOCKED NOTATION", "lines":
+                    "T+00  THE FICTIONAL VEHICLE LEAVES THE PAD\n"
+                    f'T+01  RECEIVED NOTE CONTAINS {check["received"]}\n'
+                    f'T+02  REQUIRED NOTE CONTAINS {check["required"]}\n'
+                    "T+03  NOTATION HANDOFF REMAINS UNACCEPTED\n\n"
+                    "The unresolved mark was carried past the stop that caught it.\n"
+                    "The wider vehicle outcome is unspecified in this exercise.\n\n"
+                    f'DEGS REMAINS {report["degs"]["decision"]}. NO PACKAGE ACCEPTANCE WAS RECORDED.',
+                    "actions": [("hold", "RETURN TO COUNTDOWN HOLD"), ("restore", "RESTORE THE BAR AND RETEST")],
+                    "reply": "THIS BRANCH BYPASSES THE BLOCKED RECORD. THE ACTUAL MISSION PATH REMAINS HELD BEFORE LAUNCH."}
             behavior = report["source_behavior"]
             return {"title": "WHAT-IF · LAUNCH WITH ERROR", "lines":
                 "T+00  THE FICTIONAL VEHICLE LEAVES THE PAD\n"
@@ -331,9 +407,13 @@ async def program(state, command):
             result = await program(state, "03")
             result["reply"] = "COUNTDOWN HELD. THE FINDING AND ITS EVIDENCE REMAIN OPEN FOR CORRECTION."
             return result
-        record(state, "INDEPENDENT REVIEWER", "KEEP THE ONE-CHARACTER CHANGE", "BLOCKED — FAILING CHECK REMAINS")
+        rbar_case = state["scenario"] == "rbar"
+        record(state, "INDEPENDENT REVIEWER", "KEEP THE MISSING OVERBAR" if rbar_case else "KEEP THE ONE-CHARACTER CHANGE",
+               "BLOCKED — FAILING CHECK REMAINS")
         result = await program(state, "03")
-        result["reply"] = "SAME FILE SIZE AND SUCCESSFUL COMPILATION DO NOT SATISFY THE KNOWN-ANSWER REQUIREMENT. THE HANDOFF STAYS BLOCKED."
+        result["reply"] = ("COMPLETED WORK DOES NOT CLOSE THE MISSING NOTATION. DEGS KEEPS THE HANDOFF BLOCKED."
+                           if rbar_case else
+                           "SAME FILE SIZE AND SUCCESSFUL COMPILATION DO NOT SATISFY THE KNOWN-ANSWER REQUIREMENT. THE HANDOFF STAYS BLOCKED.")
         return result
     if command == "06" or command in POLL or command.startswith("go-") or command == "clear-weather":
         reply = "SELECT A TEAM TO INSPECT ITS FICTIONAL READINESS RECORD."
@@ -366,7 +446,8 @@ async def program(state, command):
             actions = [("06", "RETURN TO TEAM POLL")] if recorded else ([("clear-weather", "RECEIVE THE T+05 WEATHER REPORT")] if role == "weather" and not state["weather_clear"] else []) + [("go-" + role, "RECORD GO AGAINST THIS REPORT"), ("06", "RETURN TO TEAM POLL")]
             return {"title": POLL[role], "lines": f'DECISION              {"GO RECORDED" if recorded else "HOLD · NO GO RECORDED"}\n\n' + facts[role] + "\n\nThese are fictional mission-team conditions, separate from DobeWorks and DEGS.",
                     "reply": reply, "actions": actions}
-        lines = "FICTIONAL LAUNCH READINESS POLL\n\n" + f'CRC32 PACKAGE         {"ACCEPTED" if "05" in state["completed"] else "HOLD"}\n'
+        package_label = "R-BAR PACKAGE" if state["scenario"].startswith("rbar") else "CRC32 PACKAGE"
+        lines = "FICTIONAL LAUNCH READINESS POLL\n\n" + f'{package_label:<22}{"ACCEPTED" if "05" in state["completed"] else "HOLD"}\n'
         lines += "\n".join(f'{label:<22}{state["poll"].get(key, "HOLD — AWAITING REVIEW")}' for key, label in POLL.items())
         lines += "\n\nYOU ARE PLAYING EACH ROLE IN THIS ILLUSTRATIVE MISSION."
         ready = "05" in state["completed"] and all(state["poll"].get(k) == "GO" for k in POLL)
@@ -379,9 +460,15 @@ async def program(state, command):
         if not state["launched"]:
             record(state, "LAUNCH DIRECTOR", "FICTIONAL FLIGHT", "COMPLETE")
             state["launched"] = True
-        correction = "One mistyped digit was corrected; the failed candidate remains in the record." if state["case_history"] else "The intact baseline satisfied the exercise checks."
-        return {"title": "CLEAN SIMULATED FLIGHT", "lines": "T-03  CRC KNOWN-ANSWER CHECK PASSED\nT-02  DEGS RECORD CHECK AND REVIEW COMPLETE\nT-01  TEAM POLL COMPLETE\nT+00  FICTIONAL IGNITION\nT+03  THE ROCKET CLEARS THE PAD\n\n" + correction +
-                "\n\nThe receiver obtains the expected checksum.\nMISSION SIMULATION · ALL EXERCISE CHECKS PASS",
+        rbar_case = state["scenario"].startswith("rbar")
+        correction = ("The missing overbar was restored; the failed candidate remains in the record."
+                      if rbar_case and state["case_history"] else
+                      "One mistyped digit was corrected; the failed candidate remains in the record."
+                      if state["case_history"] else "The intact baseline satisfied the exercise checks.")
+        check_line = "T-03  EXACT NOTATION CHECK PASSED" if rbar_case else "T-03  CRC KNOWN-ANSWER CHECK PASSED"
+        receiver = "The receiving team obtains the required notation." if rbar_case else "The receiver obtains the expected checksum."
+        return {"title": "CLEAN SIMULATED FLIGHT", "lines": check_line + "\nT-02  DEGS RECORD CHECK AND REVIEW COMPLETE\nT-01  TEAM POLL COMPLETE\nT+00  FICTIONAL IGNITION\nT+03  THE ROCKET CLEARS THE PAD\n\n" + correction +
+                "\n\n" + receiver + "\nMISSION SIMULATION · ALL EXERCISE CHECKS PASS",
                 "reply": "THE TEST FINDING, CORRECTION AND NEW REVIEW TRAVEL TOGETHER. OPEN 08 TO FOLLOW THE EVIDENCE."}
     accepting = command == "accept"
     if accepting:
@@ -409,19 +496,33 @@ async def program(state, command):
     elif command == "03":
         state["tested_package"] = report["package_sha256"]
         passed = report["packet"]["integrity"] == "PASS"
-        behavior = report["source_behavior"]
         envelope = report["worker_envelope"]
-        lines = ("DOBEWORKS WORKER\nThe inventory is staged for review. The packet is compared with its baseline.\n\n"
-                 f'WORKER                {report["worker"]["state"]}\nPROMOTION             {report["worker"]["promotion"]}\n'
-                 f'WORK CONTRACT         {envelope["side_effects"]}\nAUTOMATIC RETRIES     {envelope["retry_limit"]}\n'
-                 f'NASA TABLE CONTROL    {report["nasa"]["generated_values_checked"]} VALUES · VERIFIED\nKNOWN CRC CONTROL     {report["nasa"]["known_vector"]}\n'
-                 f'PACKET CRC            {report["packet"]["actual_crc32"]}\nSOURCE / MANIFEST     {report["packet"]["integrity"]}\n\n'
-                 f'CANDIDATE C COMPILES   PASS\nINPUT                 {behavior["test_input"]}\nEXPECTED CRC          {behavior["expected_crc32"]}\nACTUAL CRC            {behavior["actual_crc32"]}\nKNOWN-ANSWER TEST     {behavior["result"]}\n'
-                 f'DEGS RECORD CHECK     {report["degs"]["decision"]}\n'
-                 + '\n'.join(item["rule_id"] + ': ' + item["message"] for item in report["degs"]["unmet_requirements"]) + '\n\n'
-                 f'PACKAGE HANDOFF · {"READY FOR VERIFICATION" if passed else "HOLD"}')
+        if "notation_check" in report:
+            check = report["notation_check"]
+            warning = report["degs_task"]["warnings"][0]
+            lines = ("DOBEWORKS WORKER\nThe inventory is staged for review. The packet is compared with its supplied reference.\n\n"
+                     f'WORKER                {report["worker"]["state"]}\nPROMOTION             {report["worker"]["promotion"]}\n'
+                     f'WORK CONTRACT         {envelope["side_effects"]}\nAUTOMATIC RETRIES     {envelope["retry_limit"]}\n'
+                     f'REQUIRED NOTE         {check["required"]}\nRECEIVED NOTE         {check["received"]}\n'
+                     f'EXACT NOTATION CHECK  {check["result"]}\nWARNING               {warning["severity"]} · {warning["status"]}\n'
+                     f'EVIDENCE PATH         {warning["evidence_path"]}\nDEGS RECORD CHECK     {report["degs"]["decision"]}\n'
+                     + '\n'.join(item["rule_id"] + ': ' + item["message"] for item in report["degs"]["unmet_requirements"]) + '\n\n'
+                     f'PACKAGE HANDOFF · {"READY FOR VERIFICATION" if passed else "HOLD BEFORE LAUNCH"}')
+        else:
+            behavior = report["source_behavior"]
+            lines = ("DOBEWORKS WORKER\nThe inventory is staged for review. The packet is compared with its baseline.\n\n"
+                     f'WORKER                {report["worker"]["state"]}\nPROMOTION             {report["worker"]["promotion"]}\n'
+                     f'WORK CONTRACT         {envelope["side_effects"]}\nAUTOMATIC RETRIES     {envelope["retry_limit"]}\n'
+                     f'NASA TABLE CONTROL    {report["nasa"]["generated_values_checked"]} VALUES · VERIFIED\nKNOWN CRC CONTROL     {report["nasa"]["known_vector"]}\n'
+                     f'PACKET CRC            {report["packet"]["actual_crc32"]}\nSOURCE / MANIFEST     {report["packet"]["integrity"]}\n\n'
+                     f'CANDIDATE C COMPILES   PASS\nINPUT                 {behavior["test_input"]}\nEXPECTED CRC          {behavior["expected_crc32"]}\nACTUAL CRC            {behavior["actual_crc32"]}\nKNOWN-ANSWER TEST     {behavior["result"]}\n'
+                     f'DEGS RECORD CHECK     {report["degs"]["decision"]}\n'
+                     + '\n'.join(item["rule_id"] + ': ' + item["message"] for item in report["degs"]["unmet_requirements"]) + '\n\n'
+                     f'PACKAGE HANDOFF · {"READY FOR VERIFICATION" if passed else "HOLD"}')
         if not passed:
-            reply = "INVESTIGATE THE SOURCE AND ITS TEST RESULT. THE FINDING TRAVELS WITH THE WORK; A FINISHED WORKER JOB DOES NOT CLOSE IT."
+            reply = ("RESTORE THE REQUIRED OVERBAR AND RETEST. THE FINDING TRAVELS WITH THE WORK; A FINISHED WORKER JOB DOES NOT CLOSE IT."
+                     if "notation_check" in report else
+                     "INVESTIGATE THE SOURCE AND ITS TEST RESULT. THE FINDING TRAVELS WITH THE WORK; A FINISHED WORKER JOB DOES NOT CLOSE IT.")
     elif command == "04":
         state["cores"] = await mission("cores")
         passed = state["cores"]["result"] == "PASS"
@@ -434,7 +535,8 @@ async def program(state, command):
                  f'PACKAGE IDENTITY      {report["package_sha256"]}\nCORE VERIFICATION     {state["cores"]["result"]}\n'
                  f'REVIEW ITEM           {"CLOSED" if passed else "OPEN"}\n\n'
                  f'PACKAGE REVIEW · {"ACCEPTED FOR SIMULATED INTEGRATION" if passed else "HOLD"}')
-        reply = "REVIEW THE KNOWN-ANSWER RESULT AND THE DEGS DECISION BEFORE RECORDING YOUR SEPARATE ACCEPTANCE." if passed else "THE ENGINEERING RECORD STILL HAS AN OPEN FINDING. ACCEPTANCE IS HELD."
+        review_name = "NOTATION CHECK" if "notation_check" in report else "KNOWN-ANSWER RESULT"
+        reply = f"REVIEW THE {review_name} AND THE DEGS DECISION BEFORE RECORDING YOUR SEPARATE ACCEPTANCE." if passed else "THE ENGINEERING RECORD STILL HAS AN OPEN FINDING. ACCEPTANCE IS HELD."
         if passed and not accepting:
             return {"title": title, "lines": lines.replace("ACCEPTED FOR SIMULATED INTEGRATION", "READY FOR YOUR DECISION"), "reply": reply,
                     "actions": [("accept", "ACCEPT THE REVIEWED PACKAGE"), ("08", "INSPECT THE EVIDENCE FIRST")]}
@@ -450,8 +552,10 @@ async def program(state, command):
                  "02": "TELEMETRY → PACKAGE ENGINEER. FRESH OBSERVATIONS RECEIVED.",
                  "03": "PACKAGE ENGINEER → VERIFICATION. THE SAME FILES ARE READY FOR THE NEXT REVIEW.",
                  "04": "VERIFICATION → INDEPENDENT REVIEWER. THE ENGINE TEST RECORD TRAVELS WITH THE PACKAGE."}[command]
-    actions = [("hold", "HOLD THE COUNTDOWN"), ("what-if", "SEE A LAUNCH WITH THIS ERROR"),
-               ("restore", "RESTORE THE PUBLISHED DIGIT 0")] if command == "03" and state["scenario"] == "altered" else []
+    actions = []
+    if command == "03" and state["scenario"] in {"altered", "rbar"}:
+        restore_label = "RESTORE THE REQUIRED OVERBAR" if state["scenario"] == "rbar" else "RESTORE THE PUBLISHED DIGIT 0"
+        actions = [("hold", "HOLD THE COUNTDOWN"), ("what-if", "SEE A LAUNCH WITH THIS ERROR"), ("restore", restore_label)]
     if passed and not actions:
         following = {"01": "02", "02": "03", "03": "04", "04": "05", "05": "06"}[command]
         actions = [(following, "NEXT · " + PROGRAMS[following][1])]
@@ -522,7 +626,7 @@ async def interact(request: Request):
     try:
         if scenario != state["scenario"]:
             state.update(scenario=scenario, completed=[], poll={}, report=None, cores=None, launched=False,
-                         tested_package=None, weather_clear=False, counterfactual=False, lesson_mode=scenario.startswith("rbar"), comparison=False)
+                         tested_package=None, weather_clear=False, counterfactual=False, lesson_mode=False, comparison=False)
             record(state, "CONFIGURATION ENGINEER", "PACKAGE REPLACED — ALL RECEIPTS INVALIDATED", "NEW BASELINE REQUIRED")
         if question in LESSON_ACTIONS:
             result = await lesson_program(state, question)
@@ -546,6 +650,7 @@ async def interact(request: Request):
 async def lesson_program(state, command):
     if command == "lesson-start":
         state.update(new_state())
+        state.update(lesson_mode=True, scenario="rbar")
         for step in ("01", "02", "03"):
             await program(state, step)
         return {"reply": "THE TASK COMPLETED. THE OPEN FINDING STILL BLOCKS THE HANDOFF."}
