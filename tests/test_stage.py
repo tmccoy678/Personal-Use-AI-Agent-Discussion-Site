@@ -35,6 +35,30 @@ def command(client, number, scenario="clean", **kwargs):
     return client.post("/", data={"command": number, "scenario": scenario, "csrf": csrf}, **kwargs)
 
 
+def test_stage_voice_bank_contains_only_primary_source_verified_outputs():
+    speakers = {"ELIZA", "COLOSSUS", "COLOSSUS + GUARDIAN"}
+    assert len(stage.VOICES) == 6
+    assert {entry["speaker"] for entry in stage.VOICES} == speakers
+    assert {
+        speaker: sum(entry["speaker"] == speaker for entry in stage.VOICES)
+        for speaker in speakers
+    } == {"ELIZA": 2, "COLOSSUS": 2, "COLOSSUS + GUARDIAN": 2}
+    for entry in stage.VOICES:
+        assert entry["verification"] == "primary-source-verified"
+        assert entry["source"] and entry["locator"]
+        assert re.fullmatch(r"[0-9a-f]{64}", entry["source_sha256"])
+        assert entry.get("origin") != "Original workbench line"
+
+
+def test_stage_voice_bank_rejects_incomplete_provenance(tmp_path):
+    entries = json.loads(json.dumps(stage.VOICES))
+    del entries[0]["locator"]
+    bank = tmp_path / "voices.json"
+    bank.write_text(json.dumps(entries))
+    with pytest.raises(RuntimeError, match="verified primary-source provenance"):
+        stage.load_workbench_voices(bank)
+
+
 def test_all_real_scenarios_and_source_identity():
     before = stage_mission.check_sources()
     for scenario in stage.SCENARIOS:
@@ -60,6 +84,7 @@ def test_stage_host_cannot_reach_lab_routes(env):
     with TestClient(bridge.create_app(env), base_url="https://stage.dobeworks.com") as client:
         page = client.get("/")
         assert page.status_code == 200 and "MISSION 001" in page.text
+        assert "https://catalog.afi.com/Film/23505-THE-FORBIN-PROJECT" in page.text
         assert page.headers["referrer-policy"] == "same-origin"
         assert "<script" not in page.text
         assert "HttpOnly" in page.headers["set-cookie"] and "Secure" in page.headers["set-cookie"]
@@ -213,7 +238,7 @@ def test_package_view_matches_packet_and_search_does_not_advance(monkeypatch):
         assert response.text.count('class="package-file"') == 7
         assert "&lt;stdint.h&gt;" in response.text
         before = client.get("/api/evidence").json()
-        assert before["fixed_engine_run"]["package_sha256"] == "100bf914d582bf2d7f7b9136af2e8bf22993f3ca3979f4ec4daf9e93b9ac4295"
+        assert before["fixed_engine_run"]["package_sha256"] == "722f7daac9b895aa22d2ead39332ce0bcf8c40db769fe6b6bd05664a8685e8fc"
         sources, nasa = stage_mission.check_sources()
         artifacts, _ = stage_mission.mission_package("clean", sources, nasa)
         for data in artifacts.values():

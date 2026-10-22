@@ -31,6 +31,8 @@ FRAME_WIDTH = 70
 FIELD_LABEL_WIDTH = 22
 FIELD_VALUE_WIDTH = FRAME_WIDTH - FIELD_LABEL_WIDTH - 4
 PROCESS_TIMEOUT_SECONDS = 120
+VOICE_SPEAKERS = ("ELIZA", "COLOSSUS", "COLOSSUS + GUARDIAN")
+VOICE_ENTRIES_PER_SPEAKER = 2
 
 
 class Color:
@@ -56,15 +58,14 @@ def write_json(path: Path, value: object) -> None:
     path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def choose_workbench_voice() -> tuple[str, str, str]:
-    """Choose one of the three historical voices with equal probability."""
+def load_workbench_voices() -> dict[str, list[tuple[str, str]]]:
+    """Load the small, primary-source-verified header bank or fail closed."""
     entries = json.loads(VOICE_BANK.read_text(encoding="utf-8"))
-    if not isinstance(entries, list) or len(entries) != 100:
-        raise RuntimeError("The workbench voice bank must contain exactly 100 lines")
+    expected_total = len(VOICE_SPEAKERS) * VOICE_ENTRIES_PER_SPEAKER
+    if not isinstance(entries, list) or len(entries) != expected_total:
+        raise RuntimeError(f"The verified workbench voice bank must contain exactly {expected_total} lines")
     by_speaker: dict[str, list[tuple[str, str]]] = {
-        "ELIZA": [],
-        "COLOSSUS": [],
-        "GUARDIAN": [],
+        speaker: [] for speaker in VOICE_SPEAKERS
     }
     for entry in entries:
         if not isinstance(entry, dict):
@@ -72,17 +73,41 @@ def choose_workbench_voice() -> tuple[str, str, str]:
         speaker = entry.get("speaker")
         line = entry.get("text")
         attribution = entry.get("attribution")
+        source = entry.get("source")
+        locator = entry.get("locator")
+        source_sha256 = entry.get("source_sha256")
+        verification = entry.get("verification")
         if (
             speaker not in by_speaker
             or not isinstance(line, str)
             or not line
             or not isinstance(attribution, str)
             or not attribution
+            or not isinstance(source, str)
+            or not source
+            or not isinstance(locator, str)
+            or not locator
+            or not isinstance(source_sha256, str)
+            or re.fullmatch(r"[0-9a-f]{64}", source_sha256) is None
+            or verification != "primary-source-verified"
         ):
-            raise RuntimeError("Every workbench voice needs a known speaker, text, and attribution")
+            raise RuntimeError(
+                "Every workbench voice needs a known speaker, text, attribution, "
+                "primary source, exact locator, source SHA-256, and primary-source verification"
+            )
         if len(f"“{line}”") > 68 or len(attribution) > 68:
             raise RuntimeError(f"Workbench quote or attribution is too wide: {line}")
         by_speaker[speaker].append((line, attribution))
+    if any(len(lines) != VOICE_ENTRIES_PER_SPEAKER for lines in by_speaker.values()):
+        raise RuntimeError(
+            f"The verified workbench voice bank needs exactly {VOICE_ENTRIES_PER_SPEAKER} lines per speaker"
+        )
+    return by_speaker
+
+
+def choose_workbench_voice() -> tuple[str, str, str]:
+    """Choose one of three source-verified voices with equal probability."""
+    by_speaker = load_workbench_voices()
     speaker = secrets.choice(tuple(by_speaker))
     line, attribution = secrets.choice(by_speaker[speaker])
     return speaker, line, attribution
@@ -777,7 +802,7 @@ def print_header() -> None:
     voice_color = {
         "ELIZA": Color.CYAN,
         "COLOSSUS": Color.ICE,
-        "GUARDIAN": Color.BLUE,
+        "COLOSSUS + GUARDIAN": Color.BLUE,
     }[speaker]
     if sys.stdout.isatty():
         print("\033]0;DobeWorks\007", end="")

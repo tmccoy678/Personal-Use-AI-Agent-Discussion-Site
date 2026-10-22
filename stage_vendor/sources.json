@@ -1,10 +1,10 @@
 {
   "DobeWorks": {
     "repository": "https://github.com/tmccoy678/DobeWorks",
-    "commit": "20ac2bc684cda9d0d4ce799e9379e44b2a1c51a9",
+    "commit": "ab7fd6019b6a8ae799213d485dea1d77eb2ed2ce",
     "files": {
       "LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
-      "THIRD_PARTY_NOTICES.md": "c52a5160cdac6ab906ccc21d7ff9f60445fe35586cbc4cb44174cfcf171b474c",
+      "THIRD_PARTY_NOTICES.md": "c58482dccf96b675e9873e483bf733b00aec00d92f377711af67bb797e66e73d",
       "benchmarks/data/LICENSE": "8bd0e0578be788c617ea01d18b2a8146e3746ae50bddadc65a5f9d3aad08ad49",
       "contexts/operational-system/software/phase4/README.md": "b843020626dda63acd0eb7f59c22af34fb2a01f74bf68cddee6651aefe89e0c8",
       "contexts/operational-system/software/phase4/bounded_input.py": "8f3d2c05b6a3d28b17792b893abd5c3b624890dc075da02892cbd802d5b4f669",
@@ -18,12 +18,12 @@
       "contexts/operational-system/software/phase4/test_observer_core.py": "ce7a77b8b4b7e93e559aeacdb08988e7619a52d63c56e7c6c9df1593a67e5908",
       "contexts/operational-system/software/phase4/test_worker_core.py": "35a02378c52d2118a3016801e219c545bdee49b70f366c8cff2777b2b7830ddb",
       "contexts/operational-system/software/phase4/worker_core.py": "dcc7e14249b24834a260d1d45b65801ef52ccd1606f8c05db38ee2ccc8c7c571",
-      "interface/README.md": "9fdd13f360b5cf656001050cf079038fcf9bd823f2e80117ec347eae081a817c",
-      "interface/command_center.py": "6f06f32804bc7bbfec65fad13d8ce9f04ea22b3ecdc45e75bf598f3d62f1c920",
+      "interface/README.md": "1287e578045be75947cf8cfd8e019b784991ceb4a026113c037e20488f4291d5",
+      "interface/command_center.py": "598c004d27fa763c200a7274cc3c17d267768aa5f64f63362e89811055047284",
       "interface/set_workbench_font.applescript": "d3b323bd0d7444ed9ce9b91aaf06951934cb5e536703189558365dff2bdaa354",
-      "interface/workbench-voices.json": "97b52bd7c3b57a3f7dca7bf7307d99e79e442b0d778c1f74bb6172bc14a8d411"
+      "interface/workbench-voices.json": "6099955353f8cac1a9879075d184daca927510e068e193e60d06bbdc3787e838"
     },
-    "snapshot": "Frozen default-branch HEAD on 2026-10-21; selected runtime, core tests, fixtures and notices."
+    "snapshot": "Frozen default-branch HEAD on 2026-10-22; selected runtime, core tests, fixtures and notices."
   },
   "DEGS": {
     "repository": "https://github.com/tmccoy678/DEGS",
