@@ -93,16 +93,22 @@ def test_complete_workflow_and_invalidation(real_cores, monkeypatch):
         assert client.get("/api/evidence").json()["completed_handoffs"] == ["01", "02", "03", "04", "05"]
         command(client, "director")
         assert not client.get("/api/evidence").json()["fictional_role_poll"]
-        for role in ("vehicle", "weather", "range"):
-            command(client, role)
+        weather = command(client, "weather")
+        assert "SURFACE WIND          22 KT" in weather.text
+        assert "HOLD · WIND EXCEEDS LIMIT" in weather.text
         assert not client.get("/api/evidence").json()["fictional_role_poll"]
         assert "HOLD" in command(client, "go-weather").text
-        command(client, "clear-weather")
-        for role in ("vehicle", "weather", "range"):
-            command(client, "go-" + role)
+        updated = command(client, "clear-weather")
+        assert "SURFACE WIND          9 KT" in updated.text
+        assert "RECORD WEATHER GO FOR T+05" in updated.text
+        command(client, "go-weather")
         command(client, "07")
         assert not client.get("/api/evidence").json()["simulated_flight_completed"]
-        command(client, "go-director")
+        director = command(client, "director")
+        assert "READY FOR DIRECTOR DECISION" in director.text
+        assert "AUTHORIZE SIMULATED COUNTDOWN" in director.text
+        authorized = command(client, "go-director")
+        assert "SIMULATED COUNTDOWN AUTHORIZED" in authorized.text
         response = command(client, "07")
         assert "THE ROCKET CLEARS THE PAD" in response.text
         record = client.get("/api/evidence").json()
@@ -270,8 +276,8 @@ def test_one_character_failure_counterfactual_and_corrected_flight(real_cores, m
         assert client.get("/api/evidence").json()["completed_handoffs"] == ["01", "02", "03", "04"]
         command(client, "accept")
         command(client, "clear-weather")
-        for role in ("vehicle", "weather", "range", "director"):
-            command(client, "go-" + role)
+        command(client, "go-weather")
+        command(client, "go-director")
         assert "ALL EXERCISE CHECKS PASS" in command(client, "07").text
         client.get("/")
         fresh = client.get("/api/evidence").json()
@@ -348,8 +354,8 @@ def test_rbar_rocket_mission_stops_before_launch_then_rechecks_correction(real_c
         assert accepted["fixed_engine_run"]["worker"]["promotion"] == "NOT_PERFORMED"
         assert "R-BAR-NOTE" in client.get("/package").text
         command(client, "clear-weather", "rbar-fixed")
-        for role in ("vehicle", "weather", "range", "director"):
-            command(client, "go-" + role, "rbar-fixed")
+        command(client, "go-weather", "rbar-fixed")
+        command(client, "go-director", "rbar-fixed")
         flight = command(client, "07", "rbar-fixed")
         assert "EXACT NOTATION CHECK PASSED" in flight.text
         assert "receiving team obtains the required notation" in flight.text
@@ -367,5 +373,6 @@ def test_ready_poll_has_a_next_step_and_recorded_teams_are_clear():
     result = asyncio.run(stage.program(state, "06"))
     assert result["actions"] == [("07", "RUN THE CLEAN SIMULATED FLIGHT")]
     inspected = asyncio.run(stage.program(state, "weather"))
-    assert "GO RECORDED" in inspected["lines"]
+    assert "WEATHER DECISION · GO · T+05 WINDOW" in inspected["lines"]
     assert all(command != "go-weather" for command, _ in inspected["actions"])
+    assert stage.POLL == {"weather": "WEATHER OFFICER", "director": "LAUNCH DIRECTOR"}
