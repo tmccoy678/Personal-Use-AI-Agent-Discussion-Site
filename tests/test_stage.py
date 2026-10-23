@@ -135,16 +135,17 @@ def test_all_real_scenarios_and_source_identity():
 def test_stage_host_cannot_reach_lab_routes(env):
     with TestClient(bridge.create_app(env), base_url="https://stage.dobeworks.com") as client:
         page = client.get("/")
-        assert page.status_code == 200 and "MARINER 1 TEACHING RECONSTRUCTION" in page.text
-        assert "https://catalog.afi.com/Film/23505-THE-FORBIN-PROJECT" in page.text
+        assert page.status_code == 200 and "ZARINER · SAVE THE SIGNAL" in page.text
+        assert 'src="/stage-game.js"' in page.text
         assert page.headers["referrer-policy"] == "same-origin"
-        assert "<script" not in page.text
+        assert "script-src 'self'" in page.headers["content-security-policy"]
         assert "HttpOnly" in page.headers["set-cookie"] and "Secure" in page.headers["set-cookie"]
         for path in ["/inbox", "/login", "/api/dms", "/api/jobs", "/stream", "/window", "/legacy"]:
             assert client.get(path).status_code == 404
         assert "FROZEN SOURCES" in client.get("/sources").text
         assert client.get("/evidence").headers["content-type"].startswith("text/html")
         assert client.get("/stage.css").status_code == 200
+        assert client.get("/stage-game.js").headers["content-type"].startswith("application/javascript")
     with TestClient(bridge.create_app(env), base_url="https://lab.dobeworks.com") as client:
         assert client.get("/sources").status_code == 404
         assert client.get("/api/dms").status_code == 401
@@ -154,7 +155,7 @@ def test_stage_host_cannot_reach_lab_routes(env):
         assert "set-cookie" not in health.headers
 
 
-def test_stage_uses_content_addressed_transparent_logo_and_favicons():
+def test_stage_preserves_content_addressed_logo_assets_without_forcing_them_into_the_game():
     logo_url = "/dobeworks-logo-a56f5aab2111.svg"
     favicon_16_url = "/dobeworks-favicon-015c1a2f70b6-16.png"
     favicon_32_url = "/dobeworks-favicon-45fd62c64976-32.png"
@@ -177,7 +178,7 @@ def test_stage_uses_content_addressed_transparent_logo_and_favicons():
         assert "immutable" in favicon_16.headers["cache-control"]
         assert "immutable" in favicon_32.headers["cache-control"]
         page = client.get("/")
-        assert page.text.count(logo_url) == 2
+        assert page.text.count(logo_url) == 0
         assert page.text.count(favicon_16_url) == 1
         assert page.text.count(favicon_32_url) == 1
         assert "img-src 'self'" in page.headers["content-security-policy"]
@@ -188,15 +189,14 @@ def test_public_front_door_starts_with_a_plain_language_play_loop():
     with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
         page = client.get("/")
         assert page.status_code == 200
-        assert "THE TASK SAYS FINISHED. ONE WARNING IS STILL OPEN." in page.text
-        assert "The left copy is correct. The right copy lost one mark." in page.text
-        assert "SEND THE FINISHED WORK" in page.text
-        assert 'name="command" value="lesson-start"' in page.text
-        assert "ERROR" in page.text and "WORK" in page.text and "LAUNCH" in page.text
-        assert "DOI RESOLVER" not in page.text
-        assert "THE WHOLE IDEA IN 20 SECONDS" not in page.text
-        assert "Mariner 1" in page.text
-        assert "<script" not in page.text
+        assert "ZARINER · SAVE THE SIGNAL" in page.text
+        assert "FIND R WITHOUT BAR" in page.text
+        assert page.text.count('data-signal-wrong') == 12
+        assert 'class="signal-token signal-target"' in page.text
+        assert 'value="lesson-start"' in page.text
+        assert "NO TIMER" in page.text
+        assert "HOW IT WORKED" not in page.text
+        assert 'src="/stage-game.js"' in page.text
 
 
 def test_public_mission_shows_a_failed_check_without_advancing(monkeypatch):
@@ -219,17 +219,17 @@ def test_public_mission_cannot_unlock_the_engineering_station_early():
     with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
         opening = client.get("/")
         direct_program = lesson_command(client, opening, "01")
-        assert "THE TASK SAYS FINISHED. ONE WARNING IS STILL OPEN." in direct_program.text
+        assert "FIND R WITHOUT BAR" in direct_program.text
         assert "SOFTWARE / TELEMETRY DESK" not in direct_program.text
         assert client.get("/api/evidence").json()["fixed_engine_run"] is None
 
         direct_unlock = lesson_command(client, direct_program, "lesson-mission")
-        assert "THE TASK SAYS FINISHED. ONE WARNING IS STILL OPEN." in direct_unlock.text
+        assert "FIND R WITHOUT BAR" in direct_unlock.text
         assert "SOFTWARE / TELEMETRY DESK" not in direct_unlock.text
 
         csrf = re.search(r'name="csrf" value="([^"]+)"', direct_unlock.text)[1]
         forged = client.post("/", data={"command": "01", "scenario": "clean", "csrf": csrf})
-        assert "THE TASK SAYS FINISHED. ONE WARNING IS STILL OPEN." in forged.text
+        assert "FIND R WITHOUT BAR" in forged.text
         assert "SOFTWARE / TELEMETRY DESK" not in forged.text
         assert client.get("/api/evidence").json()["fixed_engine_run"] is None
 
@@ -238,32 +238,32 @@ def test_public_mission_bypass_reveals_history_without_overriding_the_gate():
     with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
         opening = client.get("/")
         held = lesson_command(client, opening, "lesson-start")
-        assert "WORK FINISHED. LAUNCH STOPPED." in held.text
-        assert "THE CHECK FOUND IT" in held.text
-        assert "DOBEWORKS STAGED THE WORK" in held.text
-        assert "THE HANDOFF KEPT THE WARNING" in held.text
-        assert "DEGS STOPPED IT" in held.text
-        assert "SAME FINISHED WORK. DIFFERENT HANDOFF RECORD." in held.text
-        assert "WARNING TRAVELS" in held.text
-        assert "WARNING DISAPPEARS" in held.text
-        assert "COMPLETED_UNACCEPTED · NOT_PERFORMED" in held.text
-        assert "UNRESOLVED warning attached to the DEGS task" in held.text
-        assert "BLOCKED · open finding" in held.text
+        assert "GATE BLOCKED" in held.text
+        assert "WARNING FOUND" in held.text
+        assert "WORK STAGED" in held.text
+        assert "FAILED PACKET · RETAINED" in held.text
+        assert "APPLY BAR" in held.text
+        assert "DROP WARNING" in held.text
         before = client.get("/api/evidence").json()
         assert before["fixed_engine_run"]["degs"]["decision"] == "BLOCKED"
         assert before["completed_handoffs"] == ["01", "02"]
 
         bypass = lesson_command(client, held, "lesson-bypass")
+        assert "MISSION LOST" in bypass.text
         assert "Range Safety Officer" in bypass.text
         assert "T+294.5 seconds" in bypass.text
         assert "guidance-antenna fault" in bypass.text
         assert "omitted overbar" in bypass.text
-        assert "DobeWorks and DEGS did not exist in 1962" in bypass.text
         after = client.get("/api/evidence").json()
         assert after["fixed_engine_run"] == before["fixed_engine_run"]
         assert after["completed_handoffs"] == ["01", "02"]
         assert after["counterfactual_flight_with_errors"] is True
         assert after["simulated_flight_completed"] is False
+        recovered = lesson_command(client, bypass, "lesson-recover")
+        assert "GATE BLOCKED" in recovered.text
+        restored = client.get("/api/evidence").json()
+        assert restored["fixed_engine_run"] == before["fixed_engine_run"]
+        assert restored["counterfactual_flight_with_errors"] is False
 
 
 def test_public_mission_requires_fix_then_acceptance_before_successful_flight():
@@ -271,35 +271,36 @@ def test_public_mission_requires_fix_then_acceptance_before_successful_flight():
         opening = client.get("/")
         held = lesson_command(client, opening, "lesson-start")
         fixed = lesson_command(client, held, "lesson-fix")
-        assert "ERROR FIXED. LAUNCH STILL NEEDS A HUMAN." in fixed.text
+        assert "FAULT REPAIRED" in fixed.text
+        assert "REVIEW THE FIX" in fixed.text
+        assert "FAILED · RETAINED" in fixed.text
+        assert "CORRECTED · PASS" in fixed.text
         evidence = client.get("/api/evidence").json()
         assert evidence["fixed_engine_run"]["degs"]["decision"] == "PASS"
         assert evidence["prior_candidate_runs"][0]["degs"]["decision"] == "BLOCKED"
         assert evidence["completed_handoffs"] == ["01", "02", "03", "04"]
 
-        too_early = lesson_command(client, fixed, "lesson-launch")
-        assert "ERROR FIXED. LAUNCH STILL NEEDS A HUMAN." in too_early.text
+        too_early = lesson_command(client, fixed, "lesson-flight")
+        assert "REVIEW THE FIX" in too_early.text
         assert client.get("/api/evidence").json()["simulated_flight_completed"] is False
 
         accepted = lesson_command(client, too_early, "accept")
-        assert "YOU REVIEWED THE EVIDENCE. LAUNCH IS NOW YOUR DECISION." in accepted.text
-        assert "LAUNCH THE SUCCESSFUL SIMULATION" in accepted.text
-        launched = lesson_command(client, accepted, "lesson-launch")
-        assert "THE ROCKET CLEARS THE PAD. THE STOP WAS FIXED, NOT FORGOTTEN." in launched.text
-        assert "NOW NAME THE MACHINERY" in launched.text
-        assert "DOI RESOLVER" in launched.text
-        assert "CONTEXT CHECK" in launched.text
-        assert "TEST OR REVIEW" in launched.text
-        assert launched.text.count("DobeWorks") >= 4
-        assert launched.text.count("DEGS") >= 4
-        assert "THE REAL MARINER 2 FOLLOW-ON" in launched.text
-        assert "first successful planetary science mission" in launched.text
-        assert "does not call the entire spacecraft flawless" in launched.text
+        assert "HUMAN ACCEPTED" in accepted.text
+        assert "YOU HOLD THE KEY" in accepted.text
+        flight = lesson_command(client, accepted, "lesson-flight")
+        assert "ZARINER 2 · VENUS RUN" in flight.text
+        assert "HOLD TO CLIMB" in flight.text
+        assert client.get("/api/evidence").json()["simulated_flight_completed"] is False
+        launched = lesson_command(client, flight, "lesson-win")
+        assert "VENUS REACHED" in launched.text
+        assert "STOP FIXED. SIGNAL SAVED." in launched.text
+        assert "HOW IT WORKED" in launched.text
+        assert "OPEN TERMINAL" in launched.text
+        assert "&gt; FIND R-BAR" in launched.text
+        assert "SOFTWARE / TELEMETRY DESK" not in launched.text
         final = client.get("/api/evidence").json()
         assert final["completed_handoffs"] == ["01", "02", "03", "04", "05"]
         assert final["simulated_flight_completed"] is True
-        station = lesson_command(client, launched, "lesson-mission")
-        assert "SOFTWARE / TELEMETRY DESK" in station.text
 
 
 def test_complete_workflow_and_invalidation(real_cores, monkeypatch):
@@ -538,9 +539,9 @@ def test_rbar_rocket_mission_stops_before_launch_then_rechecks_correction(real_c
     stage.CACHE["cores"] = real_cores
     with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
         opening = client.get("/")
-        assert "THE TASK SAYS FINISHED. ONE WARNING IS STILL OPEN." in opening.text
-        assert "ONE MARK · FOUR MOVES · TWO ENDINGS" in opening.text
-        assert "DOI RESOLVER" not in opening.text
+        assert "ZARINER · SAVE THE SIGNAL" in opening.text
+        assert "FIND R WITHOUT BAR" in opening.text
+        assert "HOW IT WORKED" not in opening.text
         for number in ("01", "02", "03"):
             response = command(client, number, "rbar")
         original = client.get("/api/evidence").json()

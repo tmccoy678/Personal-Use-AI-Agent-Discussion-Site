@@ -40,7 +40,8 @@ PROGRAMS = {"01": ("CONFIGURATION ENGINEER", "ESTABLISH PACKAGE BASELINE"),
             "08": ("EVIDENCE", "OPEN THE HANDOFF RECORD")}
 POLL = {"weather": "WEATHER OFFICER", "director": "LAUNCH DIRECTOR"}
 CASE_ACTIONS = {"restore", "keep", "hold", "accept", "what-if", "clear-weather"} | {"go-" + key for key in POLL}
-LESSON_ACTIONS = {"lesson-start", "lesson-bypass", "lesson-fix", "lesson-compare", "lesson-launch", "lesson-mission"}
+LESSON_ACTIONS = {"lesson-start", "lesson-bypass", "lesson-recover", "lesson-fix", "lesson-compare",
+                  "lesson-flight", "lesson-launch", "lesson-win", "lesson-reflight", "lesson-mission"}
 CACHE = {}
 SESSIONS = OrderedDict()
 LOCK = asyncio.Lock()
@@ -83,7 +84,7 @@ VOICES = load_workbench_voices()
 
 def new_state():
     return {"csrf": secrets.token_urlsafe(24), "scenario": "rbar", "lesson_mode": True, "comparison": False, "completed": [], "poll": {}, "events": [],
-            "report": None, "cores": None, "launched": False, "busy": False, "tested_package": None,
+            "report": None, "cores": None, "launched": False, "flight_active": False, "busy": False, "tested_package": None,
             "case_history": [], "weather_clear": False, "counterfactual": False, "seen": time.monotonic()}
 
 
@@ -761,7 +762,7 @@ async def headers(request, call_next):
     response = await call_next(request)
     response.headers.update({"Cache-Control": "public, max-age=31536000, immutable" if request.url.path in IMMUTABLE_ASSET_PATHS else "no-store", "X-Content-Type-Options": "nosniff",
         "Referrer-Policy": "same-origin", "X-Frame-Options": "DENY",
-        "Content-Security-Policy": "default-src 'none'; style-src 'self'; img-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"})
+        "Content-Security-Policy": "default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"})
     return response
 
 
@@ -777,6 +778,11 @@ async def home(request: Request):
 @app.get("/stage.css")
 async def css():
     return Response((ROOT / "stage_assets/stage.css").read_text(), media_type="text/css")
+
+
+@app.get("/stage-game.js")
+async def game_javascript():
+    return Response((ROOT / "stage_assets/stage-game.js").read_text(), media_type="application/javascript")
 
 
 @app.get("/dobeworks-logo-7cfd562d0370.jpg")
@@ -841,7 +847,7 @@ async def interact(request: Request):
         if scenario != state["scenario"] and state["lesson_mode"]:
             return page(request, key, state, reply="COMPLETE THE FOUR-MOVE MISSION BEFORE CHOOSING AN ENGINEERING PACKET.")
         if scenario != state["scenario"]:
-            state.update(scenario=scenario, completed=[], poll={}, report=None, cores=None, launched=False,
+            state.update(scenario=scenario, completed=[], poll={}, report=None, cores=None, launched=False, flight_active=False,
                          tested_package=None, weather_clear=False, counterfactual=False, lesson_mode=False, comparison=False)
             record(state, "CONFIGURATION ENGINEER", "PACKAGE REPLACED — ALL RECEIPTS INVALIDATED", "NEW BASELINE REQUIRED")
         if state["lesson_mode"] and question in LESSON_ACTIONS:
@@ -883,23 +889,39 @@ async def lesson_program(state, command):
             return {"reply": "THE OPEN FINDING IS ALREADY CLOSED. ACCEPTANCE IS THE NEXT DECISION."}
         state["counterfactual"] = True
         return {"reply": "THE HISTORICAL CONSEQUENCE IS SHOWN. THE REAL DEMO RECORD REMAINS BLOCKED."}
+    if command == "lesson-recover":
+        state["counterfactual"] = False
+        state["flight_active"] = False
+        return {"reply": "THE WARNING IS RESTORED TO THE RETAINED FAILED PACKET."}
     if command == "lesson-compare":
         state["comparison"] = True
         return {"reply": "THE NOTE STAYS THE SAME. THE COMPARISON CHANGES ONLY THE WARNING FIELD IN A SEPARATE READ-ONLY GATE EVALUATION."}
-    if command == "lesson-launch":
+    if command in {"lesson-flight", "lesson-launch"}:
         if state["scenario"] != "rbar-fixed" or "05" not in state["completed"]:
             return {"reply": "THE CORRECTED HANDOFF MUST PASS AND BE ACCEPTED BEFORE THIS SIMULATION CAN LAUNCH."}
+        state["flight_active"] = True
+        return {"reply": "THE ACCEPTED PACKAGE IS READY FOR THE FICTIONAL VENUS RUN."}
+    if command == "lesson-win":
+        if not state["flight_active"] or state["scenario"] != "rbar-fixed" or "05" not in state["completed"]:
+            return {"reply": "THE CORRECTED HANDOFF MUST PASS, BE ACCEPTED, AND ENTER THE FLIGHT BEFORE ARRIVAL."}
         if not state["launched"]:
             record(state, "DEMO PARTICIPANT", "FICTIONAL CORRECTED-SUCCESSOR FLIGHT", "COMPLETE")
-            state["launched"] = True
+        state["launched"] = True
+        state["flight_active"] = False
         return {"reply": "SUCCESSFUL SIMULATION. THE FAILED CANDIDATE, CORRECTION, CHECK AND ACCEPTANCE REMAIN TOGETHER."}
+    if command == "lesson-reflight":
+        if state["scenario"] != "rbar-fixed" or "05" not in state["completed"]:
+            return {"reply": "THE CORRECTED HANDOFF MUST REMAIN ACCEPTED BEFORE REPLAYING THE FLIGHT."}
+        state["launched"] = False
+        state["flight_active"] = True
+        return {"reply": "THE ACCEPTED EVIDENCE IS RETAINED. REPLAYING ONLY THE FICTIONAL FLIGHT."}
     if state["scenario"] != "rbar":
         return {"reply": "THE NOTE IS ALREADY CORRECTED. ACCEPTANCE IS A SEPARATE STEP."}
     corrected = await mission("rbar-fixed")
     state["case_history"].append(state["report"])
     record(state, "DEMO PARTICIPANT", "RESTORE THE REQUIRED R-BAR", "CORRECTED NOTE SUBMITTED")
     state.update(scenario="rbar-fixed", report=corrected, completed=[], poll={}, cores=None,
-                 tested_package=None, launched=False, counterfactual=False, comparison=False)
+                 tested_package=None, launched=False, flight_active=False, counterfactual=False, comparison=False)
     for step in ("01", "02", "03", "04", "05"):
         await program(state, step)
     return {"reply": "THE FINDING HAS CHECK EVIDENCE AND CONSISTENT CLOSURE. THE HANDOFF STILL AWAITS YOUR SEPARATE DEMO ACCEPTANCE."}

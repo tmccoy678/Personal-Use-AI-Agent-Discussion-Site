@@ -1,5 +1,14 @@
-"""Plain-language, server-rendered front door for the fixed handoff records."""
+"""Fast public arcade layered over the fixed DobeWorks/DEGS evidence record."""
+
 from html import escape
+
+
+def hidden(state, command):
+    return (
+        f'<input type="hidden" name="csrf" value="{state["csrf"]}">'
+        f'<input type="hidden" name="scenario" value="{state["scenario"]}">'
+        f'<input type="hidden" name="command" value="{command}">'
+    )
 
 
 def render(state, voice, reply, question, extra=""):
@@ -8,223 +17,188 @@ def render(state, voice, reply, question, extra=""):
     fixed = check is not None and check["result"] == "PASS"
     accepted = "05" in state["completed"]
     launched = state["launched"]
+    flight_active = state.get("flight_active", False)
     bypassed = state["counterfactual"] and not fixed
 
-    def form(command, label, secondary=False):
-        return (f'<form action="/" method="post"><input type="hidden" name="csrf" value="{state["csrf"]}">'
-                f'<input type="hidden" name="scenario" value="{state["scenario"]}">'
-                f'<button class="enter {"secondary" if secondary else ""}" name="command" value="{command}">{label}</button></form>')
+    def form(command, label, css="game-button", form_id=""):
+        identifier = f' id="{form_id}"' if form_id else ""
+        return (
+            f'<form action="/" method="post"{identifier}>{hidden(state, command)}'
+            f'<button class="{css}">{escape(label)}</button></form>'
+        )
 
-    document_title = "DobeWorks · The Finished Task"
-    title = "THE TASK SAYS FINISHED. ONE WARNING IS STILL OPEN."
-    explanation = ("The left copy is correct. The right copy lost one mark. What will reach the next team: "
-                   "only the finished work, or the reason to stop too?")
-    actions = form("lesson-start", "SEND THE FINISHED WORK")
+    phase = "scan"
     step = 0
-    step_label = "MOVE 0 OF 4 · READY TO HAND OFF"
-    rocket_label = "FINISHED WORK ON THE PAD"
-    phase = "ready"
-    error_status = "OPEN · R-BAR BECAME R"
-    work_status = "CLAIMED FINISHED"
-    launch_status = "LOCKED"
-    checker = "Waiting for the two copies"
-    dobe = "Waiting for completed work"
-    handoff = "Waiting for a check result"
-    degs = "Waiting for a handoff record"
-    human = "Not requested"
-    historical = ""
-    successor = ""
-
+    game = scan_game(state)
     if check and not fixed:
-        document_title = "DobeWorks · Launch Stopped"
-        title = "WORK FINISHED. LAUNCH STOPPED."
-        explanation = ("The completion message arrived, but it did not erase the known error. The warning crossed the handoff "
-                       "with the work, so the next step stayed closed.")
-        actions = (form("lesson-fix", "FIX THE ERROR")
-                   + form("lesson-bypass", "TRY TO IGNORE IT", True))
+        phase = "lost" if bypassed else "blocked"
         step = 1
-        step_label = "MOVE 1 OF 4 · STOP SAVED"
-        rocket_label = "BLOCKED BEFORE LAUNCH"
-        phase = "held"
-        error_status = "OPEN · STILL ATTACHED"
-        work_status = "FINISHED"
-        launch_status = "BLOCKED"
-        checker = "FAIL · required R-bar, received R"
-        dobe = "COMPLETED_UNACCEPTED · NOT_PERFORMED"
-        handoff = "UNRESOLVED warning attached to the DEGS task"
-        degs = "BLOCKED · open finding"
-        human = "Held while the error is open"
-
-    if bypassed:
-        document_title = "DobeWorks · Why the Stop Matters"
-        title = "YOU TRIED TO IGNORE IT. THE GATE STILL SAYS STOP."
-        explanation = ("This choice reveals the historical consequence; it does not secretly clear the demo gate or launch a vehicle. "
-                       "The recorded error is still open. Fix it to continue.")
-        actions = form("lesson-fix", "FIX IT AND TRY AGAIN")
-        rocket_label = "IGNORE ATTEMPT · STILL BLOCKED"
-        phase = "bypassed"
-        historical = ('<section class="history-alert" aria-labelledby="mariner-one-title">'
-            '<p class="eyebrow">THE REAL MARINER 1 OUTCOME</p>'
-            '<h2 id="mariner-one-title">The rocket veered off course, and the Range Safety Officer destroyed it at T+294.5 seconds.</h2>'
-            '<p>NASA identifies two problems: a guidance-antenna fault and a software error involving an omitted overbar on R. '
-            'It was not a missing hyphen. The real team did not use this demo and did not make the choice shown above. '
-            'DobeWorks and DEGS did not exist in 1962.</p><p><a href="https://science.nasa.gov/mission/mariner-1/">READ NASA\'S MARINER 1 ACCOUNT</a></p></section>')
-
+        game = loss_game(form) if bypassed else blocked_game(state, form)
     if fixed:
-        document_title = "DobeWorks · Human Review Required"
-        title = "ERROR FIXED. LAUNCH STILL NEEDS A HUMAN."
-        explanation = ("The new copy passes the same check. The failed copy, the repair, and the evidence stayed together. "
-                       "Now decide whether to accept that reviewed handoff.")
-        actions = form("accept", "I REVIEWED IT · ACCEPT")
+        phase = "review"
         step = 2
-        step_label = "MOVE 2 OF 4 · ERROR CLOSED"
-        rocket_label = "CHECKS PASS · YOUR REVIEW REQUIRED"
-        phase = "corrected"
-        error_status = "CLOSED · EVIDENCE ATTACHED"
-        work_status = "FINISHED"
-        launch_status = "AWAITING YOUR REVIEW"
-        checker = "PASS · R-bar restored"
-        dobe = "COMPLETED_UNACCEPTED · NOT_PERFORMED"
-        handoff = "Failed run retained beside the corrected run"
-        degs = "READY · no supplied stop remains open"
-        human = "Awaiting your acceptance"
-
+        game = review_game(form)
     if accepted:
-        document_title = "DobeWorks · Your Launch Decision"
-        title = "YOU REVIEWED THE EVIDENCE. LAUNCH IS NOW YOUR DECISION."
-        explanation = ("The error is closed, the stop record is intact, and you accepted the corrected handoff. "
-                       "The fictional rocket is ready for your final move.")
-        actions = form("lesson-launch", "LAUNCH THE SUCCESSFUL SIMULATION")
+        phase = "flight" if flight_active else "accepted"
         step = 3
-        step_label = "MOVE 3 OF 4 · REVIEW ACCEPTED"
-        rocket_label = "READY FOR YOUR LAUNCH COMMAND"
-        phase = "accepted"
-        error_status = "CLOSED · EVIDENCE ATTACHED"
-        work_status = "ACCEPTED"
-        launch_status = "READY"
-        human = "ACCEPTED · for this demonstration"
-
+        game = flight_game(state) if flight_active else accepted_game(form)
     if launched:
-        document_title = "DobeWorks · Mission Complete"
-        title = "THE ROCKET CLEARS THE PAD. THE STOP WAS FIXED, NOT FORGOTTEN."
-        explanation = ("You did not win by deleting the warning. You won by carrying it forward, fixing the error, "
-                       "preserving the evidence, and making acceptance a separate decision.")
-        actions = form("00", "PLAY AGAIN")
+        phase = "won"
         step = 4
-        step_label = "MOVE 4 OF 4 · MISSION COMPLETE"
-        rocket_label = "SUCCESSFUL FICTIONAL FLIGHT"
-        phase = "launched"
-        error_status = "CLOSED · HISTORY PRESERVED"
-        work_status = "ACCEPTED"
-        launch_status = "SUCCESS"
-        successor = ('<section class="successor-archive" aria-labelledby="mariner-two-title">'
-            '<p class="eyebrow">THE REAL MARINER 2 FOLLOW-ON</p>'
-            '<h2 id="mariner-two-title">Thirty-six days later, Mariner 2 launched and became humanity\'s first successful planetary science mission.</h2>'
-            '<p>It completed a course correction, flew by Venus, and returned data during a 42-minute scan. This game is not a replay '
-            'of that flight and does not call the entire spacecraft flawless.</p><p>'
-            '<a href="https://science.nasa.gov/mission/mariner-2/">READ NASA\'S MARINER 2 ACCOUNT</a> · '
-            '<a href="https://www.jpl.nasa.gov/videos/mariner-2-launches/">WATCH JPL\'S LAUNCH FILM</a></p></section>')
+        game = won_game(form)
 
-    segments = "".join(
-        f'<span class="arcade-segment {"is-complete" if number <= step else ""}" aria-hidden="true"></span>'
-        for number in range(1, 5)
+    progress = "".join(
+        f'<span class="{"done" if number <= step else "active" if number == step + 1 else ""}">{label}</span>'
+        for number, label in enumerate(("FIND", "CARRY", "FIX", "FLY"), start=1)
     )
-    mission_meter = (f'<div class="arcade-progress" role="progressbar" aria-label="{escape(step_label)}" '
-                     f'aria-valuemin="0" aria-valuemax="4" aria-valuenow="{step}"><div>{segments}</div>'
-                     f'<p>{escape(step_label)}</p></div>')
-    status_board = ('<dl class="mission-status" aria-label="Current mission status">'
-        f'<div><dt>ERROR</dt><dd>{escape(error_status)}</dd></div>'
-        f'<div><dt>WORK</dt><dd>{escape(work_status)}</dd></div>'
-        f'<div><dt>LAUNCH</dt><dd>{escape(launch_status)}</dd></div></dl>')
-    received_label = "CORRECTED COPY" if fixed else "AI RECEIVED"
+    optional = (
+        '<details class="source-drawer"><summary>SOURCES + ACCESS</summary>'
+        '<p>Zariner is an original arcade game inspired by the handoff lesson in '
+        '<a href="https://science.nasa.gov/mission/mariner-1/">NASA’s Mariner 1 account</a>. '
+        'The game uses an original note and an exact supplied-reference check.</p>'
+        '<p><a href="/evidence">RECORDED INPUTS + OUTPUTS</a> · '
+        '<a href="/package">INSPECT THE NOTE</a> · <a href="/sources">FROZEN SOURCE IDENTITIES</a></p>'
+        '</details>'
+    )
+    return (
+        '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        '<title>DobeWorks · Save the Signal</title>'
+        '<link rel="icon" type="image/png" sizes="16x16" href="/dobeworks-favicon-015c1a2f70b6-16.png">'
+        '<link rel="icon" type="image/png" sizes="32x32" href="/dobeworks-favicon-45fd62c64976-32.png">'
+        '<link rel="stylesheet" href="/stage.css"><script src="/stage-game.js" defer></script></head>'
+        '<body><main class="arcade-main">'
+        '<header class="arcade-header"><div class="wordmark">D O B E W O R K S</div>'
+        '<div class="game-name">ZARINER · SAVE THE SIGNAL</div>'
+        f'<div class="voice">“{escape(voice["text"])}” · {escape(voice["attribution"])}</div></header>'
+        f'<nav class="game-progress" aria-label="Mission progress">{progress}</nav>'
+        f'{extra}<section class="game-shell phase-{phase}" data-game-phase="{phase}">{game}</section>'
+        f'{optional}<footer>ARCADE MISSION · REAL FROZEN COMPONENTS<br>'
+        '<a href="https://dobeworks.com">DOBEWORKS</a> · <a href="https://lab.dobeworks.com">LAB</a></footer>'
+        '</main></body></html>'
+    )
 
-    reveal = ""
-    contrast = ""
-    if check:
-        reveal_title = "THE COMPLETION MESSAGE DID NOT ERASE THE ERROR."
-        cards = (f'<article><small>1</small><h3>THE CHECK FOUND IT</h3><p>{escape(checker)}</p></article>'
-                 f'<article><small>2</small><h3>DOBEWORKS STAGED THE WORK</h3><p>{escape(dobe)}</p></article>'
-                 f'<article><small>3</small><h3>THE HANDOFF KEPT THE WARNING</h3><p>{escape(handoff)}</p></article>'
-                 f'<article><small>4</small><h3>DEGS STOPPED IT</h3><p>{escape(degs)}</p></article>')
-        if fixed:
-            reveal_title = "THE REPAIR CHANGED THE RESULT; IT DID NOT ERASE THE FIRST FAILURE."
-            cards = (f'<article><small>1</small><h3>THE CHECK VERIFIED IT</h3><p>{escape(checker)}</p></article>'
-                     f'<article><small>2</small><h3>DOBEWORKS STAGED NEW WORK</h3><p>{escape(dobe)}</p></article>'
-                     f'<article><small>3</small><h3>THE EXHIBIT KEPT BOTH RECORDS</h3><p>{escape(handoff)}</p></article>'
-                     f'<article><small>4</small><h3>DEGS OPENED THE GATE</h3><p>{escape(degs)}</p></article>')
-        reveal = (f'<section class="lesson-reveal" aria-labelledby="reveal-title"><p class="eyebrow">WHAT JUST HAPPENED</p>'
-                  f'<h2 id="reveal-title">{reveal_title}</h2><div>{cards}</div>'
-                  f'<p class="human-line"><b>YOUR PART:</b> {escape(human)}.</p></section>')
-        if not fixed:
-            kept_decision = report["degs"]["decision"]
-            lost_decision = report["translation_comparison"]["completion_only_decision"]["decision"]
-            contrast = ('<section class="controlled-comparison" aria-labelledby="comparison-title">'
-                '<p class="eyebrow">THE WHOLE POINT</p>'
-                '<h2 id="comparison-title">SAME FINISHED WORK. DIFFERENT HANDOFF RECORD.</h2><div>'
-                f'<article><small>WARNING TRAVELS</small><strong>{escape(kept_decision)}</strong>'
-                '<p>The known error reaches the next gate, so work stops.</p></article>'
-                f'<article><small>WARNING DISAPPEARS</small><strong>{escape(lost_decision)}</strong>'
-                '<p>A read-only comparison removes only the warning field. The gate no longer sees the reason to stop.</p></article>'
-                '</div><p>Nothing launched in this comparison. It shows why preserving the warning changes the next decision.</p></section>')
 
-    mechanism = ""
-    applications = ""
-    unlocked = ""
-    guide = ""
-    if launched:
-        mechanism = ('<section class="plain-mechanism" aria-labelledby="mechanism-title"><p class="eyebrow">NOW NAME THE MACHINERY</p>'
-            '<h2 id="mechanism-title">DobeWorks keeps completed work staged. The handoff record carries the reason to stop. DEGS keeps the next step closed until that reason is resolved.</h2><ol>'
-            '<li><b>FIND</b><span>A named check or person records a problem.</span></li>'
-            '<li><b>STAGE</b><span>DobeWorks leaves completed output unaccepted and unpromoted.</span></li>'
-            '<li><b>CARRY</b><span>The adapter puts the finding into the DEGS handoff record.</span></li>'
-            '<li><b>ENFORCE</b><span>DEGS refuses readiness while it is open; human acceptance stays separate.</span></li>'
-            '</ol></section>')
-        applications = ('<section class="applications" aria-labelledby="applications-title"><p class="eyebrow">THE SAME RULE ANYWHERE WORK MOVES</p>'
-            '<h2 id="applications-title">The named check finds the problem. DobeWorks stages the work; the handoff record carries the finding; DEGS enforces the stop.</h2><div>'
-            '<article><small>DOI RESOLVER</small><h3>Faulty citation</h3><p>A resolver flags a DOI that does not lead to the claimed paper. '
-            'DobeWorks keeps the completed draft staged; the handoff record carries the finding; DEGS blocks the next stage until the source is verified.</p></article>'
-            '<article><small>CONTEXT CHECK</small><h3>New AI window</h3><p>A comparison flags a required instruction missing from a handoff. '
-            'DobeWorks keeps the completed handoff staged; its record carries the missing requirement; DEGS blocks the next agent until it is restored.</p></article>'
-            '<article><small>TEST OR REVIEW</small><h3>Safety-critical code</h3><p>A test, hazard review, or person finds a defect. '
-            'DobeWorks keeps the completed output staged; the handoff record carries the defect; DEGS keeps readiness blocked while it remains open.</p></article>'
-            '</div><p class="application-limit">This exhibit demonstrates preservation and enforcement with one fixed notation check. '
-            'It is not a universal DOI validator, context oracle, or flight-certification system.</p></section>')
-        unlocked = ('<section class="mission-unlocked"><p class="eyebrow">NEW LEVEL UNLOCKED</p>'
-            '<h2>Want every receipt, source identity, frozen engine test, and decision?</h2>'
-            '<p>The full engineering station turns this four-move lesson into an eight-program inspection desk.</p>'
-            f'{form("lesson-mission", "OPEN THE FULL ENGINEERING STATION")}</section>')
-        guide = (f'<div class="conversation guide"><form action="/" method="post" class="command">'
-            f'<input type="hidden" name="csrf" value="{state["csrf"]}"><input type="hidden" name="scenario" value="{state["scenario"]}">'
-            '<label for="command">RULE-BASED GUIDE · ASK A QUESTION &gt;</label>'
-            '<input id="command" name="command" maxlength="160" placeholder="What is DobeWorks?" autocomplete="off"><button class="enter">RETURN</button></form>'
-            '<p class="guide-prompts">TRY: WHAT IS DOBEWORKS? · WHAT IS DEGS? · WHY IS IT BLOCKED?</p>'
-            f'<p class="question">{escape(question)}</p><p class="reply" role="status" aria-live="polite">{escape(reply)}</p></div>')
+def scan_game(state):
+    tokens = []
+    for index in range(13):
+        if index == 7:
+            tokens.append(
+                f'<form action="/" method="post" class="signal-form">{hidden(state, "lesson-start")}'
+                '<button class="signal-token signal-target" aria-label="R without bar">R</button></form>'
+            )
+        else:
+            tokens.append(
+                f'<button type="button" class="signal-token signal-safe" data-signal-wrong '
+                f'aria-label="R bar, position {index + 1}"><span>R</span></button>'
+            )
+    return (
+        '<div class="game-panel scan-panel" data-scan-game data-seconds="7">'
+        '<div class="game-kicker">ZARINER 1 · GUIDANCE STRIP</div>'
+        '<h1>FIND R WITHOUT BAR</h1>'
+        '<div class="scan-head"><output class="game-status" aria-live="polite" data-game-status>7</output>'
+        '<button type="button" class="quiet-button" data-no-timer>NO TIMER</button></div>'
+        f'<div class="signal-window"><div class="signal-track">{"".join(tokens)}</div></div>'
+        '<button type="button" class="game-button scan-retry" data-scan-retry hidden>RETRY</button>'
+        '<noscript><p class="noscript-note">Select the only R without a bar. The target remains a normal button.</p></noscript>'
+        '</div>'
+    )
 
-    return ('''<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'''
-        f'<title>{document_title}</title><link rel="icon" type="image/png" sizes="16x16" href="/dobeworks-favicon-015c1a2f70b6-16.png">'
-        '<link rel="icon" type="image/png" sizes="32x32" href="/dobeworks-favicon-45fd62c64976-32.png"><link rel="stylesheet" href="/stage.css"></head><body><main>'
-        '<header><div class="wordmark">D O B E W O R K S</div>'
-        f'<div class="voice">“{escape(voice["text"])}”</div><div class="attribution">{escape(voice["attribution"])}</div></header>'
-        '<p class="station">MARINER 1 TEACHING RECONSTRUCTION · ONE MARK · FOUR MOVES · TWO ENDINGS</p>'
-        f'<section class="arcade-stage phase-{phase}" aria-label="Mission arcade"><div class="arcade-copy">{mission_meter}'
-        f'<h1 class="lesson-title">{title}</h1><p class="lesson-copy">{explanation}</p>{status_board}'
-        '<div class="notation"><div><small>CORRECT REFERENCE</small><span aria-label="R bar" class="bar">R</span></div>'
-        f'<div><small>{received_label}</small><span {"class=bar aria-label=R-bar" if fixed else "aria-label=R"}>R</span></div></div>'
-        f'<div class="lesson-actions">{actions}</div></div><div class="arcade-vehicle">'
-        '<pre class="lesson-rocket" aria-label="Text rocket carrying the DobeWorks logo">'
-        '       /\\\n      /  \\\n     /    \\\n     | DW |\n     |----|\n     |    |\n    /|    |\\\n   /_|____|_\\\n      /__\\\n'
-        '<img class="lesson-rocket-logo" src="/dobeworks-logo-a56f5aab2111.svg" alt="DobeWorks logo" width="40" height="40"></pre>'
-        f'<p class="arcade-pad">────────────<br>{escape(rocket_label)}</p></div></section>{historical}{successor}{reveal}{contrast}'
-        f'{mechanism}{unlocked}{applications}{guide}'
-        '<details class="lesson-info"><summary>SOURCES, LIMITS &amp; EVIDENCE</summary>'
-        '<p>NASA describes a guidance-antenna fault and an omitted overbar in <a href="https://science.nasa.gov/mission/mariner-1/">Mariner 1</a>. '
-        'This site uses an original note and exact supplied-reference check; it does not contain historical guidance code or model a flight trajectory.</p>'
-        '<p>The DobeWorks Worker performs its fixed synthetic inventory and remains COMPLETED_UNACCEPTED with promotion NOT_PERFORMED. '
-        'DEGS evaluates the adapted read-only warning record. The comparison never executes or promotes work.</p>'
-        '<p><a href="/evidence">RECORDED INPUTS &amp; OUTPUTS</a> · <a href="/package">INSPECT THE NOTE AND CONTEXT</a> · '
-        '<a href="/sources">FROZEN SOURCE IDENTITIES</a></p></details>' + extra +
-        '<footer><img class="footer-logo" src="/dobeworks-logo-a56f5aab2111.svg" alt="DobeWorks logo — Marie surrounded by hearts" width="80" height="80" loading="lazy">'
-        'REAL FROZEN COMPONENTS · FICTIONAL MISSION · NO MODEL CALLS<br>'
-        '<a href="https://doi.org/10.1145/365153.365168">ELIZA, WEIZENBAUM 1966</a> · '
-        '<a href="https://catalog.afi.com/Film/23505-THE-FORBIN-PROJECT">COLOSSUS: THE FORBIN PROJECT, 1970</a><br>'
-        '<a href="https://dobeworks.com">DOBEWORKS</a> · <a href="https://lab.dobeworks.com">LAB</a></footer></main></body></html>')
+
+def blocked_game(state, form):
+    repair = (
+        f'<form action="/" method="post" class="repair-board" data-repair-form>{hidden(state, "lesson-fix")}'
+        '<div class="retained-candidate"><small>FAILED PACKET · RETAINED</small><strong>R</strong></div>'
+        '<div class="repair-target" data-repair-target tabindex="0" role="button" aria-label="Apply bar to R">'
+        '<small>CORRECT THIS</small><strong>R</strong></div>'
+        '<button type="button" class="bar-tool" data-bar-tool aria-pressed="false">━</button>'
+        '<button type="submit" class="game-button apply-bar">APPLY BAR</button></form>'
+    )
+    return (
+        '<div class="game-panel"><div class="game-kicker">WARNING FOUND</div><h1>GATE BLOCKED</h1>'
+        '<div class="handoff-run" aria-label="Warning-bearing work enters the DobeWorks staging dock and stops at the DEGS gate">'
+        '<div class="conveyor"><div class="work-packet">WORK<span class="warning-tag">WARNING</span></div></div>'
+        '<div class="dock"><small>DOBEWORKS</small><strong>WORK STAGED</strong></div>'
+        '<div class="degs-gate"><small>DEGS</small><i></i><strong>BLOCKED</strong></div></div>'
+        '<div class="micro-sequence" aria-live="polite"><span>WARNING FOUND</span><span>WORK STAGED</span><span>GATE BLOCKED</span></div>'
+        f'{repair}<div class="danger-choice">{form("lesson-bypass", "DROP WARNING", "quiet-button danger")}</div>'
+        '</div>'
+    )
+
+
+def loss_game(form):
+    return (
+        '<div class="game-panel loss-panel"><div class="game-kicker">WARNING DROPPED</div><h1>MISSION LOST</h1>'
+        '<div class="loss-sky" aria-label="Fictional trajectory veers and Range Safety closes the run">'
+        '<div class="lost-packet">WORK</div><div class="veer-line"></div><div class="lost-rocket">▲</div>'
+        '<div class="range-line">RANGE SAFETY</div></div>'
+        '<div class="loss-code">RANGE SAFETY · RUN CLOSED</div>'
+        f'{form("lesson-recover", "RETRY", "game-button")}'
+        '<details class="history-mini"><summary>HISTORICAL INSPIRATION</summary><p>The Range Safety Officer destroyed '
+        'Mariner 1 at T+294.5 seconds after its trajectory became unsafe. NASA identifies both a guidance-antenna '
+        'fault and an omitted overbar. This is a teaching reconstruction, not a replay.</p>'
+        '<a href="https://science.nasa.gov/mission/mariner-1/">NASA SOURCE</a></details></div>'
+    )
+
+
+def review_game(form):
+    return (
+        '<div class="game-panel"><div class="game-kicker">FAULT REPAIRED</div><h1>REVIEW THE FIX</h1>'
+        '<div class="candidate-pair"><div class="candidate failed"><small>FAILED · RETAINED</small><strong>R</strong></div>'
+        '<div class="candidate passed"><small>CORRECTED · PASS</small><strong class="barred">R</strong></div></div>'
+        '<div class="ready-gate"><span>DOBEWORKS · STAGED</span><i></i><span>DEGS · READY</span></div>'
+        f'{form("accept", "ACCEPT", "game-button accept-button")}</div>'
+    )
+
+
+def accepted_game(form):
+    return (
+        '<div class="game-panel accepted-panel"><div class="game-kicker">HUMAN ACCEPTED</div><h1>YOU HOLD THE KEY</h1>'
+        '<div class="launch-key" aria-hidden="true"><span>HUMAN</span><i></i><span>LAUNCH</span></div>'
+        f'{form("lesson-flight", "LAUNCH", "game-button launch-button")}</div>'
+    )
+
+
+def flight_game(state):
+    return (
+        '<div class="game-panel flight-panel" data-flight-game data-duration="12">'
+        '<div class="game-kicker">ZARINER 2 · VENUS RUN</div><h1>HOLD TO CLIMB</h1>'
+        '<div class="flight-hud"><output data-flight-status aria-live="polite">READY</output>'
+        '<output data-flight-time>12.0</output></div>'
+        '<div class="flight-field" data-flight-field tabindex="0" aria-label="One-input flight field">'
+        '<div class="stars"></div><div class="flight-rocket" data-flight-rocket>▲</div>'
+        '<div class="telemetry-gate" data-gate="1" style="--gap:32;--top:14%;--bottom:50%;--gate-index:1"><i></i><b></b><span>1</span></div>'
+        '<div class="telemetry-gate" data-gate="2" style="--gap:67;--top:49%;--bottom:15%;--gate-index:2"><i></i><b></b><span>2</span></div>'
+        '<div class="telemetry-gate" data-gate="3" style="--gap:43;--top:25%;--bottom:39%;--gate-index:3"><i></i><b></b><span>3</span></div>'
+        '<div class="venus">VENUS</div></div>'
+        '<button type="button" class="game-button thrust-button" data-flight-control>START FLIGHT</button>'
+        f'<form action="/" method="post" class="flight-complete" data-flight-complete>{hidden(state, "lesson-win")}'
+        '<button class="quiet-button no-script-flight">COMPLETE ACCESSIBLE FLIGHT</button></form></div>'
+    )
+
+
+def won_game(form):
+    return (
+        '<div class="game-panel win-panel"><div class="game-kicker">VENUS REACHED</div><h1>STOP FIXED. SIGNAL SAVED.</h1>'
+        '<div class="final-score"><small>SCORE</small><strong data-final-score>2000</strong></div>'
+        '<div class="win-actions">'
+        f'{form("lesson-reflight", "REPLAY FLIGHT", "game-button")}{form("00", "REPLAY MISSION", "quiet-button")}</div>'
+        '<details class="post-win"><summary>HOW IT WORKED</summary><ol>'
+        '<li><b>FIND</b><span>A named check found the missing mark.</span></li>'
+        '<li><b>STAGE</b><span>DobeWorks kept completed work unaccepted and unpromoted.</span></li>'
+        '<li><b>CARRY</b><span>The handoff record kept the warning attached.</span></li>'
+        '<li><b>ENFORCE</b><span>DEGS kept the gate closed until the warning was resolved.</span></li>'
+        '</ol></details>'
+        '<details class="post-win"><summary>HISTORICAL INSPIRATION</summary><p>Thirty-six days after Mariner 1, '
+        'Mariner 2 launched and became humanity’s first successful planetary science mission.</p>'
+        '<p><a href="https://science.nasa.gov/mission/mariner-2/">NASA ACCOUNT</a> · '
+        '<a href="https://www.jpl.nasa.gov/videos/mariner-2-launches/">JPL LAUNCH FILM</a></p></details>'
+        '<details class="post-win terminal-post"><summary>OPEN TERMINAL</summary>'
+        '<div class="terminal-tape" aria-label="Compact mission terminal">'
+        '<p>PLEASE GO ON. &gt;</p><dl>'
+        '<div><dt>&gt; FIND R-BAR</dt><dd>WARNING FOUND</dd></div>'
+        '<div><dt>&gt; STAGE WORK</dt><dd>UNACCEPTED</dd></div>'
+        '<div><dt>&gt; CARRY WARNING</dt><dd>GATE BLOCKED</dd></div>'
+        '<div><dt>&gt; ACCEPT FIX</dt><dd>LAUNCH READY</dd></div>'
+        '</dl></div></details></div>'
+    )
