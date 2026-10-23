@@ -40,6 +40,7 @@ def test_front_door_is_the_sparse_launch_game_and_classic_evidence_remains_avail
     with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
         page, _ = open_game(client)
         assert "LAUNCH TEST" in page.text
+        assert "<title>DobeWorks · Launch Test</title>" in page.text
         assert "AGENT TRANSCRIPT" in page.text
         assert "NEW AGENT COPY" in page.text
         assert "PICK A MISSION" in page.text
