@@ -41,9 +41,9 @@ PACKETS = MappingProxyType({
 AGENT_NAME = "ELIZA · COLOSSUS · GUARDIAN"
 PROMPTS = MappingProxyType({
     "easy": (
-        {"id": "E-C1", "group": "correction", "label": "RETAIN THE RECEIVED STEERING", "patch": {"correction_cm_s": 0}},
-        {"id": "E-C2", "group": "correction", "label": "APPLY STEERING PLAN ALPHA", "patch": {"correction_cm_s": -20}},
-        {"id": "E-C3", "group": "correction", "label": "APPLY STEERING PLAN BETA", "patch": {"correction_cm_s": 20}},
+        {"id": "E-C1", "group": "correction", "label": "RETAIN 0.00", "patch": {"correction_cm_s": 0}},
+        {"id": "E-C2", "group": "correction", "label": "OPPOSE WIND · −0.20", "patch": {"correction_cm_s": -20}},
+        {"id": "E-C3", "group": "correction", "label": "FOLLOW WIND · +0.20", "patch": {"correction_cm_s": 20}},
     ),
     "medium": (
         {"id": "M-C1", "group": "correction", "label": "RETAIN THE RECEIVED STEERING", "patch": {"correction_cm_s": -2000}},

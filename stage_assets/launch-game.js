@@ -193,9 +193,13 @@
     $('[data-intake-speaker]').textContent = speakers[run.difficulty];
     $('[data-intake-route-tag]').textContent = direct ? 'DIRECT ROUTE' : 'GOVERNED ROUTE';
     $('[data-intake-candidate]').textContent = shortCandidate(candidate.id);
-    $('[data-intake-line]').textContent = direct
-      ? 'A NEW CANDIDATE IS WAITING FOR HUMAN INSPECTION.'
-      : 'A NEW CANDIDATE IS WAITING AT THE GOVERNED BOUNDARY.';
+    $('[data-intake-line]').textContent = run.difficulty === 'easy'
+      ? direct
+        ? 'ONE SMALL STEERING ERROR. RECEIVE THE COPY AND FIND IT BY EYE.'
+        : 'ONE SMALL STEERING ERROR. RECEIVE THE COPY AND LET THE CHECK SHOW YOU.'
+      : direct
+        ? 'A NEW CANDIDATE IS WAITING FOR HUMAN INSPECTION.'
+        : 'A NEW CANDIDATE IS WAITING AT THE GOVERNED BOUNDARY.';
     $('[data-intake-level]').textContent = run.difficulty.toUpperCase();
     $('[data-intake-mode]').textContent = direct ? 'DIRECT' : 'DW + DEGS';
     $('[data-intake-hash]').textContent = shortHash(candidate.sha256);
@@ -260,8 +264,16 @@
 
     const activePrompt = (group) => [...candidate.prompt_history].reverse().find((id) =>
       packet.prompts.some((prompt) => prompt.id === id && prompt.group === group));
-    const promptButtons = (group) => packet.prompts.filter((prompt) => prompt.group === group).map((prompt) =>
-      choiceButton(prompt.label, activePrompt(group) === prompt.id, () => command('prompt', {prompt_id: prompt.id})));
+    const promptButtons = (group) => packet.prompts.filter((prompt) => prompt.group === group).map((prompt) => {
+      const button = choiceButton(prompt.label, activePrompt(group) === prompt.id,
+        () => command('prompt', {prompt_id: prompt.id}));
+      const checkHasFailed = currentReceipts.some((receipt) => receipt.result === 'FAIL');
+      if (run.difficulty === 'easy' && prompt.id === 'E-C2' && candidate.correction_cm_s !== -20
+          && (run.mode === 'direct' || checkHasFailed)) {
+        button.classList.add('easy-next');
+      }
+      return button;
+    });
 
     const values = $('[data-value-bank]');
     values.replaceChildren(...promptButtons('correction'));
@@ -365,6 +377,7 @@
     checkHost.replaceChildren(...packet.checks.map((name) => {
       const button = element('button', '', `RUN ${name}`);
       button.type = 'button';
+      button.dataset.check = name;
       button.disabled = busy || ended;
       button.addEventListener('click', () => command('check', {name}));
       return button;
@@ -382,6 +395,34 @@
     $$('[data-governed-only]').forEach((item) => { item.hidden = run.mode === 'direct'; });
     $('[data-clock-hold]').disabled = busy || run.phase !== 'COUNTDOWN';
     $('[data-clock-hold]').setAttribute('aria-pressed', String(run.phase === 'COUNTDOWN' && run.countdown.holding));
+
+    $$('.action-deck .easy-next').forEach((button) => button.classList.remove('easy-next'));
+    if (run.difficulty === 'easy' && !busy && !ended) {
+      const candidate = run.candidates[run.candidate_id];
+      const receipts = Object.values(run.receipts).filter((item) => item.candidate_id === candidate.id);
+      const checked = new Set(receipts.map((item) => item.name));
+      let next = null;
+      if (candidate.correction_cm_s === -20) {
+        if (run.mode === 'direct' && !run.authority) next = map.accept;
+        if (run.mode === 'governed' && !packet.checks.every((name) => checked.has(name))) {
+          next = $('[data-check="WIND_BALANCE"]');
+        } else if (run.mode === 'governed' && !run.staged_ids.includes(candidate.id)) {
+          next = map.stage;
+        } else if (run.mode === 'governed' && !run.record_id) {
+          next = map.send;
+        } else if (run.mode === 'governed' && run.gate?.decision === 'PASS' && !run.authority) {
+          next = map.accept;
+        }
+      } else if (run.mode === 'governed' && !packet.checks.every((name) => checked.has(name))) {
+        next = $('[data-check="WIND_BALANCE"]');
+      }
+      if (run.authority) {
+        if (!run.vehicle.conditioned && run.vehicle.conditioning_until == null) next = map.condition;
+        else if (run.vehicle.conditioned && !run.vehicle.armed) next = map.arm;
+        else if (run.vehicle.conditioned && run.vehicle.armed) next = map.ignite;
+      }
+      if (next && !next.disabled) next.classList.add('easy-next');
+    }
   }
 
   function flightClock(run) {

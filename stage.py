@@ -929,6 +929,9 @@ def _terminal_line(run):
         return "GUARDIAN", f'RUN TERMINAL. FLIGHT {outcome.get("flight", run["phase"])}. THE RECORD IS RETAINED.'
     if run["mode"] == "direct":
         if run["authority"] is None:
+            candidate = run["candidates"][current]
+            if run["difficulty"] == "easy" and candidate["correction_cm_s"] != -20:
+                return "ELIZA", "WIND IS +0.20 m/s. CHOOSE AN EQUAL AND OPPOSITE STEERING COMMAND."
             return "ELIZA", "INSPECT THE AGENT COPY BY EYE. APPROVE IT WHEN IT IS THE ONE YOU INTEND TO FLY."
         if not run["vehicle"]["conditioned"]:
             remaining = run["vehicle"].get("conditioning_until")
@@ -942,6 +945,8 @@ def _terminal_line(run):
     if not required <= checked:
         missing = " + ".join(sorted(required - checked))
         return "ELIZA", f'RUN THE MISSION CHECK: {missing}.'
+    if run["difficulty"] == "easy" and any(item["result"] == "FAIL" for item in receipts):
+        return "ELIZA", "THE CHECK FOUND +20 cm/s OF DRIFT. CHOOSE OPPOSE WIND · −0.20."
     if current not in run["staged_ids"]:
         return "COLOSSUS", "WORK IS CHECKED BUT NOT STAGED."
     if run["record_id"] is None:

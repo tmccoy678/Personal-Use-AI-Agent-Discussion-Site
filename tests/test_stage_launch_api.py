@@ -64,6 +64,10 @@ def test_server_creates_each_fixed_packet_and_rejects_invented_difficulty(diffic
         assert all(set(prompt) == {"id", "group", "label"} for prompt in response.json()["packet"]["prompts"])
         assert all(re.fullmatch(rf"{difficulty[0].upper()}-[COT]\d", prompt["id"])
                    for prompt in response.json()["packet"]["prompts"])
+        if difficulty == "easy":
+            assert [prompt["label"] for prompt in response.json()["packet"]["prompts"]] == [
+                "RETAIN 0.00", "OPPOSE WIND · −0.20", "FOLLOW WIND · +0.20",
+            ]
         assert "choices" not in response.json()["packet"] and "correction" not in response.json()["packet"]
         bad = post(client, "/api/launch/new", csrf, difficulty="invented", mode="governed")
         assert bad.status_code == 422
@@ -173,6 +177,26 @@ def test_terminal_reports_the_open_condition_without_mutating_the_run():
         assert body["speaker"] in {"ELIZA", "COLOSSUS", "GUARDIAN"}
         assert "CHECK" in body["text"]
         assert client.get("/api/launch/state").json()["run"]["version"] == before
+
+
+def test_easy_terminal_teaches_the_single_correction_in_both_modes():
+    with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
+        _, csrf = open_game(client)
+        run = post(client, "/api/launch/new", csrf, difficulty="easy", mode="governed").json()["run"]
+        response = post(
+            client, "/api/launch/action", csrf, run_id=run["run_id"], version=run["version"],
+            action="check", choices={"name": "WIND_BALANCE"},
+        )
+        assert response.json()["terminal"] == {
+            "speaker": "ELIZA",
+            "text": "THE CHECK FOUND +20 cm/s OF DRIFT. CHOOSE OPPOSE WIND · −0.20.",
+        }
+
+        direct = post(client, "/api/launch/new", csrf, difficulty="easy", mode="direct").json()
+        assert direct["terminal"] == {
+            "speaker": "ELIZA",
+            "text": "WIND IS +0.20 m/s. CHOOSE AN EQUAL AND OPPOSITE STEERING COMMAND.",
+        }
 
 
 def test_pad_hold_is_recoverable_and_terminal_reports_the_open_condition():

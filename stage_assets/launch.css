@@ -68,6 +68,8 @@ button:hover { background: var(--button-hover); border-color: var(--signal); }
 button:active { transform: translateY(1px); }
 button:disabled { color: #6f8190; background: #0c1926; border-color: #293f51; cursor: not-allowed; box-shadow: none; }
 button:focus-visible, summary:focus-visible { outline: 3px solid var(--signal-strong); outline-offset: 3px; }
+button.easy-next:not(:disabled) { border: 2px solid var(--good); color: #eafff6; background: #174237; box-shadow: 0 0 0 2px rgba(184, 232, 210, .12), 0 0 24px rgba(108, 219, 168, .18); animation: easy-beacon 1.8s ease-in-out infinite; }
+@keyframes easy-beacon { 50% { box-shadow: 0 0 0 4px rgba(184, 232, 210, .19), 0 0 34px rgba(108, 219, 168, .28); } }
 
 .app-shell { width: min(1500px, 100%); margin: 0 auto; padding: 16px; }
 
@@ -181,7 +183,7 @@ body[data-route="direct"] .intake-card { background: rgba(20, 15, 9, .95); box-s
 .intake-path[data-route="direct"] { grid-template-columns: auto 1fr auto 1fr auto; }
 .intake-receive { width: 100%; min-height: 58px; border: 3px double var(--signal-strong); color: var(--signal-strong); font-size: 13px; letter-spacing: .14em; }
 @keyframes intake-turn { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .intake-orbit { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .intake-orbit, button.easy-next { animation: none; } }
 
 .control-room { padding-top: 10px; }
 
