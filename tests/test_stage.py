@@ -36,6 +36,12 @@ def command(client, number, scenario="clean", **kwargs):
     return client.post("/", data={"command": number, "scenario": scenario, "csrf": csrf}, **kwargs)
 
 
+def lesson_command(client, page, action):
+    csrf = re.search(r'name="csrf" value="([^"]+)"', page.text)[1]
+    scenario = re.search(r'name="scenario" value="([^"]+)"', page.text)[1]
+    return client.post("/", data={"command": action, "scenario": scenario, "csrf": csrf})
+
+
 def test_stage_voice_bank_contains_only_primary_source_verified_outputs():
     speakers = {"ELIZA", "COLOSSUS", "COLOSSUS + GUARDIAN"}
     assert len(stage.VOICES) == 6
@@ -126,7 +132,7 @@ def test_all_real_scenarios_and_source_identity():
 def test_stage_host_cannot_reach_lab_routes(env):
     with TestClient(bridge.create_app(env), base_url="https://stage.dobeworks.com") as client:
         page = client.get("/")
-        assert page.status_code == 200 and "MISSION 001" in page.text
+        assert page.status_code == 200 and "MARINER 1 TEACHING RECONSTRUCTION" in page.text
         assert "https://catalog.afi.com/Film/23505-THE-FORBIN-PROJECT" in page.text
         assert page.headers["referrer-policy"] == "same-origin"
         assert "<script" not in page.text
@@ -158,6 +164,82 @@ def test_stage_uses_the_original_logo_for_tab_rocket_and_footer():
         assert page.text.count(logo_url) == 3
         assert "img-src 'self'" in page.headers["content-security-policy"]
         assert page.headers["cache-control"] == "no-store"
+
+
+def test_public_front_door_starts_with_a_plain_language_play_loop():
+    with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
+        page = client.get("/")
+        assert page.status_code == 200
+        assert "THE TASK SAYS FINISHED. ONE WARNING IS STILL OPEN." in page.text
+        assert "The left copy is correct. The right copy lost one mark." in page.text
+        assert "SEND THE FINISHED WORK" in page.text
+        assert 'name="command" value="lesson-start"' in page.text
+        assert "ERROR" in page.text and "WORK" in page.text and "LAUNCH" in page.text
+        assert "DOI RESOLVER" not in page.text
+        assert "THE WHOLE IDEA IN 20 SECONDS" not in page.text
+        assert "Mariner 1" in page.text
+        assert "<script" not in page.text
+
+
+def test_public_mission_bypass_reveals_history_without_overriding_the_gate():
+    with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
+        opening = client.get("/")
+        held = lesson_command(client, opening, "lesson-start")
+        assert "WORK FINISHED. LAUNCH STOPPED." in held.text
+        assert "THE CHECK FOUND IT" in held.text
+        assert "DOBEWORKS KEPT IT" in held.text
+        assert "DEGS STOPPED IT" in held.text
+        assert "SAME FINISHED WORK. DIFFERENT HANDOFF RECORD." in held.text
+        assert "WARNING TRAVELS" in held.text
+        assert "WARNING DISAPPEARS" in held.text
+        assert "FINISHED · staged · warning still attached" in held.text
+        assert "BLOCKED · open finding" in held.text
+        before = client.get("/api/evidence").json()
+        assert before["fixed_engine_run"]["degs"]["decision"] == "BLOCKED"
+        assert before["completed_handoffs"] == ["01", "02"]
+
+        bypass = lesson_command(client, held, "lesson-bypass")
+        assert "T+294.5 seconds" in bypass.text
+        assert "guidance-antenna fault" in bypass.text
+        assert "omitted overbar" in bypass.text
+        assert "DobeWorks and DEGS did not exist in 1962" in bypass.text
+        after = client.get("/api/evidence").json()
+        assert after["fixed_engine_run"] == before["fixed_engine_run"]
+        assert after["completed_handoffs"] == ["01", "02"]
+        assert after["counterfactual_flight_with_errors"] is True
+        assert after["simulated_flight_completed"] is False
+
+
+def test_public_mission_requires_fix_then_acceptance_before_successful_flight():
+    with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
+        opening = client.get("/")
+        held = lesson_command(client, opening, "lesson-start")
+        fixed = lesson_command(client, held, "lesson-fix")
+        assert "ERROR FIXED. LAUNCH STILL NEEDS A HUMAN." in fixed.text
+        evidence = client.get("/api/evidence").json()
+        assert evidence["fixed_engine_run"]["degs"]["decision"] == "PASS"
+        assert evidence["prior_candidate_runs"][0]["degs"]["decision"] == "BLOCKED"
+        assert evidence["completed_handoffs"] == ["01", "02", "03", "04"]
+
+        too_early = lesson_command(client, fixed, "lesson-launch")
+        assert "ERROR FIXED. LAUNCH STILL NEEDS A HUMAN." in too_early.text
+        assert client.get("/api/evidence").json()["simulated_flight_completed"] is False
+
+        accepted = lesson_command(client, too_early, "accept")
+        assert "YOU REVIEWED THE EVIDENCE. LAUNCH IS NOW YOUR DECISION." in accepted.text
+        assert "LAUNCH THE SUCCESSFUL SIMULATION" in accepted.text
+        launched = lesson_command(client, accepted, "lesson-launch")
+        assert "THE ROCKET CLEARS THE PAD. THE STOP WAS FIXED, NOT FORGOTTEN." in launched.text
+        assert "NOW NAME THE MACHINERY" in launched.text
+        assert "DOI RESOLVER" in launched.text
+        assert "CONTEXT CHECK" in launched.text
+        assert "TEST OR REVIEW" in launched.text
+        assert "THE REAL MARINER 2 FOLLOW-ON" in launched.text
+        assert "first successful planetary science mission" in launched.text
+        assert "does not call the entire spacecraft flawless" in launched.text
+        final = client.get("/api/evidence").json()
+        assert final["completed_handoffs"] == ["01", "02", "03", "04", "05"]
+        assert final["simulated_flight_completed"] is True
 
 
 def test_complete_workflow_and_invalidation(real_cores, monkeypatch):
@@ -394,9 +476,9 @@ def test_rbar_rocket_mission_stops_before_launch_then_rechecks_correction(real_c
     stage.CACHE["cores"] = real_cores
     with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
         opening = client.get("/")
-        assert "MISSING R-BAR · PRIMARY CASE" in opening.text
-        assert "0 → 1 SOURCE TRANSCRIPTION · SECOND CASE" in opening.text
-        assert "ONE MARK · STOPPED BEFORE LAUNCH" in opening.text
+        assert "THE TASK SAYS FINISHED. ONE WARNING IS STILL OPEN." in opening.text
+        assert "ONE MARK · FOUR MOVES · TWO ENDINGS" in opening.text
+        assert "DOI RESOLVER" not in opening.text
         for number in ("01", "02", "03"):
             response = command(client, number, "rbar")
         original = client.get("/api/evidence").json()
@@ -454,7 +536,7 @@ def test_ready_poll_has_a_next_step_and_recorded_teams_are_clear():
     state["poll"] = {role: "GO" for role in stage.POLL}
     state["weather_clear"] = True
     result = asyncio.run(stage.program(state, "06"))
-    assert result["actions"] == [("07", "RUN THE CLEAN SIMULATED FLIGHT")]
+    assert result["actions"] == [("07", "RUN THE SUCCESSFUL SIMULATED FLIGHT")]
     inspected = asyncio.run(stage.program(state, "weather"))
     assert "WEATHER DECISION · GO · T+05 WINDOW" in inspected["lines"]
     assert all(command != "go-weather" for command, _ in inspected["actions"])

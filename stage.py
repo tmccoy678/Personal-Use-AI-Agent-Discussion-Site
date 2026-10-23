@@ -34,7 +34,7 @@ PROGRAMS = {"01": ("CONFIGURATION ENGINEER", "ESTABLISH PACKAGE BASELINE"),
             "08": ("EVIDENCE", "OPEN THE HANDOFF RECORD")}
 POLL = {"weather": "WEATHER OFFICER", "director": "LAUNCH DIRECTOR"}
 CASE_ACTIONS = {"restore", "keep", "hold", "accept", "what-if", "clear-weather"} | {"go-" + key for key in POLL}
-LESSON_ACTIONS = {"lesson-start", "lesson-fix", "lesson-compare", "lesson-mission"}
+LESSON_ACTIONS = {"lesson-start", "lesson-bypass", "lesson-fix", "lesson-compare", "lesson-launch", "lesson-mission"}
 CACHE = {}
 SESSIONS = OrderedDict()
 LOCK = asyncio.Lock()
@@ -76,7 +76,7 @@ VOICES = load_workbench_voices()
 
 
 def new_state():
-    return {"csrf": secrets.token_urlsafe(24), "scenario": "rbar", "lesson_mode": False, "comparison": False, "completed": [], "poll": {}, "events": [],
+    return {"csrf": secrets.token_urlsafe(24), "scenario": "rbar", "lesson_mode": True, "comparison": False, "completed": [], "poll": {}, "events": [],
             "report": None, "cores": None, "launched": False, "busy": False, "tested_package": None,
             "case_history": [], "weather_clear": False, "counterfactual": False, "seen": time.monotonic()}
 
@@ -409,7 +409,7 @@ def render(state, title="MISSION TERMINAL", lines=None, reply="PLEASE GO ON.", q
         f'<small>{"RECEIVED" if key in state["completed"] else "AWAITING HANDOFF"}</small></li>'
         for key, milestone in zip(("01", "02", "03", "04", "05"), milestones)) + '</ol>'
     counterfactual_label = "WHAT-IF FLIGHT · UNRESOLVED NOTATION" if scenario.startswith("rbar") else "WHAT-IF FLIGHT · CHECKSUM ERROR"
-    mission_state = ("CLEAN SIMULATED FLIGHT" if state["launched"] else counterfactual_label if state["counterfactual"]
+    mission_state = ("SUCCESSFUL SIMULATED FLIGHT" if state["launched"] else counterfactual_label if state["counterfactual"]
                      else "PACKAGE ACCEPTED · TEAM POLL OPEN" if "05" in state["completed"] else "PACKAGE HANDOFF IN PROGRESS" if state["completed"] else "AWAITING PACKAGE")
     mission_briefs = {
         "rbar": "A required overbar is missing. Follow the completed work through DobeWorks and DEGS to see the handoff stop before launch.",
@@ -439,7 +439,7 @@ def render(state, title="MISSION TERMINAL", lines=None, reply="PLEASE GO ON.", q
         "signal_phase": signal[0], "signal_title": signal[1], "signal_caption": signal[2],
         "command_focus": "" if show_package else "autofocus",
         "flight_class": "flight" if state["launched"] else "fault-flight" if state["counterfactual"] else "",
-        "flight_label": "CLEAN FLIGHT" if state["launched"] else ("WHAT-IF · NOTATION BYPASSED" if scenario.startswith("rbar") else "WHAT-IF · TELEMETRY ERROR") if state["counterfactual"] else "THE PAD"}
+        "flight_label": "SUCCESSFUL FLIGHT" if state["launched"] else ("WHAT-IF · NOTATION BYPASSED" if scenario.startswith("rbar") else "WHAT-IF · TELEMETRY ERROR") if state["counterfactual"] else "THE PAD"}
     html = TEMPLATE
     for key, value in replacements.items():
         html = html.replace("{{" + key + "}}", escape(str(value)))
@@ -607,7 +607,7 @@ async def program(state, command):
                      f'LAUNCH DIRECTOR · {decision}')
             if director_go:
                 reply = "THE SIMULATED COUNTDOWN IS AUTHORIZED. PROGRAM 07 CAN NOW RUN THE ROCKET SIMULATION."
-                actions = [("07", "RUN THE CLEAN SIMULATED FLIGHT")]
+                actions = [("07", "RUN THE SUCCESSFUL SIMULATED FLIGHT")]
             elif director_ready:
                 reply = "THE ENGINEERING PACKAGE IS ACCEPTED AND WEATHER IS GO. THE LAUNCH DIRECTOR MAY AUTHORIZE THE SIMULATED COUNTDOWN."
                 actions = [("go-director", "AUTHORIZE SIMULATED COUNTDOWN"), ("06", "VIEW READINESS BOARD")]
@@ -627,7 +627,7 @@ async def program(state, command):
         ready = package_ready and weather_go and director_go
         if ready:
             reply = "PACKAGE ACCEPTANCE, WEATHER GO, AND LAUNCH AUTHORIZATION ARE RECORDED. THE SIMULATED FLIGHT IS READY IN 07."
-            actions = [("07", "RUN THE CLEAN SIMULATED FLIGHT")]
+            actions = [("07", "RUN THE SUCCESSFUL SIMULATED FLIGHT")]
         elif not weather_go:
             reply = "THE WEATHER OFFICER MUST REVIEW THE CURRENT OBSERVATION BEFORE THE LAUNCH DIRECTOR CAN DECIDE."
             actions = [("weather", "OPEN WEATHER REPORT")]
@@ -649,7 +649,7 @@ async def program(state, command):
                       if state["case_history"] else "The intact baseline satisfied the exercise checks.")
         check_line = "T-03  EXACT NOTATION CHECK PASSED" if rbar_case else "T-03  CRC KNOWN-ANSWER CHECK PASSED"
         receiver = "The receiving team obtains the required notation." if rbar_case else "The receiver obtains the expected checksum."
-        return {"title": "CLEAN SIMULATED FLIGHT", "lines": check_line + "\nT-02  DEGS RECORD CHECK AND REVIEW COMPLETE\nT-01  TEAM POLL COMPLETE\nT+00  FICTIONAL IGNITION\nT+03  THE ROCKET CLEARS THE PAD\n\n" + correction +
+        return {"title": "SUCCESSFUL SIMULATED FLIGHT", "lines": check_line + "\nT-02  DEGS RECORD CHECK AND REVIEW COMPLETE\nT-01  TEAM POLL COMPLETE\nT+00  FICTIONAL IGNITION\nT+03  THE ROCKET CLEARS THE PAD\n\n" + correction +
                 "\n\n" + receiver + "\nMISSION SIMULATION · ALL EXERCISE CHECKS PASS",
                 "reply": "THE TEST FINDING, CORRECTION AND NEW REVIEW TRAVEL TOGETHER. OPEN 08 TO FOLLOW THE EVIDENCE."}
     accepting = command == "accept"
@@ -821,8 +821,9 @@ async def interact(request: Request):
             result = {"title": "PACKAGE INSPECTION", "lines": baseline_lines(state["report"]),
                       "show_package": True, "package_query": query, "focus_package": True,
                       "reply": "INSPECT THE PACKAGE. SEARCH DOES NOT ADVANCE A HANDOFF."}
-        elif state["lesson_mode"] and question in PROGRAMS and question != "08":
-            result = await lesson_program(state, "lesson-start") if question == "01" else {"reply": "USE THE DEMO BUTTONS TO FOLLOW THE HANDOFF. THE LONGER ROCKET WORKFLOW OPENS AFTER ACCEPTANCE."}
+        elif state["lesson_mode"] and question in PROGRAMS:
+            state["lesson_mode"] = False
+            result = await program(state, question)
         elif question in PROGRAMS or question in POLL or question in CASE_ACTIONS:
             result = await program(state, question)
         else:
@@ -843,13 +844,25 @@ async def lesson_program(state, command):
         return {"reply": "THE TASK COMPLETED. THE OPEN FINDING STILL BLOCKS THE HANDOFF."}
     if command == "lesson-mission":
         state.update(new_state())
-        state.update(lesson_mode=False, scenario="altered")
-        return {"reply": "OPTIONAL, SEPARATE ROCKET WORKFLOW. BEGIN WITH 01."}
+        state.update(lesson_mode=False, scenario="rbar")
+        return {"reply": "FULL ENGINEERING STATION OPEN. BEGIN WITH 01."}
     if not state["report"] or "notation_check" not in state["report"]:
         return {"reply": "HAND OFF THE WORK FIRST TO SEE THE RECORDED STOP CONDITION."}
+    if command == "lesson-bypass":
+        if state["report"]["notation_check"]["result"] != "FAIL":
+            return {"reply": "THE OPEN FINDING IS ALREADY CLOSED. ACCEPTANCE IS THE NEXT DECISION."}
+        state["counterfactual"] = True
+        return {"reply": "THE HISTORICAL CONSEQUENCE IS SHOWN. THE REAL DEMO RECORD REMAINS BLOCKED."}
     if command == "lesson-compare":
         state["comparison"] = True
         return {"reply": "THE NOTE STAYS THE SAME. THE COMPARISON CHANGES ONLY THE WARNING FIELD IN A SEPARATE READ-ONLY GATE EVALUATION."}
+    if command == "lesson-launch":
+        if state["scenario"] != "rbar-fixed" or "05" not in state["completed"]:
+            return {"reply": "THE CORRECTED HANDOFF MUST PASS AND BE ACCEPTED BEFORE THIS SIMULATION CAN LAUNCH."}
+        if not state["launched"]:
+            record(state, "DEMO PARTICIPANT", "FICTIONAL CORRECTED-SUCCESSOR FLIGHT", "COMPLETE")
+            state["launched"] = True
+        return {"reply": "SUCCESSFUL SIMULATION. THE FAILED CANDIDATE, CORRECTION, CHECK AND ACCEPTANCE REMAIN TOGETHER."}
     if state["scenario"] != "rbar":
         return {"reply": "THE NOTE IS ALREADY CORRECTED. ACCEPTANCE IS A SEPARATE STEP."}
     corrected = await mission("rbar-fixed")
