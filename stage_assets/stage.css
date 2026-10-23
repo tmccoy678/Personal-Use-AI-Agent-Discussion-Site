@@ -96,7 +96,78 @@ input::placeholder{color:#a8bbcb;opacity:1}
 @media(prefers-reduced-motion:reduce){.signal-packet,.handoff-signal,.launch-plume{animation:none!important}}
 @media(forced-colors:active){.signal-diagram{color:CanvasText}.signal-paper{fill:Canvas}.signal-route,.signal-receiver,.signal-pivot{stroke:CanvasText}.handoff-signal{border-color:CanvasText}}
 
-/* The supplied JPG is displayed unchanged, with its original proportions. */
+/* The traced logo keeps the original proportions on a transparent field. */
 .rocket{position:relative}
 .rocket-logo{position:absolute;left:8ch;top:6em;width:4ch;height:4ch;object-fit:contain;border-radius:50%}
 .footer-logo{display:block;width:80px;height:80px;object-fit:contain;border-radius:50%;margin:0 0 12px}
+
+/* Public mission arcade: one short loop before the full evidence station. */
+.plain-mechanism{margin:18px 0 24px;padding:18px;border:3px double var(--stage-rule);background:#0d1c2d}
+.eyebrow{margin:0 0 7px;color:var(--stage-signal);font-size:10px;letter-spacing:.12em}
+.plain-mechanism h2,.applications h2,.history-alert h2,.successor-archive h2{font:inherit;color:#f0f4f7;font-size:16px;line-height:1.55;margin:0}
+.plain-mechanism ol{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;list-style:none;padding:0;margin:16px 0 0}
+.plain-mechanism li{border:1px solid var(--stage-divider);padding:10px;min-width:0}
+.plain-mechanism b,.plain-mechanism span{display:block}
+.plain-mechanism b{color:var(--stage-signal);font-weight:400;font-size:10px;letter-spacing:.08em}
+.plain-mechanism span{margin-top:7px;color:#d4e0e9;font-size:11px;line-height:1.6}
+
+.arcade-stage{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(210px,.65fr);gap:30px;align-items:center;padding:24px;border:1px solid var(--stage-divider);background:linear-gradient(145deg,#091426 0%,#0d1c2d 100%)}
+.arcade-copy{min-width:0}.arcade-progress{margin-bottom:18px}.arcade-progress>div{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+.arcade-segment{height:6px;border:1px solid var(--stage-divider);background:#091426}
+.arcade-segment.is-complete{border-color:var(--stage-signal);background:var(--stage-rule);box-shadow:0 0 8px rgba(154,209,237,.25)}
+.arcade-progress p{margin:7px 0 0;color:var(--stage-signal);font-size:10px;letter-spacing:.06em;text-align:right}
+.arcade-stage .lesson-title{max-width:34ch;margin:0;color:#f0f4f7;font-size:24px;line-height:1.35;letter-spacing:.02em}
+.arcade-stage .lesson-copy{max-width:65ch;margin:14px 0 0;color:#c7d7e3;font-size:14px;line-height:1.75}
+.arcade-stage .notation{max-width:440px;margin:20px 0}.arcade-stage .notation>div{padding:11px 8px}.arcade-stage .notation span{font-size:48px;line-height:1.35;margin-top:4px}
+.lesson-actions{display:flex;flex-wrap:wrap;gap:9px}.lesson-actions form{margin:0}.lesson-actions .enter{min-height:44px;padding:10px 13px;background:#102238;color:#f0f4f7;border-color:var(--stage-signal)}
+.lesson-actions .secondary{background:transparent;color:var(--stage-signal);border-color:var(--stage-rule)}
+.arcade-vehicle{text-align:center;min-width:0;overflow:hidden}.lesson-rocket{position:relative;width:16ch;margin:5px auto 0;text-align:left;font:inherit;font-size:19px;line-height:1.18;color:#f0f4f7;white-space:pre}
+.lesson-rocket-logo{position:absolute;left:7.35ch;top:4.75em;width:3.4ch;height:3.4ch;object-fit:contain;border-radius:50%}
+.arcade-pad{margin:0;color:var(--stage-signal);font-size:11px;line-height:1.7;overflow-wrap:anywhere}
+.phase-held,.phase-bypassed{border-style:dashed;border-color:var(--stage-signal)}
+.phase-corrected,.phase-accepted,.phase-launched{border:3px double var(--stage-signal);padding:22px}
+
+.history-alert,.successor-archive{margin:18px 0;padding:20px;border:3px double var(--stage-signal);background:#101e30}
+.history-alert p,.successor-archive p{max-width:86ch;color:#c7d7e3;line-height:1.75}
+.history-alert em{color:#f0f4f7}.successor-archive{background:#102238}
+
+.applications{margin:24px 0;padding:20px 0;border-top:1px solid var(--stage-rule);border-bottom:1px solid var(--stage-rule)}
+.applications h2{font-size:16px}.applications>div{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}.applications article{border:1px solid var(--stage-divider);padding:14px;background:#0d1c2d}.applications small{color:var(--stage-signal);font-size:9px;letter-spacing:.08em}.applications h3{margin:7px 0;color:#f0f4f7;font:inherit;font-size:13px}.applications article p,.application-limit{color:#a8bbcb;font-size:11px;line-height:1.7}.application-limit{margin:13px 0 0}
+.guide{position:static;margin-top:22px;border:1px solid var(--stage-divider);padding:0 14px 10px}.lesson-info{margin-top:20px;padding:12px 0;font-size:11px;line-height:1.8}
+
+@media(prefers-reduced-motion:no-preference){
+  .phase-launched .lesson-rocket{animation:lesson-liftoff 3s ease-in-out both}
+  .arcade-segment.is-complete{animation:stage-lock .5s ease-out both}
+}
+@keyframes lesson-liftoff{0%{transform:translateY(18px)}100%{transform:translateY(-18px)}}
+@media(prefers-reduced-motion:reduce){.phase-launched .lesson-rocket,.arcade-segment.is-complete{animation:none}}
+@media(forced-colors:active){.plain-mechanism,.arcade-stage,.history-alert,.successor-archive,.applications article{border-color:CanvasText}.arcade-segment.is-complete{background:Highlight}}
+@media(max-width:760px){
+  .plain-mechanism ol{grid-template-columns:1fr 1fr}.arcade-stage{grid-template-columns:1fr;padding:18px}.arcade-vehicle{order:-1}.lesson-rocket{font-size:16px}
+  .arcade-stage .lesson-title{font-size:20px}
+  .applications>div{grid-template-columns:1fr}.lesson-actions{display:grid}.lesson-actions .enter{width:100%}.phase-corrected,.phase-accepted,.phase-launched{padding:16px}
+}
+@media(max-width:420px){.plain-mechanism ol{grid-template-columns:1fr}.plain-mechanism,.arcade-stage{padding:14px}.history-alert,.successor-archive{padding:15px}.arcade-stage .notation span{font-size:42px}}
+
+/* Play first: three live facts, then reveal the component names after the first move. */
+.mission-status{display:grid;grid-template-columns:repeat(3,1fr);margin:18px 0 0;border:1px solid var(--stage-divider)}
+.mission-status div{min-width:0;padding:10px}.mission-status div+div{border-left:1px solid var(--stage-divider)}
+.mission-status dt{color:var(--stage-signal);font-size:9px;letter-spacing:.1em}.mission-status dd{margin:5px 0 0;color:#f0f4f7;font-size:10px;line-height:1.5;overflow-wrap:anywhere}
+.lesson-reveal{margin:18px 0;padding:20px;border:1px solid var(--stage-rule);background:#0d1c2d}
+.lesson-reveal h2,.mission-unlocked h2{margin:0;color:#f0f4f7;font:inherit;font-size:16px;line-height:1.55}
+.lesson-reveal>div{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-top:15px}
+.lesson-reveal article{border:1px solid var(--stage-divider);padding:13px;min-width:0}
+.lesson-reveal small{color:var(--stage-signal)}.lesson-reveal h3{margin:5px 0;color:#f0f4f7;font:inherit;font-size:12px}
+.lesson-reveal article p,.human-line{margin:6px 0 0;color:#a8bbcb;font-size:11px;line-height:1.65}.human-line{margin-top:13px}.human-line b{color:var(--stage-signal);font-weight:400}
+.controlled-comparison{margin:18px 0;padding:20px;border:3px double var(--stage-signal);background:#101e30}
+.controlled-comparison h2{margin:0;color:#f0f4f7;font:inherit;font-size:16px;line-height:1.55}
+.controlled-comparison>div{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:15px}.controlled-comparison article{border:1px solid var(--stage-divider);padding:14px}
+.controlled-comparison small,.controlled-comparison strong{display:block}.controlled-comparison small{color:var(--stage-signal);font-size:10px;letter-spacing:.08em}.controlled-comparison strong{margin-top:7px;color:#f0f4f7;font-size:22px;font-weight:400}
+.controlled-comparison p{color:#c7d7e3;font-size:11px;line-height:1.7}.controlled-comparison article p{color:#a8bbcb}
+.mission-unlocked{margin:24px 0;padding:20px;border:3px double var(--stage-signal);background:#102238}
+.mission-unlocked p{max-width:72ch;color:#c7d7e3;line-height:1.7}.mission-unlocked form{margin-top:14px}.mission-unlocked .enter{min-height:44px;padding:10px 13px;background:#0d1c2d;color:#f0f4f7;border-color:var(--stage-signal)}
+.lesson-notice{margin:18px 0;padding:18px;border:3px double var(--stage-signal);background:#101e30}.lesson-notice h2{margin:0;color:#f0f4f7;font:inherit;font-size:15px;line-height:1.55}.lesson-notice p:last-child{margin-bottom:0;color:#c7d7e3}
+@media(max-width:760px){
+  .arcade-vehicle{order:initial}.mission-status{grid-template-columns:1fr}.mission-status div+div{border-left:0;border-top:1px solid var(--stage-divider)}
+  .lesson-reveal>div,.controlled-comparison>div{grid-template-columns:1fr}.lesson-reveal,.controlled-comparison,.mission-unlocked{padding:15px}
+}

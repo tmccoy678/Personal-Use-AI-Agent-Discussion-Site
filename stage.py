@@ -19,6 +19,12 @@ from stage_mission import check_sources, digest, encode, mission_package
 from stage_lesson import render as render_lesson
 
 ROOT = Path(__file__).resolve().parent
+LOGO_URL = "/dobeworks-logo-a56f5aab2111.svg"
+FAVICON_16_URL = "/dobeworks-favicon-015c1a2f70b6-16.png"
+FAVICON_32_URL = "/dobeworks-favicon-45fd62c64976-32.png"
+IMMUTABLE_ASSET_PATHS = {
+    "/dobeworks-logo-7cfd562d0370.jpg", LOGO_URL, FAVICON_16_URL, FAVICON_32_URL,
+}
 SCENARIOS = {"altered": "TRANSCRIPTION EXERCISE", "clean": "INTACT BASELINE", "stale": "STALE TELEMETRY",
              "missing": "MISSING EVIDENCE", "unresolved": "OPEN REVIEW ITEM", "rbar": "R-BAR HANDOFF", "rbar-fixed": "R-BAR CORRECTED"}
 VISIBLE_SCENARIOS = {"rbar": "MISSING R-BAR · PRIMARY CASE", "altered": "0 → 1 SOURCE TRANSCRIPTION · SECOND CASE",
@@ -34,7 +40,7 @@ PROGRAMS = {"01": ("CONFIGURATION ENGINEER", "ESTABLISH PACKAGE BASELINE"),
             "08": ("EVIDENCE", "OPEN THE HANDOFF RECORD")}
 POLL = {"weather": "WEATHER OFFICER", "director": "LAUNCH DIRECTOR"}
 CASE_ACTIONS = {"restore", "keep", "hold", "accept", "what-if", "clear-weather"} | {"go-" + key for key in POLL}
-LESSON_ACTIONS = {"lesson-start", "lesson-fix", "lesson-compare", "lesson-mission"}
+LESSON_ACTIONS = {"lesson-start", "lesson-bypass", "lesson-fix", "lesson-compare", "lesson-launch", "lesson-mission"}
 CACHE = {}
 SESSIONS = OrderedDict()
 LOCK = asyncio.Lock()
@@ -76,7 +82,7 @@ VOICES = load_workbench_voices()
 
 
 def new_state():
-    return {"csrf": secrets.token_urlsafe(24), "scenario": "rbar", "lesson_mode": False, "comparison": False, "completed": [], "poll": {}, "events": [],
+    return {"csrf": secrets.token_urlsafe(24), "scenario": "rbar", "lesson_mode": True, "comparison": False, "completed": [], "poll": {}, "events": [],
             "report": None, "cores": None, "launched": False, "busy": False, "tested_package": None,
             "case_history": [], "weather_clear": False, "counterfactual": False, "seen": time.monotonic()}
 
@@ -376,6 +382,12 @@ def render(state, title="MISSION TERMINAL", lines=None, reply="PLEASE GO ON.", q
         extra = package_view(state, package_query, focus_package) if show_package and state["report"] else ""
         if details is not None:
             extra += f'<section class="comparison"><h2>{escape(title)}</h2><details class="raw" open><summary>FULL RECORDED EVIDENCE</summary><pre>{escape(json.dumps(details, indent=2, sort_keys=True))}</pre></details></section>'
+        if title == "PROGRAM ERROR":
+            extra = (f'<section class="lesson-notice" role="alert"><p class="eyebrow">MISSION PAUSED</p>'
+                     f'<h2>{escape(reply)}</h2><p>{escape(lines or "NO HANDOFF WAS ACCEPTED.")}</p></section>' + extra)
+        elif reply.startswith("THIS SESSION EXPIRED"):
+            extra = (f'<section class="lesson-notice" role="alert"><p class="eyebrow">ACTION NOT RECORDED</p>'
+                     f'<h2>{escape(reply)}</h2><p>Use the visible mission button to try again.</p></section>' + extra)
         return render_lesson(state, voice, reply, question, extra)
     scenario = state["scenario"]
     if lines is None:
@@ -383,7 +395,7 @@ def render(state, title="MISSION TERMINAL", lines=None, reply="PLEASE GO ON.", q
             "rbar": ("YOUR ASSIGNMENT\n\nA completed guidance-note package is moving toward simulated launch.\n"
                      "One required overbar is missing from the received handoff.\n\n"
                      "DOBEWORKS supplies checked observations and stages the bounded work without promotion.\n"
-                     "The exact notation check preserves the failure. DEGS keeps the unresolved finding BLOCKED.\n\n"
+                     "The exact notation check records the failure. The exhibit adapter attaches it to the DEGS handoff record, which remains BLOCKED.\n\n"
                      "Begin with 01. Investigate in 03, restore the mark, then repeat every review before launch."),
             "rbar-fixed": ("YOUR ASSIGNMENT\n\nThe required overbar has been restored in a new package.\n"
                            "Every receipt from the failed candidate has been invalidated.\n\n"
@@ -409,7 +421,7 @@ def render(state, title="MISSION TERMINAL", lines=None, reply="PLEASE GO ON.", q
         f'<small>{"RECEIVED" if key in state["completed"] else "AWAITING HANDOFF"}</small></li>'
         for key, milestone in zip(("01", "02", "03", "04", "05"), milestones)) + '</ol>'
     counterfactual_label = "WHAT-IF FLIGHT · UNRESOLVED NOTATION" if scenario.startswith("rbar") else "WHAT-IF FLIGHT · CHECKSUM ERROR"
-    mission_state = ("CLEAN SIMULATED FLIGHT" if state["launched"] else counterfactual_label if state["counterfactual"]
+    mission_state = ("SUCCESSFUL SIMULATED FLIGHT" if state["launched"] else counterfactual_label if state["counterfactual"]
                      else "PACKAGE ACCEPTED · TEAM POLL OPEN" if "05" in state["completed"] else "PACKAGE HANDOFF IN PROGRESS" if state["completed"] else "AWAITING PACKAGE")
     mission_briefs = {
         "rbar": "A required overbar is missing. Follow the completed work through DobeWorks and DEGS to see the handoff stop before launch.",
@@ -439,7 +451,7 @@ def render(state, title="MISSION TERMINAL", lines=None, reply="PLEASE GO ON.", q
         "signal_phase": signal[0], "signal_title": signal[1], "signal_caption": signal[2],
         "command_focus": "" if show_package else "autofocus",
         "flight_class": "flight" if state["launched"] else "fault-flight" if state["counterfactual"] else "",
-        "flight_label": "CLEAN FLIGHT" if state["launched"] else ("WHAT-IF · NOTATION BYPASSED" if scenario.startswith("rbar") else "WHAT-IF · TELEMETRY ERROR") if state["counterfactual"] else "THE PAD"}
+        "flight_label": "SUCCESSFUL FLIGHT" if state["launched"] else ("WHAT-IF · NOTATION BYPASSED" if scenario.startswith("rbar") else "WHAT-IF · TELEMETRY ERROR") if state["counterfactual"] else "THE PAD"}
     html = TEMPLATE
     for key, value in replacements.items():
         html = html.replace("{{" + key + "}}", escape(str(value)))
@@ -607,7 +619,7 @@ async def program(state, command):
                      f'LAUNCH DIRECTOR · {decision}')
             if director_go:
                 reply = "THE SIMULATED COUNTDOWN IS AUTHORIZED. PROGRAM 07 CAN NOW RUN THE ROCKET SIMULATION."
-                actions = [("07", "RUN THE CLEAN SIMULATED FLIGHT")]
+                actions = [("07", "RUN THE SUCCESSFUL SIMULATED FLIGHT")]
             elif director_ready:
                 reply = "THE ENGINEERING PACKAGE IS ACCEPTED AND WEATHER IS GO. THE LAUNCH DIRECTOR MAY AUTHORIZE THE SIMULATED COUNTDOWN."
                 actions = [("go-director", "AUTHORIZE SIMULATED COUNTDOWN"), ("06", "VIEW READINESS BOARD")]
@@ -627,7 +639,7 @@ async def program(state, command):
         ready = package_ready and weather_go and director_go
         if ready:
             reply = "PACKAGE ACCEPTANCE, WEATHER GO, AND LAUNCH AUTHORIZATION ARE RECORDED. THE SIMULATED FLIGHT IS READY IN 07."
-            actions = [("07", "RUN THE CLEAN SIMULATED FLIGHT")]
+            actions = [("07", "RUN THE SUCCESSFUL SIMULATED FLIGHT")]
         elif not weather_go:
             reply = "THE WEATHER OFFICER MUST REVIEW THE CURRENT OBSERVATION BEFORE THE LAUNCH DIRECTOR CAN DECIDE."
             actions = [("weather", "OPEN WEATHER REPORT")]
@@ -649,7 +661,7 @@ async def program(state, command):
                       if state["case_history"] else "The intact baseline satisfied the exercise checks.")
         check_line = "T-03  EXACT NOTATION CHECK PASSED" if rbar_case else "T-03  CRC KNOWN-ANSWER CHECK PASSED"
         receiver = "The receiving team obtains the required notation." if rbar_case else "The receiver obtains the expected checksum."
-        return {"title": "CLEAN SIMULATED FLIGHT", "lines": check_line + "\nT-02  DEGS RECORD CHECK AND REVIEW COMPLETE\nT-01  TEAM POLL COMPLETE\nT+00  FICTIONAL IGNITION\nT+03  THE ROCKET CLEARS THE PAD\n\n" + correction +
+        return {"title": "SUCCESSFUL SIMULATED FLIGHT", "lines": check_line + "\nT-02  DEGS RECORD CHECK AND REVIEW COMPLETE\nT-01  TEAM POLL COMPLETE\nT+00  FICTIONAL IGNITION\nT+03  THE ROCKET CLEARS THE PAD\n\n" + correction +
                 "\n\n" + receiver + "\nMISSION SIMULATION · ALL EXERCISE CHECKS PASS",
                 "reply": "THE TEST FINDING, CORRECTION AND NEW REVIEW TRAVEL TOGETHER. OPEN 08 TO FOLLOW THE EVIDENCE."}
     accepting = command == "accept"
@@ -747,7 +759,7 @@ async def program(state, command):
 @app.middleware("http")
 async def headers(request, call_next):
     response = await call_next(request)
-    response.headers.update({"Cache-Control": "public, max-age=31536000, immutable" if request.url.path == "/dobeworks-logo-7cfd562d0370.jpg" else "no-store", "X-Content-Type-Options": "nosniff",
+    response.headers.update({"Cache-Control": "public, max-age=31536000, immutable" if request.url.path in IMMUTABLE_ASSET_PATHS else "no-store", "X-Content-Type-Options": "nosniff",
         "Referrer-Policy": "same-origin", "X-Frame-Options": "DENY",
         "Content-Security-Policy": "default-src 'none'; style-src 'self'; img-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"})
     return response
@@ -770,6 +782,21 @@ async def css():
 @app.get("/dobeworks-logo-7cfd562d0370.jpg")
 async def logo():
     return Response((ROOT / "stage_assets/dobeworks-logo.jpg").read_bytes(), media_type="image/jpeg")
+
+
+@app.get(LOGO_URL)
+async def vector_logo():
+    return Response((ROOT / "stage_assets/dobeworks-logo.svg").read_bytes(), media_type="image/svg+xml")
+
+
+@app.get(FAVICON_16_URL)
+async def favicon_16():
+    return Response((ROOT / "stage_assets/dobeworks-favicon-16.png").read_bytes(), media_type="image/png")
+
+
+@app.get(FAVICON_32_URL)
+async def favicon_32():
+    return Response((ROOT / "stage_assets/dobeworks-favicon-32.png").read_bytes(), media_type="image/png")
 
 
 @app.post("/")
@@ -811,18 +838,20 @@ async def interact(request: Request):
         return page(request, key, state, reply="THIS MISSION RECORD IS FULL. USE 00 FOR A NEW MISSION.")
     state["busy"] = True
     try:
+        if scenario != state["scenario"] and state["lesson_mode"]:
+            return page(request, key, state, reply="COMPLETE THE FOUR-MOVE MISSION BEFORE CHOOSING AN ENGINEERING PACKET.")
         if scenario != state["scenario"]:
             state.update(scenario=scenario, completed=[], poll={}, report=None, cores=None, launched=False,
                          tested_package=None, weather_clear=False, counterfactual=False, lesson_mode=False, comparison=False)
             record(state, "CONFIGURATION ENGINEER", "PACKAGE REPLACED — ALL RECEIPTS INVALIDATED", "NEW BASELINE REQUIRED")
-        if question in LESSON_ACTIONS:
+        if state["lesson_mode"] and question in LESSON_ACTIONS:
             result = await lesson_program(state, question)
         elif question == "inspect" and state["report"]:
             result = {"title": "PACKAGE INSPECTION", "lines": baseline_lines(state["report"]),
                       "show_package": True, "package_query": query, "focus_package": True,
                       "reply": "INSPECT THE PACKAGE. SEARCH DOES NOT ADVANCE A HANDOFF."}
-        elif state["lesson_mode"] and question in PROGRAMS and question != "08":
-            result = await lesson_program(state, "lesson-start") if question == "01" else {"reply": "USE THE DEMO BUTTONS TO FOLLOW THE HANDOFF. THE LONGER ROCKET WORKFLOW OPENS AFTER ACCEPTANCE."}
+        elif state["lesson_mode"] and question in PROGRAMS:
+            result = {"reply": "COMPLETE THE FOUR-MOVE MISSION TO UNLOCK THE FULL ENGINEERING STATION."}
         elif question in PROGRAMS or question in POLL or question in CASE_ACTIONS:
             result = await program(state, question)
         else:
@@ -842,14 +871,28 @@ async def lesson_program(state, command):
             await program(state, step)
         return {"reply": "THE TASK COMPLETED. THE OPEN FINDING STILL BLOCKS THE HANDOFF."}
     if command == "lesson-mission":
+        if not state["launched"]:
+            return {"reply": "COMPLETE THE FOUR-MOVE MISSION BEFORE OPENING THE FULL ENGINEERING STATION."}
         state.update(new_state())
-        state.update(lesson_mode=False, scenario="altered")
-        return {"reply": "OPTIONAL, SEPARATE ROCKET WORKFLOW. BEGIN WITH 01."}
+        state.update(lesson_mode=False, scenario="rbar")
+        return {"reply": "FULL ENGINEERING STATION OPEN. BEGIN WITH 01."}
     if not state["report"] or "notation_check" not in state["report"]:
         return {"reply": "HAND OFF THE WORK FIRST TO SEE THE RECORDED STOP CONDITION."}
+    if command == "lesson-bypass":
+        if state["report"]["notation_check"]["result"] != "FAIL":
+            return {"reply": "THE OPEN FINDING IS ALREADY CLOSED. ACCEPTANCE IS THE NEXT DECISION."}
+        state["counterfactual"] = True
+        return {"reply": "THE HISTORICAL CONSEQUENCE IS SHOWN. THE REAL DEMO RECORD REMAINS BLOCKED."}
     if command == "lesson-compare":
         state["comparison"] = True
         return {"reply": "THE NOTE STAYS THE SAME. THE COMPARISON CHANGES ONLY THE WARNING FIELD IN A SEPARATE READ-ONLY GATE EVALUATION."}
+    if command == "lesson-launch":
+        if state["scenario"] != "rbar-fixed" or "05" not in state["completed"]:
+            return {"reply": "THE CORRECTED HANDOFF MUST PASS AND BE ACCEPTED BEFORE THIS SIMULATION CAN LAUNCH."}
+        if not state["launched"]:
+            record(state, "DEMO PARTICIPANT", "FICTIONAL CORRECTED-SUCCESSOR FLIGHT", "COMPLETE")
+            state["launched"] = True
+        return {"reply": "SUCCESSFUL SIMULATION. THE FAILED CANDIDATE, CORRECTION, CHECK AND ACCEPTANCE REMAIN TOGETHER."}
     if state["scenario"] != "rbar":
         return {"reply": "THE NOTE IS ALREADY CORRECTED. ACCEPTANCE IS A SEPARATE STEP."}
     corrected = await mission("rbar-fixed")
