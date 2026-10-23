@@ -94,8 +94,8 @@
       selectedReceipts.clear();
       findingMode = null;
       lastAutomaticLine = '';
-      choosing = false;
       const next = await request('/api/launch/new', {difficulty, mode});
+      choosing = false;
       intakeRunId = next.run.run_id;
       acceptSnapshot(next);
     } catch (error) {
@@ -597,7 +597,10 @@
 
   async function poll() {
     if (busy) return;
-    try { acceptSnapshot(await request('/api/launch/state')); } catch (_) { /* next pulse retries */ }
+    try {
+      const next = await request('/api/launch/state');
+      if (!busy) acceptSnapshot(next);
+    } catch (_) { /* next pulse retries */ }
   }
 
   poll();
