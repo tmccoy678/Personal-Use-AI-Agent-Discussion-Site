@@ -8,7 +8,7 @@ The existing Render Starter service and disk serve all three hostnames. No new p
 
 ## Public mission: the missing R-bar
 
-The default front door is a four-step, one-action-at-a-time mission: find the missing mark, watch DobeWorks carry the warning, watch DEGS preserve the stop, then separately accept and launch the corrected simulation. Its first packet omits the combining overbar from the required `R̅`. A tempting bypass reveals NASA's recorded Mariner 1 consequence without changing the active BLOCKED decision or recording acceptance. Fixing the mark preserves the failed candidate beside the corrected record. The successful finish then unlocks the full eight-program engineering station.
+The default front door is a four-step, one-action-at-a-time mission: find the missing mark, watch DobeWorks stage the completed work without promotion, watch the adapted handoff carry the warning into DEGS, and watch DEGS enforce the stop before separate acceptance and launch. Its first packet omits the combining overbar from the required `R̅`. A tempting bypass reveals NASA's recorded Mariner 1 consequence without changing the active BLOCKED decision or recording acceptance. Fixing the mark preserves the failed candidate beside the corrected record. The successful finish then unlocks the full eight-program engineering station.
 
 The note is an original teaching reconstruction of the notation loss described in NASA's Mariner 1 account, not recovered guidance code. A small exact-reference check detects the omitted combining overbar in `handoff/guidance-note.md`. DobeWorks performs its real bounded synthetic inventory and retains `COMPLETED_UNACCEPTED` / `NOT_PERFORMED`. The exhibit adapter supplies a structured unresolved warning to the real DEGS CLI. A corrected note supplies consistent `NONE` / `RESOLVED` / `resolved=true` warning fields and an evidence path, rather than silently deleting the warning. Readiness then passes; visitor acceptance remains a separate simulation step. The Worker result itself is not promoted.
 
@@ -18,7 +18,7 @@ The mission also names three stop conditions from the submitted AgentVerify abst
 
 The note, historical context, acceptance requirement and source reference remain inspectable. Correction retains the original failed candidate in evidence.
 
-The page translates the same handoff rule into three ordinary applications. A DOI resolver can find a citation mismatch, a comparison can find an instruction lost between AI windows, and a test, review, or person can find a software defect. DobeWorks preserves the supplied finding and DEGS enforces its stop; neither engine is presented as a universal detector.
+The page translates the same handoff rule into three ordinary applications. A DOI resolver can find a citation mismatch, a comparison can find an instruction lost between AI windows, and a test, review, or person can find a software defect. DobeWorks stages the completed work without promotion, an adapter carries the supplied finding in the handoff record, and DEGS enforces its stop; neither engine is presented as a universal detector.
 
 ## Rocket workflow
 

@@ -69,8 +69,8 @@ media at runtime.
 The public explanation should name the mechanism before its component names:
 
 1. A check finds a problem or a human records an unresolved concern.
-2. DobeWorks keeps the work staged and keeps that finding attached.
-3. The handoff carries the finding to DEGS.
+2. DobeWorks keeps the completed work staged, unaccepted, and unpromoted.
+3. The exhibit adapter carries the finding into the DEGS handoff record.
 4. DEGS refuses readiness while the reason to stop remains open.
 5. Correction evidence can close the finding; acceptance remains a separate
    decision.
@@ -78,8 +78,9 @@ The public explanation should name the mechanism before its component names:
 This distinction prevents overclaiming. DobeWorks is not, by itself, a universal
 DOI validator, context oracle, or flight-certification system. A DOI resolver can
 flag a citation that does not resolve; a context checker can flag a dropped
-instruction; a test or review can flag unsafe code. DobeWorks preserves the
-finding and DEGS enforces the supplied stop across the handoff.
+instruction; a test or review can flag unsafe code. DobeWorks stages the
+completed work without promotion, the adapted record carries the finding, and
+DEGS enforces the supplied stop across the handoff.
 
 ## Recommended first-time loop
 

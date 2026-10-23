@@ -199,6 +199,22 @@ def test_public_front_door_starts_with_a_plain_language_play_loop():
         assert "<script" not in page.text
 
 
+def test_public_mission_shows_a_failed_check_without_advancing(monkeypatch):
+    async def failed_mission(_scenario):
+        raise RuntimeError("fixture busy")
+
+    monkeypatch.setattr(stage, "mission", failed_mission)
+    with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
+        opening = client.get("/")
+        failed = lesson_command(client, opening, "lesson-start")
+        assert "MISSION PAUSED" in failed.text
+        assert "THE CHECK COULD NOT COMPLETE. PLEASE TRY THE PROGRAM AGAIN." in failed.text
+        assert "NO HANDOFF WAS ACCEPTED." in failed.text
+        evidence = client.get("/api/evidence").json()
+        assert evidence["completed_handoffs"] == []
+        assert evidence["simulated_flight_completed"] is False
+
+
 def test_public_mission_cannot_unlock_the_engineering_station_early():
     with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
         opening = client.get("/")
@@ -224,12 +240,14 @@ def test_public_mission_bypass_reveals_history_without_overriding_the_gate():
         held = lesson_command(client, opening, "lesson-start")
         assert "WORK FINISHED. LAUNCH STOPPED." in held.text
         assert "THE CHECK FOUND IT" in held.text
-        assert "DOBEWORKS KEPT IT" in held.text
+        assert "DOBEWORKS STAGED THE WORK" in held.text
+        assert "THE HANDOFF KEPT THE WARNING" in held.text
         assert "DEGS STOPPED IT" in held.text
         assert "SAME FINISHED WORK. DIFFERENT HANDOFF RECORD." in held.text
         assert "WARNING TRAVELS" in held.text
         assert "WARNING DISAPPEARS" in held.text
-        assert "FINISHED · staged · warning still attached" in held.text
+        assert "COMPLETED_UNACCEPTED · NOT_PERFORMED" in held.text
+        assert "UNRESOLVED warning attached to the DEGS task" in held.text
         assert "BLOCKED · open finding" in held.text
         before = client.get("/api/evidence").json()
         assert before["fixed_engine_run"]["degs"]["decision"] == "BLOCKED"

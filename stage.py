@@ -382,6 +382,12 @@ def render(state, title="MISSION TERMINAL", lines=None, reply="PLEASE GO ON.", q
         extra = package_view(state, package_query, focus_package) if show_package and state["report"] else ""
         if details is not None:
             extra += f'<section class="comparison"><h2>{escape(title)}</h2><details class="raw" open><summary>FULL RECORDED EVIDENCE</summary><pre>{escape(json.dumps(details, indent=2, sort_keys=True))}</pre></details></section>'
+        if title == "PROGRAM ERROR":
+            extra = (f'<section class="lesson-notice" role="alert"><p class="eyebrow">MISSION PAUSED</p>'
+                     f'<h2>{escape(reply)}</h2><p>{escape(lines or "NO HANDOFF WAS ACCEPTED.")}</p></section>' + extra)
+        elif reply.startswith("THIS SESSION EXPIRED"):
+            extra = (f'<section class="lesson-notice" role="alert"><p class="eyebrow">ACTION NOT RECORDED</p>'
+                     f'<h2>{escape(reply)}</h2><p>Use the visible mission button to try again.</p></section>' + extra)
         return render_lesson(state, voice, reply, question, extra)
     scenario = state["scenario"]
     if lines is None:
@@ -389,7 +395,7 @@ def render(state, title="MISSION TERMINAL", lines=None, reply="PLEASE GO ON.", q
             "rbar": ("YOUR ASSIGNMENT\n\nA completed guidance-note package is moving toward simulated launch.\n"
                      "One required overbar is missing from the received handoff.\n\n"
                      "DOBEWORKS supplies checked observations and stages the bounded work without promotion.\n"
-                     "The exact notation check preserves the failure. DEGS keeps the unresolved finding BLOCKED.\n\n"
+                     "The exact notation check records the failure. The exhibit adapter attaches it to the DEGS handoff record, which remains BLOCKED.\n\n"
                      "Begin with 01. Investigate in 03, restore the mark, then repeat every review before launch."),
             "rbar-fixed": ("YOUR ASSIGNMENT\n\nThe required overbar has been restored in a new package.\n"
                            "Every receipt from the failed candidate has been invalidated.\n\n"

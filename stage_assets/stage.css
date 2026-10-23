@@ -155,7 +155,7 @@ input::placeholder{color:#a8bbcb;opacity:1}
 .mission-status dt{color:var(--stage-signal);font-size:9px;letter-spacing:.1em}.mission-status dd{margin:5px 0 0;color:#f0f4f7;font-size:10px;line-height:1.5;overflow-wrap:anywhere}
 .lesson-reveal{margin:18px 0;padding:20px;border:1px solid var(--stage-rule);background:#0d1c2d}
 .lesson-reveal h2,.mission-unlocked h2{margin:0;color:#f0f4f7;font:inherit;font-size:16px;line-height:1.55}
-.lesson-reveal>div{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:15px}
+.lesson-reveal>div{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-top:15px}
 .lesson-reveal article{border:1px solid var(--stage-divider);padding:13px;min-width:0}
 .lesson-reveal small{color:var(--stage-signal)}.lesson-reveal h3{margin:5px 0;color:#f0f4f7;font:inherit;font-size:12px}
 .lesson-reveal article p,.human-line{margin:6px 0 0;color:#a8bbcb;font-size:11px;line-height:1.65}.human-line{margin-top:13px}.human-line b{color:var(--stage-signal);font-weight:400}
@@ -166,6 +166,7 @@ input::placeholder{color:#a8bbcb;opacity:1}
 .controlled-comparison p{color:#c7d7e3;font-size:11px;line-height:1.7}.controlled-comparison article p{color:#a8bbcb}
 .mission-unlocked{margin:24px 0;padding:20px;border:3px double var(--stage-signal);background:#102238}
 .mission-unlocked p{max-width:72ch;color:#c7d7e3;line-height:1.7}.mission-unlocked form{margin-top:14px}.mission-unlocked .enter{min-height:44px;padding:10px 13px;background:#0d1c2d;color:#f0f4f7;border-color:var(--stage-signal)}
+.lesson-notice{margin:18px 0;padding:18px;border:3px double var(--stage-signal);background:#101e30}.lesson-notice h2{margin:0;color:#f0f4f7;font:inherit;font-size:15px;line-height:1.55}.lesson-notice p:last-child{margin-bottom:0;color:#c7d7e3}
 @media(max-width:760px){
   .arcade-vehicle{order:initial}.mission-status{grid-template-columns:1fr}.mission-status div+div{border-left:0;border-top:1px solid var(--stage-divider)}
   .lesson-reveal>div,.controlled-comparison>div{grid-template-columns:1fr}.lesson-reveal,.controlled-comparison,.mission-unlocked{padding:15px}

@@ -29,6 +29,7 @@ def render(state, voice, reply, question, extra=""):
     launch_status = "LOCKED"
     checker = "Waiting for the two copies"
     dobe = "Waiting for completed work"
+    handoff = "Waiting for a check result"
     degs = "Waiting for a handoff record"
     human = "Not requested"
     historical = ""
@@ -49,7 +50,8 @@ def render(state, voice, reply, question, extra=""):
         work_status = "FINISHED"
         launch_status = "BLOCKED"
         checker = "FAIL · required R-bar, received R"
-        dobe = "FINISHED · staged · warning still attached"
+        dobe = "COMPLETED_UNACCEPTED · NOT_PERFORMED"
+        handoff = "UNRESOLVED warning attached to the DEGS task"
         degs = "BLOCKED · open finding"
         human = "Held while the error is open"
 
@@ -82,7 +84,8 @@ def render(state, voice, reply, question, extra=""):
         work_status = "FINISHED"
         launch_status = "AWAITING YOUR REVIEW"
         checker = "PASS · R-bar restored"
-        dobe = "FINISHED · failed and corrected copies retained"
+        dobe = "COMPLETED_UNACCEPTED · NOT_PERFORMED"
+        handoff = "Failed run retained beside the corrected run"
         degs = "READY · no supplied stop remains open"
         human = "Awaiting your acceptance"
 
@@ -140,13 +143,15 @@ def render(state, voice, reply, question, extra=""):
     if check:
         reveal_title = "THE COMPLETION MESSAGE DID NOT ERASE THE ERROR."
         cards = (f'<article><small>1</small><h3>THE CHECK FOUND IT</h3><p>{escape(checker)}</p></article>'
-                 f'<article><small>2</small><h3>DOBEWORKS KEPT IT</h3><p>{escape(dobe)}</p></article>'
-                 f'<article><small>3</small><h3>DEGS STOPPED IT</h3><p>{escape(degs)}</p></article>')
+                 f'<article><small>2</small><h3>DOBEWORKS STAGED THE WORK</h3><p>{escape(dobe)}</p></article>'
+                 f'<article><small>3</small><h3>THE HANDOFF KEPT THE WARNING</h3><p>{escape(handoff)}</p></article>'
+                 f'<article><small>4</small><h3>DEGS STOPPED IT</h3><p>{escape(degs)}</p></article>')
         if fixed:
             reveal_title = "THE REPAIR CHANGED THE RESULT; IT DID NOT ERASE THE FIRST FAILURE."
             cards = (f'<article><small>1</small><h3>THE CHECK VERIFIED IT</h3><p>{escape(checker)}</p></article>'
-                     f'<article><small>2</small><h3>DOBEWORKS KEPT BOTH</h3><p>{escape(dobe)}</p></article>'
-                     f'<article><small>3</small><h3>DEGS OPENED THE GATE</h3><p>{escape(degs)}</p></article>')
+                     f'<article><small>2</small><h3>DOBEWORKS STAGED NEW WORK</h3><p>{escape(dobe)}</p></article>'
+                     f'<article><small>3</small><h3>THE EXHIBIT KEPT BOTH RECORDS</h3><p>{escape(handoff)}</p></article>'
+                     f'<article><small>4</small><h3>DEGS OPENED THE GATE</h3><p>{escape(degs)}</p></article>')
         reveal = (f'<section class="lesson-reveal" aria-labelledby="reveal-title"><p class="eyebrow">WHAT JUST HAPPENED</p>'
                   f'<h2 id="reveal-title">{reveal_title}</h2><div>{cards}</div>'
                   f'<p class="human-line"><b>YOUR PART:</b> {escape(human)}.</p></section>')
@@ -168,20 +173,20 @@ def render(state, voice, reply, question, extra=""):
     guide = ""
     if launched:
         mechanism = ('<section class="plain-mechanism" aria-labelledby="mechanism-title"><p class="eyebrow">NOW NAME THE MACHINERY</p>'
-            '<h2 id="mechanism-title">DobeWorks carries the reason to stop. DEGS keeps the next step closed until that reason is resolved.</h2><ol>'
+            '<h2 id="mechanism-title">DobeWorks keeps completed work staged. The handoff record carries the reason to stop. DEGS keeps the next step closed until that reason is resolved.</h2><ol>'
             '<li><b>FIND</b><span>A named check or person records a problem.</span></li>'
-            '<li><b>CARRY</b><span>DobeWorks keeps the finding attached when work moves.</span></li>'
-            '<li><b>STOP</b><span>DEGS refuses the next step while the finding is open.</span></li>'
-            '<li><b>PROVE</b><span>Repair evidence closes it; human acceptance stays separate.</span></li>'
+            '<li><b>STAGE</b><span>DobeWorks leaves completed output unaccepted and unpromoted.</span></li>'
+            '<li><b>CARRY</b><span>The adapter puts the finding into the DEGS handoff record.</span></li>'
+            '<li><b>ENFORCE</b><span>DEGS refuses readiness while it is open; human acceptance stays separate.</span></li>'
             '</ol></section>')
         applications = ('<section class="applications" aria-labelledby="applications-title"><p class="eyebrow">THE SAME RULE ANYWHERE WORK MOVES</p>'
-            '<h2 id="applications-title">The named check finds the problem. DobeWorks and DEGS keep it from disappearing.</h2><div>'
+            '<h2 id="applications-title">The named check finds the problem. DobeWorks stages the work; the handoff record carries the finding; DEGS enforces the stop.</h2><div>'
             '<article><small>DOI RESOLVER</small><h3>Faulty citation</h3><p>A resolver flags a DOI that does not lead to the claimed paper. '
-            'DobeWorks carries that finding with the draft; DEGS keeps the next stage blocked until the source is verified.</p></article>'
+            'DobeWorks keeps the completed draft staged; the handoff record carries the finding; DEGS blocks the next stage until the source is verified.</p></article>'
             '<article><small>CONTEXT CHECK</small><h3>New AI window</h3><p>A comparison flags a required instruction missing from a handoff. '
-            'DobeWorks carries the missing requirement forward; DEGS keeps the next agent blocked until it is restored.</p></article>'
+            'DobeWorks keeps the completed handoff staged; its record carries the missing requirement; DEGS blocks the next agent until it is restored.</p></article>'
             '<article><small>TEST OR REVIEW</small><h3>Safety-critical code</h3><p>A test, hazard review, or person finds a defect. '
-            'DobeWorks keeps the finding attached; DEGS keeps readiness blocked while it remains open.</p></article>'
+            'DobeWorks keeps the completed output staged; the handoff record carries the defect; DEGS keeps readiness blocked while it remains open.</p></article>'
             '</div><p class="application-limit">This exhibit demonstrates preservation and enforcement with one fixed notation check. '
             'It is not a universal DOI validator, context oracle, or flight-certification system.</p></section>')
         unlocked = ('<section class="mission-unlocked"><p class="eyebrow">NEW LEVEL UNLOCKED</p>'
