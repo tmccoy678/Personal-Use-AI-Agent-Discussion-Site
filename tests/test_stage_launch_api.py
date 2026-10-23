@@ -1,0 +1,146 @@
+"""Same-origin live launch API: server time, real engines, and no client gate authority."""
+import re
+
+from fastapi.testclient import TestClient
+import pytest
+
+import stage
+
+
+@pytest.fixture(autouse=True)
+def clear_stage_state():
+    stage.SESSIONS.clear()
+    stage.ATTEMPTS.clear()
+    yield
+    stage.SESSIONS.clear()
+    stage.ATTEMPTS.clear()
+
+
+def open_game(client):
+    page = client.get("/")
+    assert page.status_code == 200
+    csrf = re.search(r'<meta name="stage-csrf" content="([^"]+)">', page.text)[1]
+    return page, csrf
+
+
+def post(client, path, csrf, **payload):
+    return client.post(path, json={"csrf": csrf, **payload})
+
+
+def act(client, csrf, run, action, **choices):
+    response = post(client, "/api/launch/action", csrf, run_id=run["run_id"],
+                    version=run["version"], action=action, choices=choices)
+    assert response.status_code == 200, response.text
+    return response.json()["run"]
+
+
+def test_front_door_is_the_sparse_launch_game_and_classic_evidence_remains_available():
+    with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
+        page, _ = open_game(client)
+        assert "CARRY THE STOP" in page.text
+        assert "ELIZA · COLOSSUS · GUARDIAN TERMINAL" in page.text
+        assert "CHOOSE THE PACKET" in page.text
+        assert "HOW IT WORKS" not in page.text
+        assert 'src="/launch-game.js"' in page.text
+        assert client.get("/launch.css").status_code == 200
+        assert client.get("/launch-game.js").status_code == 200
+        classic = client.get("/classic")
+        assert classic.status_code == 200 and "ZARINER · SAVE THE SIGNAL" in classic.text
+
+
+@pytest.mark.parametrize("difficulty", ["easy", "medium", "hard"])
+def test_server_creates_each_fixed_packet_and_rejects_invented_difficulty(difficulty):
+    with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
+        _, csrf = open_game(client)
+        response = post(client, "/api/launch/new", csrf, difficulty=difficulty)
+        assert response.status_code == 200
+        run = response.json()["run"]
+        assert run["difficulty"] == difficulty and run["phase"] == "PAD"
+        assert response.json()["packet"]["difficulty"] == difficulty
+        assert all(set(prompt) == {"id", "group", "label"} for prompt in response.json()["packet"]["prompts"])
+        assert "choices" not in response.json()["packet"] and "correction" not in response.json()["packet"]
+        bad = post(client, "/api/launch/new", csrf, difficulty="invented")
+        assert bad.status_code == 422
+
+
+def test_real_worker_and_gate_block_a_carried_finding_without_client_gate_input():
+    with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
+        _, csrf = open_game(client)
+        run = post(client, "/api/launch/new", csrf, difficulty="easy").json()["run"]
+        run = act(client, csrf, run, "check", name="WIND_BALANCE")
+        receipt = next(iter(run["receipts"].values()))
+        assert receipt["result"] == "FAIL"
+        run = act(client, csrf, run, "stage")
+        response = post(client, "/api/launch/action", csrf, run_id=run["run_id"], version=run["version"],
+                        action="project", choices={"receipt_ids": [receipt["id"]], "finding_ids": receipt["finding_ids"]})
+        assert response.status_code == 200
+        body = response.json()
+        run = body["run"]
+        assert body["engine"]["dobeworks"]["state"] == "COMPLETED_UNACCEPTED"
+        assert body["engine"]["dobeworks"]["promotion"] == "NOT_PERFORMED"
+        assert body["engine"]["degs"]["decision"] == "BLOCKED"
+        assert run["gate"]["decision"] == "BLOCKED"
+        forged = post(client, "/api/launch/action", csrf, run_id=run["run_id"], version=run["version"],
+                      action="receive_gate", choices={"decision": "PASS"})
+        assert forged.status_code == 422
+
+
+def test_corrected_exact_record_reaches_server_countdown_and_liftoff():
+    with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
+        _, csrf = open_game(client)
+        run = post(client, "/api/launch/new", csrf, difficulty="easy").json()["run"]
+        run = act(client, csrf, run, "prompt", prompt_id="E-OPPOSE-WIND")
+        candidate = run["candidates"][run["candidate_id"]]
+        assert candidate["generated_by"] == "ELIZA · COLOSSUS · GUARDIAN"
+        assert candidate["prompt_history"][-1] == "E-OPPOSE-WIND"
+        run = act(client, csrf, run, "check", name="WIND_BALANCE")
+        receipt = next(reversed(run["receipts"].values()))
+        run = act(client, csrf, run, "stage")
+        run = act(client, csrf, run, "project", receipt_ids=[receipt["id"]], finding_ids=[])
+        assert run["gate"]["decision"] == "PASS"
+        run = act(client, csrf, run, "accept")
+        run = act(client, csrf, run, "condition")
+        run = act(client, csrf, run, "arm")
+        session = stage.SESSIONS[client.cookies.get(stage.COOKIE)]
+        session["launch_started_monotonic"] -= 5
+        run = client.get("/api/launch/state").json()["run"]
+        assert run["vehicle"]["conditioned"] is True
+        run = act(client, csrf, run, "ignite")
+        assert run["phase"] == "COUNTDOWN" and run["countdown"]["remaining_s"] == 10
+        session["launch_started_monotonic"] -= 10
+        run = client.get("/api/launch/state").json()["run"]
+        assert run["phase"] == "FLIGHT" and run["flight"]["t"] == 0
+
+
+def test_browser_can_prompt_the_agent_but_cannot_write_candidate_values_directly():
+    with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
+        _, csrf = open_game(client)
+        run = post(client, "/api/launch/new", csrf, difficulty="easy").json()["run"]
+        rejected = post(client, "/api/launch/action", csrf, run_id=run["run_id"],
+                        version=run["version"], action="edit", choices={"correction_cm_s": -20})
+        assert rejected.status_code == 422
+        generated = act(client, csrf, run, "prompt", prompt_id="E-OPPOSE-WIND")
+        assert generated["candidates"][generated["candidate_id"]]["correction_cm_s"] == -20
+
+
+def test_terminal_reports_the_open_condition_without_mutating_the_run():
+    with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
+        _, csrf = open_game(client)
+        run = post(client, "/api/launch/new", csrf, difficulty="easy").json()["run"]
+        before = run["version"]
+        answer = post(client, "/api/launch/terminal", csrf, question="what do i need to do next?")
+        assert answer.status_code == 200
+        body = answer.json()
+        assert body["speaker"] in {"ELIZA", "COLOSSUS", "GUARDIAN"}
+        assert "CHECK" in body["text"]
+        assert client.get("/api/launch/state").json()["run"]["version"] == before
+
+
+def test_pad_hold_is_recoverable_and_terminal_reports_the_open_condition():
+    with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
+        _, csrf = open_game(client)
+        run = post(client, "/api/launch/new", csrf, difficulty="easy").json()["run"]
+        run = act(client, csrf, run, "ignite")
+        assert run["phase"] == "PAD" and run["outcome"]["flight"] == "PAD_HOLD"
+        answer = post(client, "/api/launch/terminal", csrf, question="what next?").json()
+        assert answer == {"speaker": "ELIZA", "text": "RUN THE MISSION CHECK: WIND_BALANCE."}

@@ -1,6 +1,8 @@
 """Public fictional mission. Bounded visitor progress; no bridge data or model calls."""
 import asyncio
 from collections import deque, OrderedDict
+from copy import deepcopy
+from dataclasses import asdict
 from html import escape
 import json
 import os
@@ -17,6 +19,8 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Resp
 
 from stage_mission import check_sources, digest, encode, mission_package
 from stage_lesson import render as render_lesson
+import stage_launch_model as launch_model
+from stage_launch_adapter import AdapterError
 
 ROOT = Path(__file__).resolve().parent
 LOGO_URL = "/dobeworks-logo-a56f5aab2111.svg"
@@ -49,6 +53,7 @@ ATTEMPTS = deque(maxlen=60)
 COOKIE = "stage_mission"
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 TEMPLATE = (ROOT / "stage_assets/index.html").read_text()
+LAUNCH_TEMPLATE = (ROOT / "stage_assets/launch.html").read_text()
 
 
 def load_workbench_voices(path=None):
@@ -85,7 +90,14 @@ VOICES = load_workbench_voices()
 def new_state():
     return {"csrf": secrets.token_urlsafe(24), "scenario": "rbar", "lesson_mode": True, "comparison": False, "completed": [], "poll": {}, "events": [],
             "report": None, "cores": None, "launched": False, "flight_active": False, "busy": False, "tested_package": None,
-            "case_history": [], "weather_clear": False, "counterfactual": False, "seen": time.monotonic()}
+            "case_history": [], "weather_clear": False, "counterfactual": False, "seen": time.monotonic(),
+            "launch_model": None, "launch_started_monotonic": None,
+            "launch_engine": {"staged": {}, "gates": {}}}
+
+
+def render_launch(state):
+    """Render only the static shell; live state arrives from same-origin APIs."""
+    return LAUNCH_TEMPLATE.replace("{{csrf}}", escape(state["csrf"]))
 
 
 def session(request):
@@ -465,11 +477,11 @@ def render(state, title="MISSION TERMINAL", lines=None, reply="PLEASE GO ON.", q
 
 
 def page(request, key, state, **kwargs):
-    if request.method == "GET" and request.url.path == "/":
+    if request.method == "GET" and request.url.path == "/classic":
         response = HTMLResponse(render(state, **kwargs))
     else:
         state["pending_view"] = kwargs
-        response = RedirectResponse("/#package" if kwargs.get("focus_package") else "/", status_code=303)
+        response = RedirectResponse("/classic#package" if kwargs.get("focus_package") else "/classic", status_code=303)
     response.set_cookie(COOKIE, key, max_age=7200, secure=request.url.scheme == "https", httponly=True, samesite="strict")
     return response
 
@@ -762,16 +774,28 @@ async def headers(request, call_next):
     response = await call_next(request)
     response.headers.update({"Cache-Control": "public, max-age=31536000, immutable" if request.url.path in IMMUTABLE_ASSET_PATHS else "no-store", "X-Content-Type-Options": "nosniff",
         "Referrer-Policy": "same-origin", "X-Frame-Options": "DENY",
-        "Content-Security-Policy": "default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"})
+        "Content-Security-Policy": "default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"})
     return response
 
 
 @app.get("/")
 async def home(request: Request):
     key, state = session(request)
+    response = HTMLResponse(render_launch(state))
+    response.set_cookie(COOKIE, key, max_age=7200, secure=request.url.scheme == "https", httponly=True, samesite="strict")
+    return response
+
+
+@app.get("/classic")
+async def classic(request: Request):
+    key, state = session(request)
     pending = state.pop("pending_view", None)
     if pending is None:
-        SESSIONS[key] = state = new_state()
+        launch_fields = {name: state.get(name) for name in ("launch_model", "launch_started_monotonic", "launch_engine")}
+        csrf = state["csrf"]
+        state.update(new_state())
+        state.update(launch_fields)
+        state["csrf"] = csrf
     return page(request, key, state, **(pending or {}))
 
 
@@ -783,6 +807,16 @@ async def css():
 @app.get("/stage-game.js")
 async def game_javascript():
     return Response((ROOT / "stage_assets/stage-game.js").read_text(), media_type="application/javascript")
+
+
+@app.get("/launch.css")
+async def launch_css():
+    return Response((ROOT / "stage_assets/launch.css").read_text(), media_type="text/css")
+
+
+@app.get("/launch-game.js")
+async def launch_javascript():
+    return Response((ROOT / "stage_assets/launch-game.js").read_text(), media_type="application/javascript")
 
 
 @app.get("/dobeworks-logo-7cfd562d0370.jpg")
@@ -803,6 +837,311 @@ async def favicon_16():
 @app.get(FAVICON_32_URL)
 async def favicon_32():
     return Response((ROOT / "stage_assets/dobeworks-favicon-32.png").read_bytes(), media_type="image/png")
+
+
+def _set_session_cookie(response, request, key):
+    response.set_cookie(COOKIE, key, max_age=7200, secure=request.url.scheme == "https", httponly=True, samesite="strict")
+    return response
+
+
+def _same_origin(request):
+    origin = request.headers.get("origin")
+    return not origin or origin == f"{request.url.scheme}://{request.url.netloc}"
+
+
+def _take_attempt():
+    now = time.monotonic()
+    while ATTEMPTS and ATTEMPTS[0] < now - 60:
+        ATTEMPTS.popleft()
+    if len(ATTEMPTS) >= 60:
+        return False
+    ATTEMPTS.append(now)
+    return True
+
+
+async def _json_body(request, *, fields, maximum=4096):
+    body = bytearray()
+    async for chunk in request.stream():
+        body.extend(chunk)
+        if len(body) > maximum:
+            raise OverflowError("Request too large")
+    try:
+        value = json.loads(body)
+    except (json.JSONDecodeError, UnicodeDecodeError) as error:
+        raise ValueError("Invalid JSON") from error
+    if not isinstance(value, dict) or set(value) != set(fields):
+        raise ValueError("Invalid request fields")
+    return value
+
+
+def _advance_launch(state):
+    current = state.get("launch_model")
+    started = state.get("launch_started_monotonic")
+    if current is None or started is None:
+        return None
+    elapsed = min(7200, max(current["elapsed_s"], int(time.monotonic() - started)))
+    state["launch_model"] = launch_model.advance(current, elapsed)
+    return state["launch_model"]
+
+
+def _packet_view(difficulty):
+    packet = launch_model.PACKETS[difficulty]
+    value = asdict(packet)
+    value.pop("correction")
+    value.pop("choices")
+    value["difficulty"] = difficulty
+    value["observations"] = [dict(zip(
+        ("id", "wind_cm_s", "config_id", "valid_from_t", "valid_through_t"), row
+    )) for row in packet.observations]
+    value["prompts"] = [{key: item[key] for key in ("id", "group", "label")}
+                        for item in launch_model.PROMPTS[difficulty]]
+    return value
+
+
+def _gate_view(output):
+    if not output:
+        return None
+    degs = output.get("degs", {})
+    return {
+        "decision": output.get("decision"),
+        "validate_decision": output.get("validate_decision"),
+        "adapter_classification": output.get("adapter_classification"),
+        "risk_tier": degs.get("risk_tier"),
+        "warning_state": deepcopy(degs.get("warning_state")),
+        "unmet_requirements": deepcopy(degs.get("unmet_requirements", [])),
+        "warnings": deepcopy(degs.get("warnings", [])),
+        "evidence_paths": deepcopy(degs.get("evidence_paths", [])),
+    }
+
+
+def _terminal_line(run):
+    if run is None:
+        return "ELIZA", "CHOOSE A PACKET."
+    current = run["candidate_id"]
+    receipts = [item for item in run["receipts"].values() if item["candidate_id"] == current]
+    required = set(launch_model.PACKETS[run["difficulty"]].checks)
+    checked = {item["name"] for item in receipts}
+    gate = run["gates"].get(run["record_id"])
+    decision = gate["output"]["decision"] if gate else None
+    outcome = run.get("outcome") or {}
+    if run["phase"] in {"COMPLETE", "RANGE_ABORT", "NO_IGNITION"} or outcome.get("flight") == "PAD_ABORT":
+        return "GUARDIAN", f'RUN TERMINAL. FLIGHT {outcome.get("flight", run["phase"])}. THE RECORD IS RETAINED.'
+    if not required <= checked:
+        missing = " + ".join(sorted(required - checked))
+        return "ELIZA", f'RUN THE MISSION CHECK: {missing}.'
+    if current not in run["staged_ids"]:
+        return "COLOSSUS", "WORK IS CHECKED BUT NOT STAGED."
+    if run["record_id"] is None:
+        return "ELIZA", "BUILD THE OUTGOING RECORD. CHOOSE WHICH RECEIPTS AND FINDINGS TRAVEL WITH IT."
+    if decision is None:
+        return "GUARDIAN", "THE OUTGOING RECORD HAS NO DEGS DECISION."
+    if run["authority"] is None:
+        return "COLOSSUS", f'DEGS {decision}. RECORD A HUMAN ACCEPTANCE, HOLD, OR OVERRIDE.'
+    if not run["vehicle"]["conditioned"]:
+        remaining = run["vehicle"].get("conditioning_until")
+        return "ELIZA", "VEHICLE CONDITIONING IS IN PROGRESS." if remaining is not None else "VEHICLE IS COLD. CONDITION IT."
+    if not run["vehicle"]["armed"]:
+        return "GUARDIAN", "IGNITION CIRCUIT IS SAFE. ARM WHEN YOUR FROZEN RECORD IS THE ONE YOU INTEND TO FLY."
+    if run["phase"] == "COUNTDOWN":
+        countdown = run["countdown"]
+        return "COLOSSUS", "COUNTDOWN HELD." if countdown["holding"] else f'COUNTDOWN T-{countdown["remaining_s"]:03d}.'
+    return "COLOSSUS", "THE VEHICLE AND FROZEN RECORD ARE READY. IGNITION IS A SEPARATE COMMAND."
+
+
+def _launch_view(state):
+    run = state.get("launch_model")
+    if run is None:
+        return {"run": None, "packet": None, "engine": {"dobeworks": None, "degs": None},
+                "terminal": {"speaker": "ELIZA", "text": "CHOOSE A PACKET."}}
+    public = deepcopy(run)
+    gate_entry = run["gates"].get(run["record_id"])
+    gate_output = gate_entry["output"] if gate_entry else None
+    public["gate"] = _gate_view(gate_output)
+    public["gates"] = {key: {"record_sha256": value["record_sha256"],
+                             "output": _gate_view(value["output"])} for key, value in run["gates"].items()}
+    staged = state["launch_engine"]["staged"].get(run["candidate_id"])
+    worker = staged.get("worker") if staged else None
+    engine = {
+        "dobeworks": ({"state": worker.get("state"), "promotion": worker.get("promotion"),
+                        "output_sha256": worker.get("output_sha256")} if worker else None),
+        "degs": _gate_view(gate_output),
+    }
+    speaker, text = _terminal_line(run)
+    return {"run": public, "packet": _packet_view(run["difficulty"]), "engine": engine,
+            "terminal": {"speaker": speaker, "text": text}}
+
+
+def _launch_error(message, status=422):
+    return JSONResponse({"error": message}, status_code=status)
+
+
+def _launch_session(request):
+    key, state = session(request)
+    if not _same_origin(request):
+        return key, state, _launch_error("Invalid origin", 403)
+    if not _take_attempt():
+        return key, state, _launch_error("The terminal is busy. Return in a minute.", 429)
+    return key, state, None
+
+
+def _valid_csrf(value, state):
+    return isinstance(value, str) and secrets.compare_digest(value, state["csrf"])
+
+
+async def _run_launch_adapter(command, payload):
+    environment = {"PATH": os.defpath, "PYTHONUTF8": "1", "PYTHONDONTWRITEBYTECODE": "1", "LANG": "C.UTF-8"}
+    process = await asyncio.create_subprocess_exec(
+        sys.executable, "-B", str(ROOT / "stage_launch_adapter.py"), command,
+        cwd=ROOT, env=environment, start_new_session=True,
+        stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+    )
+    try:
+        stdout, stderr = await asyncio.wait_for(process.communicate(encode(payload)), timeout=15)
+    except (TimeoutError, asyncio.CancelledError):
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        await process.wait()
+        raise AdapterError("The engine check reached its time limit") from None
+    if process.returncode or stderr or len(stdout) > 512_000:
+        raise AdapterError("The engine check rejected this exact record")
+    try:
+        result = json.loads(stdout)
+    except (json.JSONDecodeError, UnicodeDecodeError) as error:
+        raise AdapterError("The engine check returned an invalid record") from error
+    if not isinstance(result, dict):
+        raise AdapterError("The engine check returned an invalid record")
+    return result
+
+
+@app.post("/api/launch/new")
+async def launch_new(request: Request):
+    key, state, error = _launch_session(request)
+    if error:
+        return error
+    try:
+        body = await _json_body(request, fields=("csrf", "difficulty"))
+    except OverflowError:
+        return _launch_error("Request too large", 413)
+    except ValueError:
+        return _launch_error("Choose one supplied packet")
+    if not _valid_csrf(body["csrf"], state):
+        return _launch_error("Session expired", 403)
+    difficulty = body["difficulty"]
+    if difficulty not in launch_model.PACKETS:
+        return _launch_error("Choose one supplied packet")
+    run_id = "run-" + secrets.token_hex(8)
+    state["launch_model"] = launch_model.new_run(difficulty, run_id)
+    state["launch_started_monotonic"] = time.monotonic()
+    state["launch_engine"] = {"staged": {}, "gates": {}}
+    return _set_session_cookie(JSONResponse(_launch_view(state)), request, key)
+
+
+@app.get("/api/launch/state")
+async def launch_state(request: Request):
+    key, state = session(request)
+    try:
+        _advance_launch(state)
+    except launch_model.InvalidCommand:
+        return _launch_error("The run can no longer advance", 409)
+    return _set_session_cookie(JSONResponse(_launch_view(state)), request, key)
+
+
+@app.post("/api/launch/action")
+async def launch_action(request: Request):
+    key, state, error = _launch_session(request)
+    if error:
+        return error
+    try:
+        body = await _json_body(request, fields=("csrf", "run_id", "version", "action", "choices"))
+    except OverflowError:
+        return _launch_error("Request too large", 413)
+    except ValueError:
+        return _launch_error("Invalid launch command")
+    if not _valid_csrf(body["csrf"], state):
+        return _launch_error("Session expired", 403)
+    if (not isinstance(body["run_id"], str) or type(body["version"]) is not int
+            or not isinstance(body["action"], str) or not isinstance(body["choices"], dict)):
+        return _launch_error("Invalid launch command")
+    allowed = {"prompt", "check", "select", "stage", "project", "accept", "hold", "override",
+               "condition", "arm", "ignite", "retry"}
+    if body["action"] not in allowed:
+        return _launch_error("Unknown launch command")
+    if state.get("launch_model") is None:
+        return _launch_error("Choose a packet first", 409)
+    if state["busy"]:
+        return _launch_error("A command is already running", 409)
+    state["busy"] = True
+    try:
+        current = _advance_launch(state)
+        action = body["action"]
+        choices = body["choices"]
+        if action == "retry":
+            if choices:
+                raise launch_model.InvalidCommand("Retry has no choices")
+            updated = launch_model.retry(current, "run-" + secrets.token_hex(8),
+                                         run_id=body["run_id"], version=body["version"])
+            state["launch_started_monotonic"] = time.monotonic()
+            state["launch_engine"] = {"staged": {}, "gates": {}}
+        elif action == "stage":
+            staged = await _run_launch_adapter("stage", current)
+            updated = launch_model.act(current, action, run_id=body["run_id"],
+                                       version=body["version"], **choices)
+            state["launch_engine"]["staged"][updated["candidate_id"]] = staged
+        elif action == "project":
+            updated = launch_model.act(current, action, run_id=body["run_id"],
+                                       version=body["version"], **choices)
+            staged = state["launch_engine"]["staged"].get(updated["candidate_id"])
+            if staged is None:
+                raise AdapterError("Stage this exact candidate before projection")
+            gate = await _run_launch_adapter("evaluate", {"state": updated, "staged": staged})
+            updated = launch_model.receive_gate(updated, updated["record_id"], gate,
+                                                run_id=updated["run_id"], version=updated["version"])
+            state["launch_engine"]["gates"][updated["record_id"]] = gate
+        else:
+            updated = launch_model.act(current, action, run_id=body["run_id"],
+                                       version=body["version"], **choices)
+        state["launch_model"] = updated
+        return _set_session_cookie(JSONResponse(_launch_view(state)), request, key)
+    except (launch_model.InvalidCommand, AdapterError, KeyError, TypeError, ValueError) as exception:
+        return _launch_error(str(exception) or "Command rejected")
+    finally:
+        state["busy"] = False
+
+
+@app.post("/api/launch/terminal")
+async def launch_terminal(request: Request):
+    key, state, error = _launch_session(request)
+    if error:
+        return error
+    try:
+        body = await _json_body(request, fields=("csrf", "question"), maximum=1024)
+    except OverflowError:
+        return _launch_error("Request too large", 413)
+    except ValueError:
+        return _launch_error("Ask one short question")
+    if not _valid_csrf(body["csrf"], state):
+        return _launch_error("Session expired", 403)
+    question = body["question"]
+    if not isinstance(question, str) or len(question.strip()) > 120:
+        return _launch_error("Ask one short question")
+    run = _advance_launch(state)
+    speaker, default = _terminal_line(run)
+    words = set(re.findall(r"[a-z]+", question.lower()))
+    if words & {"dobeworks", "worker", "stage"}:
+        speaker, text = "GUARDIAN", "DOBEWORKS INVENTORIES THE EXACT CANDIDATE. COMPLETION LEAVES IT STAGED AND UNACCEPTED."
+    elif words & {"degs", "gate", "blocked", "warning"}:
+        speaker, text = "COLOSSUS", "DEGS EVALUATES THE WARNING FIELDS IN THE OUTGOING RECORD. IT DOES NOT FLY THE VEHICLE OR APPROVE THE RECORD."
+    elif words & {"wind", "correction", "residual", "packet"}:
+        speaker, text = "ELIZA", "THE VEHICLE FLIES THE CANDIDATE THAT REACHES IGNITION. RUN THE SUPPLIED CHECKS; I WILL NOT CHOOSE THE VALUES FOR YOU."
+    elif words & {"countdown", "clock", "hold", "ignite"}:
+        speaker, text = "GUARDIAN", "THE MISSION CLOCK IS SERVER-OWNED. A HOLD BEFORE ENGINE START FREEZES IT; A HOLD AFTER ENGINE START ABORTS AND SAFES THE VEHICLE."
+    elif words & {"hard", "difficulty"}:
+        speaker, text = "COLOSSUS", "HARD ADDS OBSERVATION, FRAME, AND CUTOFF-CLOCK BINDING. EACH RECEIPT MUST BELONG TO THE CANDIDATE YOU SEND."
+    else:
+        text = default
+    return _set_session_cookie(JSONResponse({"speaker": speaker, "text": text}), request, key)
 
 
 @app.post("/")

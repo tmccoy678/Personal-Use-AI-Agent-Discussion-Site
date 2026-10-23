@@ -135,8 +135,8 @@ def test_all_real_scenarios_and_source_identity():
 def test_stage_host_cannot_reach_lab_routes(env):
     with TestClient(bridge.create_app(env), base_url="https://stage.dobeworks.com") as client:
         page = client.get("/")
-        assert page.status_code == 200 and "ZARINER · SAVE THE SIGNAL" in page.text
-        assert 'src="/stage-game.js"' in page.text
+        assert page.status_code == 200 and "CARRY THE STOP" in page.text
+        assert 'src="/launch-game.js"' in page.text
         assert page.headers["referrer-policy"] == "same-origin"
         assert "script-src 'self'" in page.headers["content-security-policy"]
         assert "HttpOnly" in page.headers["set-cookie"] and "Secure" in page.headers["set-cookie"]
@@ -180,14 +180,14 @@ def test_stage_preserves_content_addressed_logo_assets_without_forcing_them_into
         page = client.get("/")
         assert page.text.count(logo_url) == 0
         assert page.text.count(favicon_16_url) == 1
-        assert page.text.count(favicon_32_url) == 1
+        assert page.text.count(favicon_32_url) == 0
         assert "img-src 'self'" in page.headers["content-security-policy"]
         assert page.headers["cache-control"] == "no-store"
 
 
 def test_public_front_door_starts_with_a_plain_language_play_loop():
     with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
-        page = client.get("/")
+        page = client.get("/classic")
         assert page.status_code == 200
         assert "ZARINER · SAVE THE SIGNAL" in page.text
         assert "FIND R WITHOUT BAR" in page.text
@@ -205,7 +205,7 @@ def test_public_mission_shows_a_failed_check_without_advancing(monkeypatch):
 
     monkeypatch.setattr(stage, "mission", failed_mission)
     with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
-        opening = client.get("/")
+        opening = client.get("/classic")
         failed = lesson_command(client, opening, "lesson-start")
         assert "MISSION PAUSED" in failed.text
         assert "THE CHECK COULD NOT COMPLETE. PLEASE TRY THE PROGRAM AGAIN." in failed.text
@@ -217,7 +217,7 @@ def test_public_mission_shows_a_failed_check_without_advancing(monkeypatch):
 
 def test_public_mission_cannot_unlock_the_engineering_station_early():
     with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
-        opening = client.get("/")
+        opening = client.get("/classic")
         direct_program = lesson_command(client, opening, "01")
         assert "FIND R WITHOUT BAR" in direct_program.text
         assert "SOFTWARE / TELEMETRY DESK" not in direct_program.text
@@ -236,7 +236,7 @@ def test_public_mission_cannot_unlock_the_engineering_station_early():
 
 def test_public_mission_bypass_reveals_history_without_overriding_the_gate():
     with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
-        opening = client.get("/")
+        opening = client.get("/classic")
         carry = lesson_command(client, opening, "lesson-start")
         assert "EVERYONE SAYS DONE" in carry.text
         assert "KEEP WARNING ATTACHED" in carry.text
@@ -290,7 +290,7 @@ def test_public_mission_bypass_reveals_history_without_overriding_the_gate():
 
 def test_public_mission_requires_fix_then_acceptance_before_successful_flight():
     with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
-        opening = client.get("/")
+        opening = client.get("/classic")
         carry = lesson_command(client, opening, "lesson-start")
         held = lesson_command(client, carry, "lesson-carry")
         fixed = lesson_command(client, held, "lesson-fix")
@@ -534,7 +534,7 @@ def test_one_character_failure_counterfactual_and_corrected_flight(real_cores, m
         command(client, "go-weather")
         command(client, "go-director")
         assert "ALL EXERCISE CHECKS PASS" in command(client, "07").text
-        client.get("/")
+        client.get("/classic")
         fresh = client.get("/api/evidence").json()
         assert not fresh["prior_candidate_runs"] and not fresh["counterfactual_flight_with_errors"]
     record = json.loads(stage_mission.TRANSCRIPTION_RECORD.read_text())
@@ -555,7 +555,7 @@ def test_refresh_starts_a_clean_game_after_redirected_interactions():
         response = client.get(response.headers["location"])
         assert "BEGIN WITH 01" in response.text
         assert client.get("/api/evidence").json()["completed_handoffs"] == ["01"]
-        client.get("/")
+        client.get("/classic")
         evidence = client.get("/api/evidence").json()
         assert evidence["completed_handoffs"] == [] and evidence["handoff_record"] == []
         assert evidence["fictional_role_poll"] == {} and evidence["fixed_engine_run"] is None
@@ -565,7 +565,7 @@ def test_refresh_starts_a_clean_game_after_redirected_interactions():
 def test_rbar_rocket_mission_stops_before_launch_then_rechecks_correction(real_cores):
     stage.CACHE["cores"] = real_cores
     with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
-        opening = client.get("/")
+        opening = client.get("/classic")
         assert "ZARINER · SAVE THE SIGNAL" in opening.text
         assert "FIND R WITHOUT BAR" in opening.text
         assert "HOW IT WORKED" not in opening.text
@@ -615,7 +615,7 @@ def test_rbar_rocket_mission_stops_before_launch_then_rechecks_correction(real_c
         assert "EXACT NOTATION CHECK PASSED" in flight.text
         assert "receiving team obtains the required notation" in flight.text
         assert client.get("/api/evidence").json()["simulated_flight_completed"] is True
-        client.get("/")
+        client.get("/classic")
         assert not client.get("/api/evidence").json()["completed_handoffs"]
 
 

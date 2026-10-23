@@ -65,6 +65,18 @@ def test_correction_retains_the_failed_candidate_and_creates_a_fresh_bound_recei
     assert fresh["config_id"] == "R1" and fresh["condition_id"] == "W2"
 
 
+def test_prompted_agent_generation_retains_prompt_provenance_and_candidate_history():
+    state = model.new_run("hard", "prompted")
+    original = state["candidate_id"]
+    state = act(state, "prompt", prompt_id="H-R2-FRAME")
+    generated = state["candidates"][state["candidate_id"]]
+    assert state["candidate_id"] != original
+    assert generated["correction_cm_s"] == 20
+    assert generated["generated_by"] == "ELIZA · COLOSSUS · GUARDIAN"
+    assert generated["prompt_history"][-1] == "H-R2-FRAME"
+    assert original in state["candidates"]
+
+
 def test_clean_easy_requires_separate_acceptance_then_flies_a_full_100_seconds():
     state = model.new_run("easy", "clean")
     state = act(state, "edit", correction_cm_s=-20)

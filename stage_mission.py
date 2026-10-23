@@ -141,7 +141,7 @@ def load_module(name, path):
     return module
 
 
-def stage_inventory(directory, artifacts):
+def stage_inventory(directory, artifacts, job_id="job-mission-001"):
     sys.path.insert(0, str(PHASE4))
     import worker_core
     inputs = {"schema_version": worker_core.INPUT_SCHEMA, "records": [
@@ -150,7 +150,7 @@ def stage_inventory(directory, artifacts):
         for name, data in artifacts.items()]}
     raw = encode(inputs)
     envelope = json.loads((PHASE4 / "fixtures/job-envelope.json").read_text())
-    envelope.update(job_id="job-mission-001", input_sha256=digest(raw))
+    envelope.update(job_id=job_id, input_sha256=digest(raw))
     expected = worker_core.SyntheticInventoryRunner()(envelope, inputs)
     envelope["expected_output_sha256"] = digest(encode(expected))
     (directory / "input.json").write_bytes(raw)

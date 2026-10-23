@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>DobeWorks · Carry the Stop</title>
+  <meta name="stage-csrf" content="{{csrf}}">
+  <link rel="icon" href="/dobeworks-favicon-015c1a2f70b6-16.png">
+  <link rel="stylesheet" href="/launch.css">
+  <script src="/launch-game.js" defer></script>
+</head>
+<body>
+  <main class="app-shell">
+    <header class="site-header">
+      <div>
+        <span class="eyebrow">DOBEWORKS · DEGS · MISSION STAGE</span>
+        <div class="wordmark">CARRY THE STOP</div>
+      </div>
+      <div class="prototype-mark">SIMULATION · NO FLIGHT AUTHORITY</div>
+    </header>
+
+    <section class="difficulty-screen" data-screen="select" aria-labelledby="select-title">
+      <div class="select-copy">
+        <span class="eyebrow">THRUSTERS COLD</span>
+        <h1 id="select-title">CHOOSE THE PACKET.</h1>
+        <p>Prompt the agent. Inspect its work. The vehicle flies what survives every handoff.</p>
+      </div>
+      <div class="difficulty-grid" role="group" aria-label="Mission difficulty">
+        <button class="difficulty-card available" type="button" data-start="easy">
+          <span class="difficulty-name">EASY</span>
+          <strong>1 CANDIDATE</strong>
+          <span>1 CONDITION · 1 CHECK</span>
+          <small>ONE CHECK · FULL ASCENT</small>
+        </button>
+        <button class="difficulty-card available" type="button" data-start="medium">
+          <span class="difficulty-name">MEDIUM</span>
+          <strong>1 CANDIDATE</strong>
+          <span>UNIT + CONDITION · 1 CHECK</span>
+          <small>UNIT CONVERSION</small>
+        </button>
+        <button class="difficulty-card available" type="button" data-start="hard">
+          <span class="difficulty-name">HARD</span>
+          <strong>2 OBSERVATIONS</strong>
+          <span>2 CLOCKS · 3 CHECKS</span>
+          <small>STATE + CLOCK BINDING</small>
+        </button>
+      </div>
+      <div class="selection-footer">
+        <span>NO SOUND</span><span>FULL T+000–100</span><span>DETERMINISTIC PACKET</span>
+      </div>
+    </section>
+
+    <section class="control-room" data-screen="mission" hidden aria-label="Fictional launch control simulation">
+      <div class="clock-rail">
+        <div class="clock-cell">
+          <span>ATTEMPT ELAPSED</span>
+          <output data-mission-clock>00:00</output>
+        </div>
+        <div class="clock-cell flight-clock">
+          <span>COUNTDOWN / MISSION</span>
+          <output data-flight-clock>T---</output>
+          <button class="clock-hold" type="button" data-clock-hold disabled aria-pressed="false">HOLD</button>
+        </div>
+        <div class="clock-cell compact">
+          <span>RUN</span>
+          <output data-run-id>001</output>
+        </div>
+        <div class="clock-cell compact">
+          <span>LEVEL</span>
+          <output data-level>—</output>
+        </div>
+      </div>
+
+      <div class="status-line" aria-live="polite">
+        <span class="status-lamp" data-status-lamp></span>
+        <output data-status>THRUSTERS COLD · COPY A RECEIVED</output>
+        <span>SERVER RECORD</span>
+      </div>
+
+      <div class="control-grid">
+        <section class="packet-bench" aria-labelledby="packet-title">
+          <header class="panel-header">
+            <div>
+              <span class="eyebrow">ACTIVE LAUNCH PACKET</span>
+              <h2 id="packet-title">AGENT COPY <span data-candidate-id>A</span></h2>
+            </div>
+            <span class="state-chip" data-candidate-state>RECEIVED · UNCHECKED</span>
+          </header>
+
+          <div class="packet-workspace">
+            <article class="reference-card" aria-labelledby="reference-title">
+              <span class="card-label" id="reference-title" data-condition-title>MISSION CONDITION</span>
+              <dl data-condition-list>
+                <div><dt>PACKET</dt><dd>AWAITING SERVER</dd></div>
+              </dl>
+            </article>
+
+            <article class="candidate-card" data-candidate-card>
+              <div class="revision-strip">
+                <span>AGENT OUTPUT</span>
+                <strong data-candidate-label>A</strong>
+                <code data-candidate-hash>A-000</code>
+              </div>
+              <div class="code-field">
+                <span>agent_output.correction_ms</span>
+                <output data-correction-output>0.00</output>
+              </div>
+              <div class="choice-stack">
+                <div class="choice-label">PROMPT ELIZA · COLOSSUS · GUARDIAN</div>
+                <div class="value-bank" data-value-bank role="group" aria-label="Programmed body correction"></div>
+                <div class="choice-label" data-condition-label hidden>PROMPT · OBSERVATION BINDING</div>
+                <div class="value-bank compact-bank" data-condition-bank role="group" aria-label="Bound observation" hidden></div>
+                <div class="choice-label" data-cutoff-label hidden>PROMPT · CUTOFF CLOCK</div>
+                <div class="value-bank compact-bank" data-cutoff-bank role="group" aria-label="Cutoff clock" hidden></div>
+              </div>
+              <div class="packet-meta">
+                <span data-stage-label>NOT STAGED</span>
+                <span data-acceptance-label>UNACCEPTED</span>
+              </div>
+            </article>
+          </div>
+
+          <section class="receipt-section" aria-labelledby="receipt-title">
+            <div class="section-heading">
+              <h3 id="receipt-title">CHECK RECEIPTS</h3>
+              <span data-check-summary>MISSION CHECK</span>
+            </div>
+            <div class="receipt-rack" data-receipt-rack>
+              <div class="empty-state">NO RECEIPT</div>
+            </div>
+          </section>
+
+          <section class="handoff-section" aria-labelledby="handoff-title">
+            <div class="section-heading">
+              <h3 id="handoff-title">OUTGOING RECORD</h3>
+              <span>SELECTED RECEIPT → PROJECTION</span>
+            </div>
+            <div class="evidence-path" data-evidence-path>
+              <div class="evidence-node">
+                <span>RECEIPT</span>
+                <strong data-path-receipt>—</strong>
+              </div>
+              <div class="evidence-thread" data-thread-state="unset" aria-label="Finding custody is unset">
+                <span></span><i></i><span></span>
+              </div>
+              <div class="evidence-node">
+                <span>FINDING</span>
+                <strong data-path-finding>—</strong>
+              </div>
+              <div class="evidence-thread short" data-projection-thread aria-hidden="true">
+                <span></span><i></i><span></span>
+              </div>
+              <div class="evidence-node">
+                <span>PROJECTION</span>
+                <strong data-path-projection>—</strong>
+              </div>
+            </div>
+            <div class="custody-controls" role="group" aria-label="Finding custody">
+              <button type="button" data-finding="carry" aria-pressed="false">CARRY FINDING</button>
+              <button type="button" data-finding="omit" aria-pressed="false">OMIT FINDING</button>
+            </div>
+          </section>
+
+          <div class="system-row">
+            <article class="system-card">
+              <header><span>DOBEWORKS</span><small>WORKER RECEIPT</small></header>
+              <strong data-dobeworks-state>NO STAGED WORK</strong>
+              <span data-dobeworks-detail>—</span>
+            </article>
+            <article class="system-card gate-card">
+              <header><span>DEGS</span><small>ACTUAL GATE DECISION</small></header>
+              <strong data-degs-state>NO DECISION</strong>
+              <span data-degs-detail>—</span>
+            </article>
+          </div>
+        </section>
+
+        <aside class="rocket-console" aria-labelledby="rocket-title">
+          <header class="panel-header">
+            <div>
+              <span class="eyebrow">VEHICLE MONITOR</span>
+              <h2 id="rocket-title">ZARINER 1</h2>
+            </div>
+            <span class="state-chip" data-vehicle-state>THRUSTERS COLD</span>
+          </header>
+
+          <div class="flight-monitor" data-flight-monitor data-flight-state="pad">
+            <div class="monitor-grid"></div>
+            <div class="corridor left"><span>−500</span></div>
+            <div class="corridor right"><span>+500</span></div>
+            <svg class="trajectory" viewBox="0 0 400 500" preserveAspectRatio="none" aria-hidden="true">
+              <polyline data-flight-path points="200,465"></polyline>
+            </svg>
+            <div class="rocket" data-rocket aria-label="Rocket on pad">
+              <i class="rocket-nose"></i><b>DW</b><i class="rocket-flame"></i>
+            </div>
+            <div class="launch-pad"><span>PAD</span></div>
+            <div class="monitor-event" data-monitor-event>THRUSTERS COLD</div>
+          </div>
+
+          <div class="cause-rail" aria-label="Frozen launch cause rail">
+            <div><span>PACKET</span><strong data-cause-packet>—</strong></div>
+            <div><span>CORRECTION</span><strong data-cause-correction>—</strong></div>
+            <div><span>RESIDUAL</span><strong data-cause-residual>—</strong></div>
+            <div><span>RECORD</span><strong data-cause-record>—</strong></div>
+            <div><span>AUTHORITY</span><strong data-cause-authority>—</strong></div>
+          </div>
+
+          <section class="hardware-status" aria-label="Vehicle preparation state">
+            <div><span>CONDITION</span><strong data-condition-state>COLD</strong></div>
+            <div><span>ARM</span><strong data-arm-state>SAFE</strong></div>
+            <div><span>IGNITION</span><strong data-ignition-state>INHIBITED</strong></div>
+          </section>
+
+          <section class="result-card" data-result hidden aria-labelledby="result-title">
+            <span class="eyebrow" id="result-title">RUN RESULT</span>
+            <div class="result-axis"><span>RECORD</span><strong data-result-record>—</strong></div>
+            <div class="result-axis"><span>FLIGHT</span><strong data-result-flight>—</strong></div>
+            <ol data-causal-chain></ol>
+            <div class="result-actions">
+              <button type="button" data-retry>RETRY THIS PACKET</button>
+              <button type="button" data-change-difficulty>CHANGE DIFFICULTY</button>
+            </div>
+          </section>
+        </aside>
+      </div>
+
+      <section class="action-deck" aria-label="Launch control actions">
+        <div class="action-bank">
+          <span class="bank-label">PACKET</span>
+          <span class="check-actions" data-check-actions></span>
+          <button type="button" data-action="stage">STAGE ACTIVE COPY</button>
+          <button type="button" data-action="send">SEND RECORD</button>
+        </div>
+        <div class="action-bank authority-bank">
+          <span class="bank-label">AUTHORITY</span>
+          <button type="button" data-action="accept">ACCEPT CURRENT</button>
+          <button type="button" class="guarded" data-action="override">OVERRIDE CURRENT</button>
+        </div>
+        <div class="action-bank hardware-bank">
+          <span class="bank-label">VEHICLE</span>
+          <button type="button" data-action="condition">CONDITION</button>
+          <button type="button" data-action="arm">ARM</button>
+          <button type="button" class="ignite" data-action="ignite">IGNITE</button>
+        </div>
+      </section>
+
+      <section class="machine-terminal" aria-labelledby="terminal-title">
+        <header>
+          <span class="eyebrow" id="terminal-title">ELIZA · COLOSSUS · GUARDIAN TERMINAL</span>
+          <strong data-terminal-speaker>CONTROL</strong>
+        </header>
+        <div class="terminal-output" data-terminal-output role="log" aria-live="polite">
+          <p><span>CONTROL</span> THRUSTERS COLD. A PACKET IS PRESENT.</p>
+        </div>
+        <form data-terminal-form>
+          <label for="terminal-question">PLEASE GO ON. &gt;</label>
+          <input id="terminal-question" name="question" maxlength="120" autocomplete="off" placeholder="ASK WHAT IS OPEN OR WHY THE MISSION STOPPED">
+          <button type="submit">ENTER</button>
+        </form>
+      </section>
+
+      <section class="retained-record" aria-labelledby="retained-title">
+        <details>
+          <summary id="retained-title">RETAINED CANDIDATES + RUNS <span data-retained-count>0</span></summary>
+          <div class="retained-grid">
+            <div>
+              <h3>CANDIDATES</h3>
+              <ul data-candidate-history><li>NONE</li></ul>
+            </div>
+            <div>
+              <h3>RUNS</h3>
+              <ul data-run-history><li>NONE</li></ul>
+            </div>
+          </div>
+        </details>
+      </section>
+
+      <footer class="prototype-footer">
+        FICTIONAL VEHICLE · ORIGINAL TEACHING MODEL · NO OPERATIONAL AUTHORITY
+      </footer>
+    </section>
+
+    <noscript>
+      <section class="noscript-card">
+        <h1>CARRY THE STOP</h1>
+        <p>This mission console requires JavaScript. The evidence station remains available at <a href="/evidence">/evidence</a>.</p>
+      </section>
+    </noscript>
+  </main>
+</body>
+</html>

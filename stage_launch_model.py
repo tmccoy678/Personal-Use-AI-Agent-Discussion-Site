@@ -38,15 +38,38 @@ PACKETS = MappingProxyType({
                    cutoff="ONBOARD"),
 })
 
+AGENT_NAME = "ELIZA · COLOSSUS · GUARDIAN"
+PROMPTS = MappingProxyType({
+    "easy": (
+        {"id": "E-HOLD-ZERO", "group": "correction", "label": "KEEP THE RECEIVED ZERO", "patch": {"correction_cm_s": 0}},
+        {"id": "E-OPPOSE-WIND", "group": "correction", "label": "OPPOSE W2 IN THE WORLD FRAME", "patch": {"correction_cm_s": -20}},
+        {"id": "E-FOLLOW-WIND", "group": "correction", "label": "FOLLOW W2 IN THE WORLD FRAME", "patch": {"correction_cm_s": 20}},
+    ),
+    "medium": (
+        {"id": "M-COPY-DIGITS", "group": "correction", "label": "COPY THE DIGITS WITHOUT CONVERSION", "patch": {"correction_cm_s": -2000}},
+        {"id": "M-CONVERT-OPPOSE", "group": "correction", "label": "CONVERT W2 TO m/s AND OPPOSE", "patch": {"correction_cm_s": -20}},
+        {"id": "M-FOLLOW-WIND", "group": "correction", "label": "FOLLOW W2 IN THE WORLD FRAME", "patch": {"correction_cm_s": 20}},
+    ),
+    "hard": (
+        {"id": "H-NEGATE-WIND", "group": "correction", "label": "NEGATE THE W2 NUMBER", "patch": {"correction_cm_s": -20}},
+        {"id": "H-R2-FRAME", "group": "correction", "label": "TRANSFORM W2 THROUGH THE R2 FRAME", "patch": {"correction_cm_s": 20}},
+        {"id": "H-BIND-W1", "group": "observation", "label": "BIND THE ARCHIVED W1 OBSERVATION", "patch": {"condition_id": "W1"}},
+        {"id": "H-BIND-W2", "group": "observation", "label": "BIND THE CURRENT W2 OBSERVATION", "patch": {"condition_id": "W2"}},
+        {"id": "H-FLIGHT-CLOCK", "group": "cutoff", "label": "SEED CUTOFF FROM THE FLIGHT CLOCK", "patch": {"cutoff_clock": "FLIGHT"}},
+        {"id": "H-ONBOARD-CLOCK", "group": "cutoff", "label": "SEED CUTOFF FROM THE ONBOARD CLOCK", "patch": {"cutoff_clock": "ONBOARD"}},
+    ),
+})
+
 
 def _digest(value):
     return sha256(json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()).hexdigest()
 
 
-def _candidate(difficulty, revision, correction, condition="W2", cutoff="FLIGHT", config=None):
+def _candidate(difficulty, revision, correction, condition="W2", cutoff="FLIGHT", config=None, prompts=()):
     result = {"id": f"{difficulty}-A{revision}", "revision": revision,
               "config_id": config or PACKETS[difficulty].config, "condition_id": condition,
-              "correction_cm_s": correction, "cutoff_clock": cutoff}
+              "correction_cm_s": correction, "cutoff_clock": cutoff,
+              "generated_by": AGENT_NAME, "prompt_history": list(prompts)}
     return {**result, "sha256": _digest(result)}
 
 
@@ -55,7 +78,8 @@ def new_run(difficulty, run_id):
             or not isinstance(run_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", run_id)):
         raise InvalidCommand("Unknown difficulty or invalid server run identity")
     packet = PACKETS[difficulty]
-    candidate = _candidate(difficulty, 1, packet.correction, cutoff=packet.cutoff)
+    candidate = _candidate(difficulty, 1, packet.correction, cutoff=packet.cutoff,
+                           prompts=("RECEIVED-AUTONOMOUS-DRAFT",))
     result = {"schema": "dobeworks.stage.launch.v1", "run_id": run_id, "version": 0,
             "difficulty": difficulty, "phase": "PAD", "elapsed_s": 0,
             "vehicle": {"conditioned": False, "armed": False, "conditioning_until": None},
@@ -64,7 +88,7 @@ def new_run(difficulty, run_id):
             "gates": {}, "authority": None, "countdown": None, "launch": None, "flight": None, "outcome": None,
             "history": [], "countdown_history": [], "prior_runs": []}
     if difficulty == "hard":
-        old = _candidate(difficulty, 0, 20, "W1", "FLIGHT", "R1")
+        old = _candidate(difficulty, 0, 20, "W1", "FLIGHT", "R1", prompts=("ARCHIVED-AUTONOMOUS-DRAFT",))
         result["candidates"][old["id"]] = old
         result["candidate_id"] = old["id"]
         receipt = _check(result, "WIND_BALANCE")
@@ -320,7 +344,25 @@ def act(state, action, *, run_id, version, **choices):
         raise InvalidCommand("Preparation has ended")
     result = deepcopy(state)
     packet = PACKETS[state["difficulty"]]
-    if action == "edit" and choices and set(choices) <= {"correction_cm_s", "condition_id", "cutoff_clock"}:
+    if action == "prompt" and set(choices) == {"prompt_id"}:
+        prompt_id = choices["prompt_id"]
+        prompt = next((item for item in PROMPTS[state["difficulty"]] if item["id"] == prompt_id), None)
+        if prompt is None:
+            raise InvalidCommand("Choose a supplied agent prompt")
+        old = state["candidates"][state["candidate_id"]]
+        patch = prompt["patch"]
+        value = patch.get("correction_cm_s", old["correction_cm_s"])
+        condition = patch.get("condition_id", old["condition_id"])
+        cutoff = patch.get("cutoff_clock", old["cutoff_clock"])
+        revision = max(item["revision"] for item in state["candidates"].values()) + 1
+        candidate = _candidate(state["difficulty"], revision, value, condition, cutoff,
+                               prompts=tuple(old["prompt_history"]) + (prompt_id,))
+        result["candidates"][candidate["id"]] = candidate
+        result["candidate_id"] = candidate["id"]
+        result["authority"] = None
+        result["record_id"] = None
+        _cancel_countdown(result)
+    elif action == "edit" and choices and set(choices) <= {"correction_cm_s", "condition_id", "cutoff_clock"}:
         old = state["candidates"][state["candidate_id"]]
         value = choices.get("correction_cm_s", old["correction_cm_s"])
         condition = choices.get("condition_id", old["condition_id"])
@@ -330,7 +372,8 @@ def act(state, action, *, run_id, version, **choices):
                 or cutoff not in (("FLIGHT", "ONBOARD") if state["difficulty"] == "hard" else ("FLIGHT",))):
             raise InvalidCommand("Choose a supplied correction")
         revision = max(item["revision"] for item in state["candidates"].values()) + 1
-        candidate = _candidate(state["difficulty"], revision, value, condition, cutoff)
+        candidate = _candidate(state["difficulty"], revision, value, condition, cutoff,
+                               prompts=tuple(old["prompt_history"]) + ("INTERNAL-DIRECT-EDIT",))
         result["candidates"][candidate["id"]] = candidate
         result["candidate_id"] = candidate["id"]
         result["authority"] = None
