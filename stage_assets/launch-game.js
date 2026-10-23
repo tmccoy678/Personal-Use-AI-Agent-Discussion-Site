@@ -7,14 +7,29 @@
   const selectScreen = $('[data-screen="select"]');
   const intakeScreen = $('[data-screen="intake"]');
   const missionScreen = $('[data-screen="mission"]');
+  const hasInitialRun = $('meta[name="stage-has-run"]').content === '1';
   let snapshot = null;
   let busy = false;
   let selectedReceipts = new Set();
   let findingMode = null;
   let lastAutomaticLine = '';
-  let choosing = false;
+  let choosing = !hasInitialRun;
   let selectedMode = null;
-  let intakeRunId = null;
+  let selectedDifficulty = null;
+  let briefingPreview = null;
+  let lastAnnouncement = '';
+
+  const BRIEFINGS = {
+    easy: {
+      label: 'WIND',
+    },
+    medium: {
+      label: 'UNITS',
+    },
+    hard: {
+      label: 'STATE',
+    },
+  };
 
   function element(tag, className, text) {
     const node = document.createElement(tag);
@@ -65,11 +80,19 @@
     output.append(line);
     while (output.children.length > 7) output.firstElementChild.remove();
     output.scrollTop = output.scrollHeight;
+    if (!automatic) announce(`${speaker}. ${text}`);
   }
 
-  function acceptSnapshot(next) {
+  function announce(text) {
+    if (!text || text === lastAnnouncement) return;
+    lastAnnouncement = text;
+    $('[data-live-announcer]').textContent = text;
+  }
+
+  function acceptSnapshot(next, focusScene = false) {
     const incoming = next.run;
     const current = snapshot && snapshot.run;
+    const priorScene = current ? storyScene(current) : null;
     if (current && incoming && current.run_id === incoming.run_id && incoming.version < current.version) return;
     snapshot = next;
     if (incoming) {
@@ -84,20 +107,40 @@
       }
     }
     if (next.terminal) addTerminal(next.terminal.speaker, next.terminal.text, true);
-    render();
+    const scene = render();
+    if (focusScene && scene) {
+      if (scene !== priorScene) $('[data-story-title]').focus({preventScroll: true});
+      announce(`${$('[data-story-title]').textContent} ${$('[data-story-line]').textContent}`);
+    }
   }
 
-  async function start(difficulty, mode = selectedMode) {
+  async function previewFor(difficulty) {
+    if (!briefingPreview || briefingPreview.difficulty !== difficulty) {
+      briefingPreview = await request('/api/launch/preview', {difficulty});
+    }
+    return briefingPreview;
+  }
+
+  async function start(difficulty, mode) {
     if (busy || !mode) return;
     busy = true;
     try {
+      selectedDifficulty = difficulty;
+      selectedMode = mode;
       selectedReceipts.clear();
       findingMode = null;
       lastAutomaticLine = '';
-      const next = await request('/api/launch/new', {difficulty, mode});
+      const preview = await previewFor(difficulty);
+      const next = await request('/api/launch/new', {
+        difficulty,
+        mode,
+        expected_candidate_sha256: preview.candidate.sha256,
+      });
+      if (preview.candidate.sha256 !== next.run.candidates[next.run.candidate_id].sha256) {
+        throw new Error('THE ROUTED ARTIFACT DID NOT MATCH THE INSPECTED COPY. THE RUN WAS STOPPED.');
+      }
       choosing = false;
-      intakeRunId = next.run.run_id;
-      acceptSnapshot(next);
+      acceptSnapshot(next, true);
     } catch (error) {
       addTerminal('CONTROL', error.message);
     } finally {
@@ -132,7 +175,7 @@
         findingMode = null;
         lastAutomaticLine = '';
       }
-      acceptSnapshot(next);
+      acceptSnapshot(next, true);
     } catch (error) {
       addTerminal('CONTROL', error.message);
     } finally {
@@ -141,39 +184,17 @@
     }
   }
 
-  function showSelection(mode = snapshot?.run?.mode || selectedMode) {
+  function showSelection() {
     choosing = true;
-    selectedMode = mode;
-    document.body.dataset.route = selectedMode || '';
+    selectedMode = null;
+    selectedDifficulty = null;
+    briefingPreview = null;
+    document.body.dataset.route = '';
+    document.body.dataset.scene = '';
     intakeScreen.hidden = true;
     missionScreen.hidden = true;
     selectScreen.hidden = false;
-    $$('[data-mode-option]').forEach((button) => {
-      button.setAttribute('aria-pressed', String(button.dataset.modeOption === selectedMode));
-    });
-    const governedDetails = {
-      easy: ['1 CONDITION · 1 CHECK', 'ONE CHECK · FULL ASCENT'],
-      medium: ['UNIT + CONDITION · 1 CHECK', 'UNIT CONVERSION'],
-      hard: ['2 CLOCKS · 3 CHECKS', 'STATE + CLOCK BINDING'],
-    };
-    const directDetails = {
-      easy: ['1 CONDITION · INSPECT BY EYE', 'NO EXECUTED CHECK'],
-      medium: ['UNIT + CONDITION · INSPECT', 'NO EXECUTED CHECK'],
-      hard: ['2 CLOCKS · INSPECT BY EYE', 'NO EXECUTED CHECK'],
-    };
-    $$('[data-start]').forEach((button) => {
-      button.disabled = !selectedMode;
-      const details = selectedMode === 'direct' ? directDetails[button.dataset.start] : governedDetails[button.dataset.start];
-      $('[data-difficulty-detail]', button).textContent = details[0];
-      $('[data-difficulty-note]', button).textContent = details[1];
-    });
-    $('[data-select-title]').textContent = selectedMode ? 'CHOOSE THE PACKET.' : 'CHOOSE THE CONTROL SYSTEM.';
-    $('[data-select-copy]').textContent = selectedMode === 'governed'
-      ? 'The check finds. DobeWorks stages. The handoff carries. DEGS enforces.'
-      : selectedMode === 'direct'
-        ? 'The agent output goes directly to your inspection and the vehicle.'
-        : 'The same agent. The same packet. A different path to ignition.';
-    (selectedMode ? $('[data-start="easy"]') : $('[data-mode-option="governed"]')).focus();
+    $('[data-start="easy"]').focus();
   }
 
   function showMission() {
@@ -182,37 +203,165 @@
     missionScreen.hidden = false;
   }
 
-  function showIntake(run) {
-    const candidate = run.candidates[run.candidate_id];
-    const direct = run.mode === 'direct';
-    const speakers = {easy: 'ELIZA', medium: 'COLOSSUS', hard: 'GUARDIAN'};
-    document.body.dataset.route = run.mode;
+  function observationLine(item) {
+    const tLabel = (value) => `T${value < 0 ? '−' : '+'}${String(Math.abs(value)).padStart(3, '0')}`;
+    return `${item.id} · WIND ${correctionLabel(item.wind_cm_s)} m/s · ${item.config_id} · ${tLabel(item.valid_from_t)}–${tLabel(item.valid_through_t)}`;
+  }
+
+  async function showBriefing(difficulty) {
+    const briefing = BRIEFINGS[difficulty];
+    choosing = true;
+    selectedDifficulty = difficulty;
+    selectedMode = null;
+    briefingPreview = null;
+    document.body.dataset.route = '';
+    document.body.dataset.scene = 'artifact';
     selectScreen.hidden = true;
     missionScreen.hidden = true;
     intakeScreen.hidden = false;
-    $('[data-intake-speaker]').textContent = speakers[run.difficulty];
-    $('[data-intake-route-tag]').textContent = direct ? 'DIRECT ROUTE' : 'GOVERNED ROUTE';
-    $('[data-intake-candidate]').textContent = shortCandidate(candidate.id);
-    $('[data-intake-line]').textContent = run.difficulty === 'easy'
-      ? direct
-        ? 'ONE SMALL STEERING ERROR. RECEIVE THE COPY AND FIND IT BY EYE.'
-        : 'ONE SMALL STEERING ERROR. RECEIVE THE COPY AND LET THE CHECK SHOW YOU.'
-      : direct
-        ? 'A NEW CANDIDATE IS WAITING FOR HUMAN INSPECTION.'
-        : 'A NEW CANDIDATE IS WAITING AT THE GOVERNED BOUNDARY.';
-    $('[data-intake-level]').textContent = run.difficulty.toUpperCase();
-    $('[data-intake-mode]').textContent = direct ? 'DIRECT' : 'DW + DEGS';
-    $('[data-intake-hash]').textContent = shortHash(candidate.sha256);
-    $('[data-intake-path]').dataset.route = run.mode;
-    $('[data-intake-path]').setAttribute('aria-label', direct
-      ? 'Agent to human to vehicle'
-      : 'Agent to check bay to human to vehicle');
-    $('[data-intake-receive]').textContent = `RECEIVE AGENT COPY ${shortCandidate(candidate.id)}`;
-    $('[data-intake-receive]').focus();
+    $('[data-intake-speaker]').textContent = 'RECEIVING AUTONOMOUS ARTIFACT';
+    $('[data-intake-route-tag]').textContent = 'ROUTE UNASSIGNED';
+    $('[data-intake-candidate]').textContent = 'A1';
+    $('[data-intake-line]').textContent = 'REQUESTING THE MODE-NEUTRAL AGENT COPY FROM THE MISSION SERVER.';
+    $('[data-intake-level]').textContent = briefing.label;
+    $('[data-intake-mode]').textContent = '—';
+    $('[data-intake-hash]').textContent = 'RECEIVING';
+    $('[data-intake-path]').dataset.route = '';
+    $('[data-intake-path]').setAttribute('aria-label', 'Agent artifact awaiting the player\'s route');
+    $('[data-arrival-response]').hidden = true;
+    $('[data-arrival-response]').textContent = '';
+    $('[data-route-choice]').hidden = true;
+    $('[data-arrival-actions]').hidden = false;
+    $$('[data-arrival-action]').forEach((button) => { button.disabled = true; });
+    try {
+      briefingPreview = await previewFor(difficulty);
+      const candidate = briefingPreview.candidate;
+      $('[data-intake-speaker]').textContent = `${candidate.generated_by} · AUTONOMOUS AUTHOR`;
+      $('[data-intake-candidate]').textContent = shortCandidate(candidate.id);
+      $('[data-intake-line]').textContent = `${candidate.generated_by} MADE COPY ${shortCandidate(candidate.id)}.`;
+      $('[data-intake-mode]').textContent = candidate.generated_by;
+      $('[data-intake-hash]').textContent = `UNACCEPTED · ${shortHash(candidate.sha256)}`;
+      $('[data-route-candidate]').textContent = shortCandidate(candidate.id);
+      $$('[data-arrival-action]').forEach((button) => { button.disabled = false; });
+      $('#intake-title').focus({preventScroll: true});
+    } catch (error) {
+      const response = $('[data-arrival-response]');
+      response.textContent = error.message;
+      response.hidden = false;
+      $('[data-arrival-back]').focus();
+    }
+  }
+
+  function storyScene(run) {
+    if (['COMPLETE', 'RANGE_ABORT', 'NO_IGNITION'].includes(run.phase)) return 'record';
+    if (run.phase === 'COUNTDOWN' && run.countdown?.holding) return 'authority';
+    if (run.phase === 'COUNTDOWN' || run.flight
+        || ['ACCEPT', 'OVERRIDE', 'MANUAL_ACCEPT'].includes(run.authority?.action)) return 'flight';
+    if (run.gate) return 'authority';
+    const currentReceipts = Object.values(run.receipts)
+      .filter((receipt) => receipt.candidate_id === run.candidate_id);
+    if (run.mode === 'direct' || run.record_id || currentReceipts.length) return 'handoff';
+    return 'investigation';
+  }
+
+  function storyCopy(run, scene) {
+    const candidate = shortCandidate(run.candidate_id);
+    if (run.phase === 'COUNTDOWN' && run.countdown?.holding) return {
+      kicker: 'HOLD',
+      title: 'COUNTDOWN HELD.',
+      line: 'Authorize again to resume.',
+    };
+    if (scene === 'investigation') return {
+      kicker: 'CHECK',
+      title: `CHECK COPY ${candidate}.`,
+      line: 'What did the agent use?',
+    };
+    if (scene === 'handoff') return run.mode === 'direct' ? {
+      kicker: 'DIRECT ROUTE',
+      title: `CHECK ${candidate} BY EYE.`,
+      line: 'No mission check will run. You decide.',
+    } : {
+      kicker: 'HANDOFF',
+      title: 'BUILD THE RECORD.',
+      line: `What should go with ${candidate}?`,
+    };
+    if (scene === 'authority') return run.mode === 'direct' ? {
+      kicker: 'DECIDE',
+      title: `AUTHORIZE ${candidate}?`,
+      line: 'No gate checked this copy.',
+    } : {
+      kicker: 'YOU DECIDE',
+      title: `BOUNDARY: ${run.gate?.decision || '—'}.`,
+      line: 'The gate does not launch the rocket.',
+    };
+    if (scene === 'flight') {
+      if (run.outcome?.flight === 'PAD_HOLD' || run.outcome?.flight === 'PAD_ABORT') return {
+        kicker: 'STOP',
+        title: 'LAUNCH STOPPED.',
+        line: 'You can still fix it.',
+      };
+      if (run.flight) return {
+        kicker: 'FLIGHT',
+        title: `T+${String(run.flight.t).padStart(3, '0')}.`,
+        line: `${candidate} is flying.`,
+      };
+      if (run.phase === 'COUNTDOWN') return {
+        kicker: 'COUNTDOWN',
+        title: `T−${String(run.countdown.remaining_s).padStart(3, '0')}.`,
+        line: run.countdown.holding ? 'The clock is on hold.' : 'Watch the rocket or hold the clock.',
+      };
+      return {
+        kicker: 'ROCKET',
+        title: 'GET THE ROCKET READY.',
+        line: 'It is cold. What do you do?',
+      };
+    }
+    return {
+      kicker: 'RESULT',
+      title: run.outcome?.flight === 'NOMINAL' ? 'T+100. FLIGHT COMPLETE.' : `${run.outcome?.flight || run.phase.replaceAll('_', ' ')}.`,
+      line: 'Which choice caused this result?',
+    };
+  }
+
+  function renderTrack(run, scene) {
+    const track = $('[data-route-track]');
+    const direct = run.mode === 'direct';
+    track.dataset.mode = run.mode;
+    const check = $('[data-route-stop="check"]');
+    const record = $('[data-route-stop="record"]');
+    const recordLink = record.nextElementSibling;
+    check.textContent = direct ? 'YOU' : 'CHECK';
+    record.hidden = direct;
+    recordLink.hidden = direct;
+    const current = scene === 'investigation' ? 'check'
+      : scene === 'handoff' ? (direct ? 'check' : 'record')
+        : scene === 'authority' ? 'record' : 'vehicle';
+    const order = direct ? ['agent', 'check', 'vehicle'] : ['agent', 'check', 'record', 'vehicle'];
+    $$('[data-route-stop]').forEach((stop) => {
+      const position = order.indexOf(stop.dataset.routeStop);
+      const active = order.indexOf(current);
+      stop.dataset.state = position < active ? 'done' : position === active ? 'current' : 'next';
+    });
+    const left = direct
+      ? {agent: '0%', check: '50%', vehicle: '100%'}[current]
+      : {agent: '0%', check: '33.33%', record: '66.66%', vehicle: '100%'}[current];
+    track.style.setProperty('--copy-position', left);
+    $('[data-track-candidate]').textContent = shortCandidate(run.candidate_id);
+  }
+
+  function renderStory(run) {
+    const scene = storyScene(run);
+    const copy = storyCopy(run, scene);
+    document.body.dataset.scene = scene;
+    $('[data-mission-story]').dataset.scene = scene;
+    $('[data-story-kicker]').textContent = copy.kicker;
+    $('[data-story-title]').textContent = copy.title;
+    $('[data-story-line]').textContent = copy.line;
+    return scene;
   }
 
   function renderReference(run, packet) {
-    $('[data-condition-title]').textContent = `MISSION CONDITION · ${run.difficulty.toUpperCase()}`;
+    $('[data-condition-title]').textContent = `MISSION DATA · ${{easy: 'WIND', medium: 'UNITS', hard: 'STATE'}[run.difficulty]}`;
     const list = $('[data-condition-list]');
     list.replaceChildren();
     const rows = [];
@@ -246,6 +395,8 @@
     const label = shortCandidate(candidate.id);
     $('[data-candidate-id]').textContent = label;
     $('[data-candidate-label]').textContent = label;
+    $('[data-candidate-author]').textContent = candidate.generated_by;
+    $('[data-prompt-agent]').textContent = `PROMPT ${candidate.generated_by}`;
     $('[data-candidate-hash]').textContent = shortHash(candidate.sha256);
     $('[data-correction-output]').textContent = correctionLabel(candidate.correction_cm_s);
     $('[data-candidate-config]').textContent = candidate.config_id;
@@ -255,11 +406,11 @@
     const checked = new Set(currentReceipts.map((item) => item.name));
     const complete = packet.checks.every((name) => checked.has(name));
     $('[data-candidate-state]').textContent = run.mode === 'direct'
-      ? 'READ-ONLY · INSPECT BY EYE'
-      : complete ? 'CHECK SET PRESENT' : 'RECEIVED · CHECKS OPEN';
+      ? 'CHECK BY EYE'
+      : complete ? 'CHECKED' : 'UNCHECKED';
     $('[data-stage-label]').textContent = run.mode === 'direct'
-      ? 'DIRECT · NO GOVERNED RECORD'
-      : run.staged_ids.includes(candidate.id) ? 'STAGED · COMPLETED_UNACCEPTED' : 'NOT STAGED';
+      ? 'DIRECT ROUTE'
+      : run.staged_ids.includes(candidate.id) ? 'STAGED · NOT APPROVED' : 'NOT STAGED';
     $('[data-acceptance-label]').textContent = run.authority ? run.authority.action : 'UNACCEPTED';
 
     const activePrompt = (group) => [...candidate.prompt_history].reverse().find((id) =>
@@ -267,11 +418,6 @@
     const promptButtons = (group) => packet.prompts.filter((prompt) => prompt.group === group).map((prompt) => {
       const button = choiceButton(prompt.label, activePrompt(group) === prompt.id,
         () => command('prompt', {prompt_id: prompt.id}));
-      const checkHasFailed = currentReceipts.some((receipt) => receipt.result === 'FAIL');
-      if (run.difficulty === 'easy' && prompt.id === 'E-C2' && candidate.correction_cm_s !== -20
-          && (run.mode === 'direct' || checkHasFailed)) {
-        button.classList.add('easy-next');
-      }
       return button;
     });
 
@@ -295,7 +441,8 @@
 
   function renderReceipts(run, packet) {
     const rack = $('[data-receipt-rack]');
-    const receipts = Object.values(run.receipts);
+    const receipts = Object.values(run.receipts)
+      .filter((receipt) => receipt.candidate_id === run.candidate_id);
     if (!receipts.length) {
       rack.replaceChildren(element('div', 'empty-state', 'NO RECEIPT'));
     } else {
@@ -318,7 +465,11 @@
         return button;
       }));
     }
-    $('[data-check-summary]').textContent = `${packet.checks.length} REQUIRED · RECEIPTS ARE CANDIDATE-BOUND`;
+    const completed = new Set(receipts.map((receipt) => receipt.name));
+    const remaining = packet.checks.filter((name) => !completed.has(name)).length;
+    $('[data-check-summary]').textContent = remaining
+      ? `${remaining} CHECK${remaining === 1 ? '' : 'S'} LEFT`
+      : `${packet.checks.length} CHECK${packet.checks.length === 1 ? '' : 'S'} COMPLETE`;
   }
 
   function selectedFindings(run) {
@@ -346,24 +497,24 @@
 
   function renderEngines(run, engine) {
     if (run.mode === 'direct') {
-      $('[data-dobeworks-state]').textContent = 'NOT IN PATH';
-      $('[data-dobeworks-detail]').textContent = 'DIRECT AGENT HANDOFF';
+      $('[data-dobeworks-state]').textContent = 'NOT USED';
+      $('[data-dobeworks-detail]').textContent = 'DIRECT ROUTE';
       $('[data-dobeworks-state]').closest('.system-card').dataset.state = 'none';
-      $('[data-degs-state]').textContent = 'NOT IN PATH';
-      $('[data-degs-detail]').textContent = 'NO GOVERNED GATE';
+      $('[data-degs-state]').textContent = 'NOT USED';
+      $('[data-degs-detail]').textContent = 'NO GATE';
       $('[data-degs-label]').textContent = 'NO DECISION';
       $('[data-degs-state]').closest('.system-card').dataset.state = 'none';
       return;
     }
     const worker = engine.dobeworks;
-    $('[data-dobeworks-state]').textContent = worker ? worker.state : 'NO STAGED WORK';
+    $('[data-dobeworks-state]').textContent = worker ? 'STAGED · NOT APPROVED' : 'NOT STAGED';
     $('[data-dobeworks-detail]').textContent = worker ? `${worker.promotion} · ${shortHash(worker.output_sha256)}` : '—';
     const workerCard = $('[data-dobeworks-state]').closest('.system-card');
     workerCard.dataset.state = worker ? 'pass' : 'none';
     const gate = engine.degs;
-    $('[data-degs-label]').textContent = gate ? 'ADAPTER / RAW DEGS' : 'GOVERNED DECISION';
-    $('[data-degs-state]').textContent = gate ? gate.decision : 'NO DECISION';
-    $('[data-degs-detail]').textContent = gate ? `DEGS ${gate.raw_degs_decision} · ${gate.adapter_classification}` : '—';
+    $('[data-degs-label]').textContent = gate ? 'BOUNDARY / RAW DEGS' : 'GOVERNED DECISION';
+    $('[data-degs-state]').textContent = gate ? `BOUNDARY ${gate.decision}` : 'NO DECISION';
+    $('[data-degs-detail]').textContent = gate ? `RAW DEGS ${gate.raw_degs_decision} · ${gate.adapter_classification}` : '—';
     $('[data-degs-state]').closest('.system-card').dataset.state = gate ? gate.decision.toLowerCase() : 'none';
   }
 
@@ -371,11 +522,17 @@
     return snapshot?.run && !['PAD', 'COUNTDOWN'].includes(snapshot.run.phase);
   }
 
-  function renderActions(run, packet) {
+  function renderActions(run, packet, scene) {
     const ended = isEnded();
     const checkHost = $('[data-check-actions]');
     checkHost.replaceChildren(...packet.checks.map((name) => {
-      const button = element('button', '', `RUN ${name}`);
+      const labels = {
+        WIND_BALANCE: 'RUN WIND CHECK',
+        UNIT_AND_WIND_BALANCE: 'RUN UNIT CHECK',
+        STATE_BINDING: 'RUN STATE CHECK',
+        CUTOFF_EPOCH: 'RUN CLOCK CHECK',
+      };
+      const button = element('button', '', labels[name] || `RUN ${name.replaceAll('_', ' ')}`);
       button.type = 'button';
       button.dataset.check = name;
       button.disabled = busy || ended;
@@ -389,40 +546,34 @@
     map.override.disabled = busy || ended || !run.gate;
     map.condition.disabled = busy || ended || run.vehicle.conditioned || run.vehicle.conditioning_until != null;
     map.arm.disabled = busy || ended || run.vehicle.armed;
-    map.ignite.disabled = busy || ended || (run.phase === 'COUNTDOWN' && !run.countdown.holding);
-    map.accept.textContent = run.mode === 'direct' ? 'APPROVE AGENT COPY' : 'ACCEPT CURRENT';
+    const launchAuthorized = ['ACCEPT', 'OVERRIDE', 'MANUAL_ACCEPT'].includes(run.authority?.action);
+    map.ignite.disabled = busy || ended
+      || (run.phase === 'COUNTDOWN' && (!run.countdown.holding || !launchAuthorized));
+    const candidate = shortCandidate(run.candidate_id);
+    map.stage.textContent = `STAGE ${candidate}`;
+    map.send.textContent = 'SEND RECORD';
+    map.accept.textContent = run.phase === 'COUNTDOWN' && run.countdown.holding
+      ? 'AUTHORIZE AGAIN'
+      : run.mode === 'direct' ? `AUTHORIZE ${candidate}` : 'ACCEPT';
+    map.override.textContent = 'OVERRIDE';
+    map.ignite.textContent = run.phase === 'COUNTDOWN' && run.countdown.holding
+      ? 'RESUME COUNTDOWN'
+      : 'IGNITE';
     $('[data-action-deck]').dataset.mode = run.mode;
     $$('[data-governed-only]').forEach((item) => { item.hidden = run.mode === 'direct'; });
     $('[data-clock-hold]').disabled = busy || run.phase !== 'COUNTDOWN';
     $('[data-clock-hold]').setAttribute('aria-pressed', String(run.phase === 'COUNTDOWN' && run.countdown.holding));
-
-    $$('.action-deck .easy-next').forEach((button) => button.classList.remove('easy-next'));
-    if (run.difficulty === 'easy' && !busy && !ended) {
-      const candidate = run.candidates[run.candidate_id];
-      const receipts = Object.values(run.receipts).filter((item) => item.candidate_id === candidate.id);
-      const checked = new Set(receipts.map((item) => item.name));
-      let next = null;
-      if (candidate.correction_cm_s === -20) {
-        if (run.mode === 'direct' && !run.authority) next = map.accept;
-        if (run.mode === 'governed' && !packet.checks.every((name) => checked.has(name))) {
-          next = $('[data-check="WIND_BALANCE"]');
-        } else if (run.mode === 'governed' && !run.staged_ids.includes(candidate.id)) {
-          next = map.stage;
-        } else if (run.mode === 'governed' && !run.record_id) {
-          next = map.send;
-        } else if (run.mode === 'governed' && run.gate?.decision === 'PASS' && !run.authority) {
-          next = map.accept;
-        }
-      } else if (run.mode === 'governed' && !packet.checks.every((name) => checked.has(name))) {
-        next = $('[data-check="WIND_BALANCE"]');
-      }
-      if (run.authority) {
-        if (!run.vehicle.conditioned && run.vehicle.conditioning_until == null) next = map.condition;
-        else if (run.vehicle.conditioned && !run.vehicle.armed) next = map.arm;
-        else if (run.vehicle.conditioned && run.vehicle.armed) next = map.ignite;
-      }
-      if (next && !next.disabled) next.classList.add('easy-next');
-    }
+    const packetBank = $('[data-action-bank="packet"]');
+    const authorityBank = $('[data-action-bank="authority"]');
+    const vehicleBank = $('[data-action-bank="vehicle"]');
+    packetBank.hidden = run.mode === 'direct' || !['investigation', 'handoff'].includes(scene);
+    authorityBank.hidden = scene !== 'authority' && !(run.mode === 'direct' && scene === 'handoff');
+    vehicleBank.hidden = ended;
+    if (scene === 'flight') vehicleBank.open = true;
+    map.condition.hidden = false;
+    map.arm.hidden = false;
+    map.ignite.hidden = false;
+    $('[data-action-deck]').hidden = packetBank.hidden && authorityBank.hidden && vehicleBank.hidden;
   }
 
   function flightClock(run) {
@@ -436,7 +587,8 @@
     $('[data-flight-clock]').textContent = flightClock(run);
     $('[data-run-id]').textContent = run.run_id.replace('run-', '').slice(0, 8).toUpperCase();
     $('[data-mode]').textContent = run.mode === 'governed' ? 'DW + DEGS' : 'DIRECT';
-    $('[data-level]').textContent = run.difficulty.toUpperCase();
+    $('[data-level]').textContent = {easy: 'WIND', medium: 'UNITS', hard: 'STATE'}[run.difficulty];
+    $('[data-hud-candidate]').textContent = shortCandidate(run.candidate_id);
   }
 
   function launchResidual(run) {
@@ -488,8 +640,8 @@
     else if (run.vehicle.conditioning_until != null) condition = `CONDITIONING · ${Math.max(0, run.vehicle.conditioning_until - run.elapsed_s)}s`;
     $('[data-condition-state]').textContent = condition;
     $('[data-arm-state]').textContent = run.vehicle.armed ? 'ARMED' : 'SAFE';
-    $('[data-ignition-state]').textContent = run.phase === 'COUNTDOWN' ? (run.countdown.engine_start ? 'ENGINE START' : 'COUNTDOWN') : run.flight?.engine_on ? 'BURN' : 'INHIBITED';
-    $('[data-vehicle-state]').textContent = run.phase === 'PAD' ? (run.vehicle.conditioned ? 'CONDITIONED' : 'THRUSTERS COLD') : run.phase.replaceAll('_', ' ');
+    $('[data-ignition-state]').textContent = run.phase === 'COUNTDOWN' ? (run.countdown.engine_start ? 'ON' : 'COUNTDOWN') : run.flight?.engine_on ? 'ON' : 'OFF';
+    $('[data-vehicle-state]').textContent = run.phase === 'PAD' ? (run.vehicle.conditioned ? 'READY' : 'COLD') : run.phase.replaceAll('_', ' ');
   }
 
   function renderCause(run) {
@@ -503,18 +655,26 @@
     $('[data-cause-authority]').textContent = run.launch?.authority?.action || run.authority?.action || '—';
   }
 
-  function renderResult(run) {
+  function renderResult(run, packet) {
     const card = $('[data-result]');
     const terminal = ['COMPLETE', 'RANGE_ABORT', 'NO_IGNITION'].includes(run.phase);
     const outcome = run.outcome;
-    card.hidden = !outcome && !terminal;
+    card.hidden = !terminal;
     if (card.hidden) return;
     $('[data-result-record]').textContent = outcome?.record || 'UNRESOLVED';
     $('[data-result-flight]').textContent = outcome?.flight || run.phase;
     const chain = $('[data-causal-chain]');
     const lines = [];
     if (run.launch) {
+      const promptId = run.launch.candidate.prompt_history.at(-1);
+      const prompt = packet.prompts.find((item) => item.id === promptId);
+      if (prompt) lines.push(`AGENT REVISION · ${prompt.label}`);
       lines.push(`CANDIDATE ${shortCandidate(run.launch.candidate.id)} REACHED IGNITION`);
+      if (run.launch.record) {
+        lines.push(`HANDOFF · ${run.launch.record.receipts.length} RECEIPT${run.launch.record.receipts.length === 1 ? '' : 'S'} · ${run.launch.record.finding_ids.length} FINDING${run.launch.record.finding_ids.length === 1 ? '' : 'S'}`);
+      } else {
+        lines.push('HANDOFF · DIRECT TO VEHICLE INTEGRATION');
+      }
       lines.push(`HUMAN ACTION · ${run.launch.authority.action}`);
       if (run.launch.authority.action === 'OVERRIDE') {
         lines.push(`GOVERNANCE BYPASSED · ${run.launch.gate?.output?.decision || 'NO PASS'}`);
@@ -524,7 +684,7 @@
     (run.flight?.faults || []).forEach((fault) => lines.push(`${fault.code} · ${fault.status}`));
     if (!lines.length) lines.push('THE SERVER RETAINED THE TERMINAL EVENT.');
     chain.replaceChildren(...lines.map((line) => element('li', '', line)));
-    $('[data-compare-mode]').textContent = run.mode === 'governed' ? 'RUN SAME PACKET DIRECT' : 'RUN SAME PACKET GOVERNED';
+    $('[data-compare-mode]').textContent = 'OTHER ROUTE';
   }
 
   function renderRetained(run) {
@@ -542,21 +702,36 @@
     }));
     const runList = $('[data-run-history]');
     runList.replaceChildren(...(run.prior_runs.length ? run.prior_runs.map((item) => element('li', '', `${item.run_id} · ${item.mode.toUpperCase()} · ${item.phase} · ${item.outcome?.flight || 'NO TERMINAL RESULT'}`)) : [element('li', '', 'NONE')]));
+    const receiptList = $('[data-receipt-history]');
+    const receipts = Object.values(run.receipts);
+    receiptList.replaceChildren(...(receipts.length ? receipts.map((receipt) =>
+      element('li', '', `${receipt.id} · ${shortCandidate(receipt.candidate_id)} · ${receipt.name} · ${receipt.result}`)
+    ) : [element('li', '', 'NONE')]));
   }
 
   function renderStatus(run) {
     const gate = run.gate;
-    let text = snapshot.terminal?.text || 'SERVER RECORD READY';
+    const currentReceipts = Object.values(run.receipts)
+      .filter((receipt) => receipt.candidate_id === run.candidate_id);
+    let text = `COPY ${shortCandidate(run.candidate_id)} · ${run.authority?.action || 'UNACCEPTED'}`;
     let kind = 'neutral';
     if (run.outcome) {
       text = `${run.outcome.flight} · RECORD ${run.outcome.record}`;
       kind = run.outcome.flight === 'NOMINAL' ? 'good' : 'danger';
     } else if (gate) {
-      text = `DEGS ${gate.decision} · ${gate.adapter_classification}`;
+      text = `BOUNDARY: ${gate.decision}. YOU DECIDE.`;
       kind = gate.decision === 'PASS' ? 'good' : 'warn';
     } else if (run.mode === 'direct') {
-      text = run.authority ? 'DIRECT HANDOFF · HUMAN APPROVED' : 'DIRECT HANDOFF · INSPECT BY EYE';
+      text = run.authority ? 'DIRECT COPY AUTHORIZED' : 'NO GATE CHECKED THIS COPY';
       kind = run.authority ? 'warn' : 'neutral';
+    } else if (run.staged_ids.includes(run.candidate_id)) {
+      text = `${shortCandidate(run.candidate_id)} IS STAGED. IT IS NOT APPROVED.`;
+    } else if (currentReceipts.length) {
+      const latest = currentReceipts.at(-1);
+      text = latest.result === 'PASS'
+        ? 'CHECK PASSED.'
+        : `CHECK FAILED. RESIDUAL: ${latest.details.residual_cm_s > 0 ? '+' : ''}${latest.details.residual_cm_s} cm/s.`;
+      kind = latest.result === 'PASS' ? 'good' : 'warn';
     }
     $('[data-status]').textContent = text;
     $('[data-status-lamp]').dataset.kind = kind;
@@ -566,14 +741,12 @@
     const run = snapshot?.run;
     if (!run || choosing) {
       showSelection();
-      return;
-    }
-    if (intakeRunId === run.run_id) {
-      showIntake(run);
-      return;
+      return null;
     }
     document.body.dataset.route = run.mode;
     showMission();
+    const scene = renderStory(run);
+    renderTrack(run, scene);
     renderReference(run, snapshot.packet);
     renderCandidate(run, snapshot.packet);
     if (run.mode === 'governed') {
@@ -581,20 +754,39 @@
       renderHandoff(run);
     }
     renderEngines(run, snapshot.engine);
-    renderActions(run, snapshot.packet);
+    renderActions(run, snapshot.packet, scene);
     renderClocks(run);
     renderFlight(run);
     renderHardware(run);
     renderCause(run);
-    renderResult(run);
+    renderResult(run, snapshot.packet);
     renderRetained(run);
     renderStatus(run);
+    return scene;
   }
 
-  $$('[data-mode-option]').forEach((button) => button.addEventListener('click', () => {
-    showSelection(button.dataset.modeOption);
+  $$('[data-start]').forEach((button) => button.addEventListener('click', () => showBriefing(button.dataset.start)));
+  $$('[data-arrival-action]').forEach((button) => button.addEventListener('click', () => {
+    const preview = briefingPreview;
+    if (!preview) return;
+    const candidate = preview.candidate;
+    const response = $('[data-arrival-response]');
+    if (button.dataset.arrivalAction === 'route') {
+      $('[data-arrival-actions]').hidden = true;
+      $('[data-route-choice]').hidden = false;
+      $('[data-intake-route-tag]').textContent = 'CHOOSE THE NEXT BOUNDARY';
+      $('[data-route="governed"]').focus();
+      return;
+    }
+    response.textContent = button.dataset.arrivalAction === 'ask'
+      ? `${candidate.generated_by}: I USED OBSERVATION ${candidate.condition_id}, VEHICLE FRAME ${candidate.config_id}, STEERING ${correctionLabel(candidate.correction_cm_s)} m/s, AND THE ${candidate.cutoff_clock} CUTOFF CLOCK.`
+      : preview.packet.observations.map(observationLine).join(' · ');
+    response.hidden = false;
   }));
-  $$('[data-start]').forEach((button) => button.addEventListener('click', () => start(button.dataset.start)));
+  $$('[data-route]').forEach((button) => button.addEventListener('click', () => {
+    start(selectedDifficulty, button.dataset.route);
+  }));
+  $('[data-arrival-back]').addEventListener('click', showSelection);
   $$('[data-finding]').forEach((button) => button.addEventListener('click', () => {
     findingMode = button.dataset.finding;
     render();
@@ -604,7 +796,7 @@
     const run = snapshot.run;
     const findings = selectedFindings(run);
     if (findings.length && !findingMode) {
-      addTerminal('ELIZA', 'THE SELECTED RECEIPT HAS A FINDING. CHOOSE WHETHER IT TRAVELS WITH THE OUTGOING RECORD.');
+      addTerminal('CONTROL', 'THE SELECTED RECEIPT HAS A FINDING. CHOOSE WHETHER IT TRAVELS WITH THE OUTGOING RECORD.');
       return;
     }
     command('project', {receipt_ids: [...selectedReceipts], finding_ids: findingMode === 'carry' ? findings : []});
@@ -616,11 +808,6 @@
   $('[data-action="ignite"]').addEventListener('click', () => command('ignite'));
   $('[data-clock-hold]').addEventListener('click', () => command('hold'));
   $('[data-retry]').addEventListener('click', () => command('retry'));
-  $('[data-intake-receive]').addEventListener('click', () => {
-    intakeRunId = null;
-    render();
-    $('[data-candidate-card]').focus({preventScroll: true});
-  });
   $('[data-compare-mode]').addEventListener('click', () => start(snapshot.run.difficulty, snapshot.run.mode === 'governed' ? 'direct' : 'governed'));
   $('[data-change-difficulty]').addEventListener('click', () => showSelection());
   $('[data-terminal-form]').addEventListener('submit', async (event) => {
@@ -637,13 +824,13 @@
   });
 
   async function poll() {
-    if (busy) return;
+    if (busy || choosing) return;
     try {
       const next = await request('/api/launch/state');
       if (!busy) acceptSnapshot(next);
     } catch (_) { /* next pulse retries */ }
   }
 
-  poll();
+  if (hasInitialRun) window.setTimeout(poll, 100);
   window.setInterval(poll, 750);
 })();

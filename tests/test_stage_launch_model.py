@@ -72,7 +72,7 @@ def test_prompted_agent_generation_retains_prompt_provenance_and_candidate_histo
     generated = state["candidates"][state["candidate_id"]]
     assert state["candidate_id"] != original
     assert generated["correction_cm_s"] == 20
-    assert generated["generated_by"] == "ELIZA · COLOSSUS · GUARDIAN"
+    assert generated["generated_by"] == "GUARDIAN"
     assert generated["prompt_history"][-1] == "H-C2"
     assert original in state["candidates"]
 

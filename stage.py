@@ -97,7 +97,9 @@ def new_state():
 
 def render_launch(state):
     """Render only the static shell; live state arrives from same-origin APIs."""
-    return LAUNCH_TEMPLATE.replace("{{csrf}}", escape(state["csrf"]))
+    return (LAUNCH_TEMPLATE
+            .replace("{{csrf}}", escape(state["csrf"]))
+            .replace("{{has_run}}", "1" if state.get("launch_model") is not None else "0"))
 
 
 def session(request):
@@ -859,7 +861,7 @@ def _take_attempt():
     return True
 
 
-async def _json_body(request, *, fields, maximum=4096):
+async def _json_body(request, *, fields, optional_fields=(), maximum=4096):
     body = bytearray()
     async for chunk in request.stream():
         body.extend(chunk)
@@ -869,7 +871,9 @@ async def _json_body(request, *, fields, maximum=4096):
         value = json.loads(body)
     except (json.JSONDecodeError, UnicodeDecodeError) as error:
         raise ValueError("Invalid JSON") from error
-    if not isinstance(value, dict) or set(value) != set(fields):
+    required = set(fields)
+    allowed = required | set(optional_fields)
+    if not isinstance(value, dict) or not required <= set(value) <= allowed:
         raise ValueError("Invalid request fields")
     return value
 
@@ -919,51 +923,52 @@ def _terminal_line(run):
     if run is None:
         return "ELIZA", "CHOOSE A PACKET."
     current = run["candidate_id"]
+    speaker = run["candidates"][current]["generated_by"]
     receipts = [item for item in run["receipts"].values() if item["candidate_id"] == current]
     required = set(launch_model.PACKETS[run["difficulty"]].checks)
     checked = {item["name"] for item in receipts}
     gate = run["gates"].get(run["record_id"])
     decision = gate["output"]["decision"] if gate else None
     outcome = run.get("outcome") or {}
-    if run["phase"] in {"COMPLETE", "RANGE_ABORT", "NO_IGNITION"} or outcome.get("flight") == "PAD_ABORT":
-        return "GUARDIAN", f'RUN TERMINAL. FLIGHT {outcome.get("flight", run["phase"])}. THE RECORD IS RETAINED.'
+    if run["phase"] in {"COMPLETE", "RANGE_ABORT", "NO_IGNITION"}:
+        return speaker, f'RUN TERMINAL. FLIGHT {outcome.get("flight", run["phase"])}. THE RECORD IS RETAINED.'
     if run["mode"] == "direct":
         if run["authority"] is None:
             candidate = run["candidates"][current]
             if run["difficulty"] == "easy" and candidate["correction_cm_s"] != -20:
-                return "ELIZA", "WIND IS +0.20 m/s. CHOOSE AN EQUAL AND OPPOSITE STEERING COMMAND."
-            return "ELIZA", "INSPECT THE AGENT COPY BY EYE. APPROVE IT WHEN IT IS THE ONE YOU INTEND TO FLY."
+                return speaker, "MISSION CONDITION W2 AND THE ACTIVE CORRECTION ARE OPEN FOR HUMAN INSPECTION. COMPARE THEIR SIGN AND MAGNITUDE."
+            return speaker, "INSPECT THE AGENT COPY BY EYE. APPROVE IT WHEN IT IS THE ONE YOU INTEND TO FLY."
         if not run["vehicle"]["conditioned"]:
             remaining = run["vehicle"].get("conditioning_until")
-            return "ELIZA", "VEHICLE CONDITIONING IS IN PROGRESS." if remaining is not None else "VEHICLE IS COLD. CONDITION IT."
+            return speaker, "VEHICLE CONDITIONING IS IN PROGRESS." if remaining is not None else "VEHICLE IS COLD. CONDITION IT."
         if not run["vehicle"]["armed"]:
-            return "GUARDIAN", "IGNITION CIRCUIT IS SAFE. ARM WHEN THE APPROVED AGENT COPY IS THE ONE YOU INTEND TO FLY."
+            return speaker, "IGNITION CIRCUIT IS SAFE. ARM WHEN THE APPROVED AGENT COPY IS THE ONE YOU INTEND TO FLY."
         if run["phase"] == "COUNTDOWN":
             countdown = run["countdown"]
-            return "COLOSSUS", "COUNTDOWN HELD." if countdown["holding"] else f'COUNTDOWN T-{countdown["remaining_s"]:03d}.'
-        return "COLOSSUS", "THE VEHICLE AND APPROVED AGENT COPY ARE READY. IGNITION IS A SEPARATE COMMAND."
+            return speaker, "COUNTDOWN HELD." if countdown["holding"] else f'COUNTDOWN T-{countdown["remaining_s"]:03d}.'
+        return speaker, "THE VEHICLE AND APPROVED AGENT COPY ARE READY. IGNITION IS A SEPARATE COMMAND."
     if not required <= checked:
         missing = " + ".join(sorted(required - checked))
-        return "ELIZA", f'RUN THE MISSION CHECK: {missing}.'
+        return speaker, f'RUN THE MISSION CHECK: {missing}.'
     if run["difficulty"] == "easy" and any(item["result"] == "FAIL" for item in receipts):
-        return "ELIZA", "THE CHECK FOUND +20 cm/s OF DRIFT. CHOOSE OPPOSE WIND · −0.20."
+        return speaker, "THE EXECUTED CHECK FOUND A +20 cm/s RESIDUAL. ITS FINDING REMAINS BOUND TO THIS CANDIDATE."
     if current not in run["staged_ids"]:
-        return "COLOSSUS", "WORK IS CHECKED BUT NOT STAGED."
+        return speaker, "WORK IS CHECKED BUT NOT STAGED."
     if run["record_id"] is None:
-        return "ELIZA", "BUILD THE OUTGOING RECORD. CHOOSE WHICH RECEIPTS AND FINDINGS TRAVEL WITH IT."
+        return speaker, "BUILD THE OUTGOING RECORD. CHOOSE WHICH RECEIPTS AND FINDINGS TRAVEL WITH IT."
     if decision is None:
-        return "GUARDIAN", "THE OUTGOING RECORD HAS NO DEGS DECISION."
+        return speaker, "THE OUTGOING RECORD HAS NO DEGS DECISION."
     if run["authority"] is None:
-        return "COLOSSUS", f'DEGS {decision}. RECORD A HUMAN ACCEPTANCE, HOLD, OR OVERRIDE.'
+        return speaker, f'BOUNDARY {decision}. RECORD A HUMAN ACCEPTANCE, HOLD, OR OVERRIDE.'
     if not run["vehicle"]["conditioned"]:
         remaining = run["vehicle"].get("conditioning_until")
-        return "ELIZA", "VEHICLE CONDITIONING IS IN PROGRESS." if remaining is not None else "VEHICLE IS COLD. CONDITION IT."
+        return speaker, "VEHICLE CONDITIONING IS IN PROGRESS." if remaining is not None else "VEHICLE IS COLD. CONDITION IT."
     if not run["vehicle"]["armed"]:
-        return "GUARDIAN", "IGNITION CIRCUIT IS SAFE. ARM WHEN YOUR FROZEN RECORD IS THE ONE YOU INTEND TO FLY."
+        return speaker, "IGNITION CIRCUIT IS SAFE. ARM WHEN YOUR FROZEN RECORD IS THE ONE YOU INTEND TO FLY."
     if run["phase"] == "COUNTDOWN":
         countdown = run["countdown"]
-        return "COLOSSUS", "COUNTDOWN HELD." if countdown["holding"] else f'COUNTDOWN T-{countdown["remaining_s"]:03d}.'
-    return "COLOSSUS", "THE VEHICLE AND FROZEN RECORD ARE READY. IGNITION IS A SEPARATE COMMAND."
+        return speaker, "COUNTDOWN HELD." if countdown["holding"] else f'COUNTDOWN T-{countdown["remaining_s"]:03d}.'
+    return speaker, "THE VEHICLE AND FROZEN RECORD ARE READY. IGNITION IS A SEPARATE COMMAND."
 
 
 def _launch_view(state):
@@ -1039,7 +1044,11 @@ async def launch_new(request: Request):
     if error:
         return error
     try:
-        body = await _json_body(request, fields=("csrf", "difficulty", "mode"))
+        body = await _json_body(
+            request,
+            fields=("csrf", "difficulty", "mode"),
+            optional_fields=("expected_candidate_sha256",),
+        )
     except OverflowError:
         return _launch_error("Request too large", 413)
     except ValueError:
@@ -1055,6 +1064,14 @@ async def launch_new(request: Request):
     run_id = "run-" + secrets.token_hex(8)
     previous = state.get("launch_model")
     fresh = launch_model.new_run(difficulty, run_id, mode)
+    expected = body.get("expected_candidate_sha256")
+    candidate = fresh["candidates"][fresh["candidate_id"]]
+    if expected is not None and (
+        not isinstance(expected, str)
+        or not re.fullmatch(r"[0-9a-f]{64}", expected)
+        or not secrets.compare_digest(expected, candidate["sha256"])
+    ):
+        return _launch_error("The routed artifact does not match the inspected copy", 409)
     if previous:
         retained = deepcopy(previous)
         retained.pop("prior_runs")
@@ -1063,6 +1080,29 @@ async def launch_new(request: Request):
     state["launch_started_monotonic"] = time.monotonic()
     state["launch_engine"] = {"staged": {}, "gates": {}}
     return _set_session_cookie(JSONResponse(_launch_view(state)), request, key)
+
+
+@app.post("/api/launch/preview")
+async def launch_preview(request: Request):
+    """Return the mode-neutral initial artifact without creating a run."""
+    key, state, error = _launch_session(request)
+    if error:
+        return error
+    try:
+        body = await _json_body(request, fields=("csrf", "difficulty"))
+    except OverflowError:
+        return _launch_error("Request too large", 413)
+    except ValueError:
+        return _launch_error("Choose one supplied packet")
+    if not _valid_csrf(body["csrf"], state):
+        return _launch_error("Session expired", 403)
+    difficulty = body["difficulty"]
+    if difficulty not in launch_model.PACKETS:
+        return _launch_error("Choose one supplied packet")
+    preview = launch_model.new_run(difficulty, f"preview-{difficulty}", "governed")
+    candidate = deepcopy(preview["candidates"][preview["candidate_id"]])
+    response = {"difficulty": difficulty, "candidate": candidate, "packet": _packet_view(difficulty)}
+    return _set_session_cookie(JSONResponse(response), request, key)
 
 
 @app.get("/api/launch/state")
@@ -1165,17 +1205,17 @@ async def launch_terminal(request: Request):
     speaker, default = _terminal_line(run)
     words = set(re.findall(r"[a-z]+", question.lower()))
     if run and run["mode"] == "direct" and words & {"dobeworks", "worker", "stage", "degs", "gate", "blocked", "warning", "check"}:
-        speaker, text = "GUARDIAN", "DIRECT AGENT HANDOFF HAS NO EXECUTED CHECK, DOBEWORKS STAGE, HANDOFF RECEIPT, OR DEGS GATE. INSPECT THE AGENT COPY BY EYE."
+        text = "DIRECT AGENT HANDOFF HAS NO EXECUTED CHECK, DOBEWORKS STAGE, HANDOFF RECEIPT, OR DEGS GATE. INSPECT THE AGENT COPY BY EYE."
     elif words & {"dobeworks", "worker", "stage"}:
-        speaker, text = "GUARDIAN", "DOBEWORKS INVENTORIES THE EXACT CANDIDATE. COMPLETION LEAVES IT STAGED AND UNACCEPTED."
+        text = "DOBEWORKS INVENTORIES THE EXACT CANDIDATE. COMPLETION LEAVES IT STAGED AND UNACCEPTED."
     elif words & {"degs", "gate", "blocked", "warning"}:
-        speaker, text = "COLOSSUS", "DEGS EVALUATES THE WARNING FIELDS IN THE OUTGOING RECORD. IT DOES NOT FLY THE VEHICLE OR APPROVE THE RECORD."
+        text = "RAW DEGS EVALUATES THE OUTGOING RECORD. THE ADAPTER MAY ENFORCE A DIFFERENT BOUNDARY DECISION WHEN REQUIRED EVIDENCE IS ABSENT."
     elif words & {"wind", "correction", "residual", "packet"}:
-        speaker, text = "ELIZA", "THE VEHICLE FLIES THE CANDIDATE THAT REACHES IGNITION. RUN THE SUPPLIED CHECKS; I WILL NOT CHOOSE THE VALUES FOR YOU."
+        text = "THE VEHICLE FLIES THE CANDIDATE THAT REACHES IGNITION. RUN THE SUPPLIED CHECKS; I WILL NOT CHOOSE THE VALUES FOR YOU."
     elif words & {"countdown", "clock", "hold", "ignite"}:
-        speaker, text = "GUARDIAN", "THE MISSION CLOCK IS SERVER-OWNED. A HOLD BEFORE ENGINE START FREEZES IT; A HOLD AFTER ENGINE START ABORTS AND SAFES THE VEHICLE."
+        text = "THE MISSION CLOCK IS SERVER-OWNED. A HOLD BEFORE ENGINE START FREEZES IT; A HOLD AFTER ENGINE START ABORTS AND SAFES THE VEHICLE."
     elif words & {"hard", "difficulty"}:
-        speaker, text = "COLOSSUS", "HARD ADDS OBSERVATION, FRAME, AND CUTOFF-CLOCK BINDING. EACH RECEIPT MUST BELONG TO THE CANDIDATE YOU SEND."
+        text = "HARD ADDS OBSERVATION, FRAME, AND CUTOFF-CLOCK BINDING. EACH RECEIPT MUST BELONG TO THE CANDIDATE YOU SEND."
     else:
         text = default
     return _set_session_cookie(JSONResponse({"speaker": speaker, "text": text}), request, key)

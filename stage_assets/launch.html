@@ -6,6 +6,7 @@
   <meta name="color-scheme" content="dark">
   <title>DobeWorks · Carry the Stop</title>
   <meta name="stage-csrf" content="{{csrf}}">
+  <meta name="stage-has-run" content="{{has_run}}">
   <link rel="icon" href="/dobeworks-favicon-015c1a2f70b6-16.png">
   <link rel="stylesheet" href="/launch.css">
   <script src="/launch-game.js" defer></script>
@@ -14,151 +15,199 @@
   <main class="app-shell">
     <header class="site-header">
       <div>
-        <span class="eyebrow">DOBEWORKS · DEGS · MISSION STAGE</span>
-        <div class="wordmark">CARRY THE STOP</div>
+        <span class="eyebrow">LAUNCH TEST</span>
+        <div class="wordmark">DOBEWORKS</div>
       </div>
-      <div class="prototype-mark">SIMULATION · NO FLIGHT AUTHORITY</div>
+      <div class="prototype-mark">SIMULATION</div>
     </header>
 
     <section class="difficulty-screen" data-screen="select" aria-labelledby="select-title">
-      <div class="select-copy">
-        <span class="eyebrow">THRUSTERS COLD</span>
-        <h1 id="select-title" data-select-title>CHOOSE THE CONTROL SYSTEM.</h1>
-        <p data-select-copy>The same agent. The same packet. A different path to ignition.</p>
+      <div class="start-scene" aria-hidden="true">
+        <div class="start-moon"></div>
+        <div class="start-rocket"><b>DW</b></div>
+        <div class="start-pad"></div>
       </div>
-      <div class="mode-grid" role="group" aria-label="Control system">
-        <button class="mode-card" type="button" data-mode-option="governed" aria-pressed="false">
-          <span class="difficulty-name">GOVERNED</span>
-          <strong>DOBEWORKS + DEGS</strong>
-          <small>CHECK · STAGE · CARRY · GATE</small>
-        </button>
-        <button class="mode-card direct" type="button" data-mode-option="direct" aria-pressed="false">
-          <span class="difficulty-name">DIRECT</span>
-          <strong>AGENT → HUMAN → VEHICLE</strong>
-          <small>INSPECT THE OUTPUT BY EYE</small>
-        </button>
+      <div class="select-copy">
+        <span class="eyebrow">MISSION SELECT</span>
+        <h1 id="select-title" data-select-title>PICK A MISSION.</h1>
+        <p data-select-copy>Catch the bad handoff. Fly the rocket.</p>
       </div>
       <div class="difficulty-grid" role="group" aria-label="Mission difficulty">
-        <button class="difficulty-card available" type="button" data-start="easy" disabled>
-          <span class="difficulty-name">EASY</span>
-          <strong>1 CANDIDATE</strong>
-          <span data-difficulty-detail>1 CONDITION · 1 CHECK</span>
-          <small data-difficulty-note>ONE CHECK · FULL ASCENT</small>
+        <button class="difficulty-card available" type="button" data-start="easy">
+          <span class="difficulty-name">EASY</span><strong>WIND</strong>
+          <span data-difficulty-detail>1 ERROR</span>
         </button>
-        <button class="difficulty-card available" type="button" data-start="medium" disabled>
-          <span class="difficulty-name">MEDIUM</span>
-          <strong>1 CANDIDATE</strong>
-          <span data-difficulty-detail>UNIT + CONDITION · 1 CHECK</span>
-          <small data-difficulty-note>UNIT CONVERSION</small>
+        <button class="difficulty-card available" type="button" data-start="medium">
+          <span class="difficulty-name">MEDIUM</span><strong>UNITS</strong>
+          <span data-difficulty-detail>1 TRICK</span>
         </button>
-        <button class="difficulty-card available" type="button" data-start="hard" disabled>
-          <span class="difficulty-name">HARD</span>
-          <strong>2 OBSERVATIONS</strong>
-          <span data-difficulty-detail>2 CLOCKS · 3 CHECKS</span>
-          <small data-difficulty-note>STATE + CLOCK BINDING</small>
+        <button class="difficulty-card available" type="button" data-start="hard">
+          <span class="difficulty-name">HARD</span><strong>STATE</strong>
+          <span data-difficulty-detail>3 CHECKS</span>
         </button>
-      </div>
-      <div class="selection-footer">
-        <span>NO SOUND</span><span>FULL T+000–100</span><span>IDENTICAL DETERMINISTIC PACKETS</span>
       </div>
     </section>
 
     <section class="intake-screen" data-screen="intake" hidden aria-labelledby="intake-title">
-      <div class="intake-orbit" aria-hidden="true"><span></span><i></i><span></span></div>
       <article class="intake-card">
         <header>
           <span class="eyebrow" data-intake-speaker>MISSION CONTROL</span>
-          <span class="intake-route-tag" data-intake-route-tag>GOVERNED ROUTE</span>
+          <span class="intake-route-tag" data-intake-route-tag>ROUTE UNASSIGNED</span>
         </header>
         <div class="intake-copy">
-          <span>INCOMING AGENT TRANSMISSION</span>
-          <h1 id="intake-title">COPY <strong data-intake-candidate>A1</strong></h1>
-          <p data-intake-line>A NEW CANDIDATE IS WAITING AT THE GOVERNED BOUNDARY.</p>
+          <span>NEW AGENT COPY</span>
+          <h1 id="intake-title" tabindex="-1"><strong data-intake-candidate>A1</strong> READY</h1>
+          <p data-intake-line>THE AGENT MADE A NEW COPY.</p>
         </div>
         <div class="intake-manifest">
           <div><span>PACKET</span><strong data-intake-level>EASY</strong></div>
-          <div><span>ROUTE</span><strong data-intake-mode>DW + DEGS</strong></div>
-          <div><span>DIGEST</span><strong data-intake-hash>—</strong></div>
+          <div><span>AUTHOR</span><strong data-intake-mode>ELIZA</strong></div>
+          <div><span>STATE</span><strong data-intake-hash>COMPLETED · UNACCEPTED</strong></div>
         </div>
-        <div class="intake-path" data-intake-path aria-label="Delivery route">
-          <span>AGENT</span><i></i><span>CHECK BAY</span><i></i><span>HUMAN</span><i></i><span>VEHICLE</span>
+        <div class="intake-path" data-intake-path aria-label="Agent to player to route to vehicle"><span>AGENT</span><i></i><span>YOU</span><i></i><span>?</span><i></i><span>ROCKET</span></div>
+        <div class="arrival-response" data-arrival-response hidden role="status" aria-live="polite"></div>
+        <div class="arrival-actions" data-arrival-actions>
+          <button type="button" data-arrival-action="ask">ASK AGENT</button>
+          <button type="button" data-arrival-action="source">MISSION DATA</button>
+          <button class="intake-receive" type="button" data-arrival-action="route">CHOOSE ROUTE</button>
         </div>
-        <button class="intake-receive" type="button" data-intake-receive>RECEIVE AGENT COPY</button>
+        <div class="route-choice" data-route-choice hidden role="group" aria-label="Artifact route">
+          <p>WHERE SHOULD <span data-route-candidate>A1</span> GO?</p>
+          <button type="button" data-route="governed">
+            <span>DOBEWORKS + DEGS</span>
+            <small>CHECKED ROUTE</small>
+          </button>
+          <button class="direct" type="button" data-route="direct">
+            <span>DIRECT TO VEHICLE</span>
+            <small>NO CHECK OR GATE</small>
+          </button>
+        </div>
+        <button class="arrival-back" type="button" data-arrival-back>BACK</button>
       </article>
     </section>
 
     <section class="control-room" data-screen="mission" hidden aria-label="Fictional launch control simulation">
-      <div class="clock-rail">
-        <div class="clock-cell">
-          <span>ATTEMPT ELAPSED</span>
-          <output data-mission-clock>00:00</output>
-        </div>
+      <div class="clock-rail" aria-label="Mission heads-up display">
+        <div class="clock-cell compact level-cell"><span>MISSION</span><output data-level>—</output></div>
+        <div class="clock-cell compact"><span>COPY</span><output data-hud-candidate>A1</output></div>
+        <div class="clock-cell compact mode-cell"><span>ROUTE</span><output data-mode>—</output></div>
         <div class="clock-cell flight-clock">
-          <span>COUNTDOWN / MISSION</span>
+          <span>TIME</span>
           <output data-flight-clock>T---</output>
           <button class="clock-hold" type="button" data-clock-hold disabled aria-pressed="false">HOLD</button>
         </div>
-        <div class="clock-cell compact">
-          <span>RUN</span>
-          <output data-run-id>001</output>
-        </div>
-        <div class="clock-cell compact mode-cell">
-          <span>MODE</span>
-          <output data-mode>—</output>
-        </div>
-        <div class="clock-cell compact level-cell">
-          <span>LEVEL</span>
-          <output data-level>—</output>
-        </div>
+        <output class="sr-only" data-mission-clock>00:00</output>
+        <output class="sr-only" data-run-id>001</output>
       </div>
 
-      <div class="status-line" aria-live="polite">
-        <span class="status-lamp" data-status-lamp></span>
-        <output data-status>THRUSTERS COLD · COPY A RECEIVED</output>
-        <span>SERVER RECORD</span>
+      <div class="route-track" data-route-track aria-label="Copy route">
+        <span data-route-stop="agent">AGENT</span><i></i>
+        <span data-route-stop="check">CHECK</span><i></i>
+        <span data-route-stop="record">RECORD</span><i></i>
+        <span data-route-stop="vehicle">ROCKET</span>
+        <b data-track-candidate>A1</b>
       </div>
+
+      <section class="mission-story" data-mission-story aria-labelledby="story-title">
+        <div class="story-copy">
+          <span class="eyebrow" data-story-kicker>CHECK</span>
+          <h1 id="story-title" data-story-title tabindex="-1">CHECK COPY A1.</h1>
+          <p data-story-line>What did the agent use?</p>
+          <div class="status-line"><span class="status-lamp" data-status-lamp></span><output data-status>COPY A1 · UNACCEPTED</output></div>
+        </div>
+      </section>
 
       <div class="control-grid">
+        <aside class="rocket-console" aria-labelledby="rocket-title">
+          <header class="panel-header">
+            <div>
+              <span class="eyebrow">ROCKET</span>
+              <h2 id="rocket-title">ZARINER 1</h2>
+            </div>
+            <span class="state-chip" data-vehicle-state>THRUSTERS COLD</span>
+          </header>
+
+          <div class="flight-monitor" data-flight-monitor data-flight-state="pad">
+            <div class="monitor-grid"></div>
+            <div class="corridor left"><span>−500</span></div>
+            <div class="corridor right"><span>+500</span></div>
+            <svg class="trajectory" viewBox="0 0 400 500" preserveAspectRatio="none" aria-hidden="true">
+              <polyline data-flight-path points="200,465"></polyline>
+            </svg>
+            <div class="rocket" data-rocket aria-label="Rocket on pad">
+              <i class="rocket-nose"></i><b>DW</b><i class="rocket-flame"></i>
+            </div>
+            <div class="launch-pad"><span>PAD</span></div>
+            <div class="monitor-event" data-monitor-event>THRUSTERS COLD</div>
+          </div>
+
+          <section class="hardware-status" aria-label="Vehicle preparation state">
+            <div><span>TEMP</span><strong data-condition-state>COLD</strong></div>
+            <div><span>ARM</span><strong data-arm-state>SAFE</strong></div>
+            <div><span>ENGINE</span><strong data-ignition-state>OFF</strong></div>
+          </section>
+
+          <div class="cause-rail" aria-label="Frozen launch cause rail">
+            <div><span>COPY</span><strong data-cause-packet>—</strong></div>
+            <div><span>STEERING</span><strong data-cause-correction>—</strong></div>
+            <div><span>RESIDUAL</span><strong data-cause-residual>—</strong></div>
+            <div><span>RECORD</span><strong data-cause-record>—</strong></div>
+            <div><span>YOU</span><strong data-cause-authority>—</strong></div>
+          </div>
+
+          <section class="result-card" data-result hidden aria-labelledby="result-title">
+            <span class="eyebrow" id="result-title">RESULT</span>
+            <div class="result-axis"><span>RECORD</span><strong data-result-record>—</strong></div>
+            <div class="result-axis"><span>FLIGHT</span><strong data-result-flight>—</strong></div>
+            <ol data-causal-chain></ol>
+            <div class="result-actions">
+              <button type="button" data-retry>RETRY</button>
+              <button type="button" data-compare-mode>OTHER ROUTE</button>
+              <button type="button" data-change-difficulty>NEW MISSION</button>
+            </div>
+          </section>
+        </aside>
+
         <section class="packet-bench" aria-labelledby="packet-title">
           <header class="panel-header">
             <div>
-              <span class="eyebrow">ACTIVE LAUNCH PACKET</span>
-              <h2 id="packet-title">AGENT COPY <span data-candidate-id>A</span></h2>
+              <span class="eyebrow">AGENT COPY</span>
+              <h2 id="packet-title">COPY <span data-candidate-id>A</span></h2>
             </div>
             <span class="state-chip" data-candidate-state>RECEIVED · UNCHECKED</span>
           </header>
 
           <div class="packet-workspace">
-            <article class="reference-card" aria-labelledby="reference-title">
-              <span class="card-label" id="reference-title" data-condition-title>MISSION CONDITION</span>
+            <details class="reference-card">
+              <summary class="card-label" id="reference-title" data-condition-title>MISSION DATA</summary>
               <dl data-condition-list>
                 <div><dt>PACKET</dt><dd>AWAITING SERVER</dd></div>
               </dl>
-            </article>
+            </details>
 
             <article class="candidate-card" data-candidate-card tabindex="-1">
               <div class="revision-strip">
-                <span>AGENT OUTPUT</span>
+                <span>MADE BY <b data-candidate-author>—</b></span>
                 <strong data-candidate-label>A</strong>
                 <code data-candidate-hash>A-000</code>
               </div>
               <div class="code-field">
-                <span>agent_output.correction_ms</span>
+                <span>STEERING · m/s</span>
                 <output data-correction-output>0.00</output>
               </div>
               <div class="candidate-bindings" aria-label="Exact agent output bindings">
-                <div><span>config_id</span><output data-candidate-config>—</output></div>
-                <div><span>observation_id</span><output data-candidate-observation>—</output></div>
-                <div><span>cutoff_clock</span><output data-candidate-cutoff>—</output></div>
+                <div><span>VEHICLE</span><output data-candidate-config>—</output></div>
+                <div><span>WIND DATA</span><output data-candidate-observation>—</output></div>
+                <div><span>ENGINE CLOCK</span><output data-candidate-cutoff>—</output></div>
               </div>
-              <div class="choice-stack">
-                <div class="choice-label">PROMPT ELIZA · COLOSSUS · GUARDIAN</div>
+              <details class="choice-stack">
+                <summary class="choice-label" data-prompt-agent>PROMPT AGENT</summary>
                 <div class="value-bank" data-value-bank role="group" aria-label="Programmed body correction"></div>
-                <div class="choice-label" data-condition-label hidden>PROMPT · OBSERVATION BINDING</div>
+                <div class="choice-label" data-condition-label hidden>WIND DATA</div>
                 <div class="value-bank compact-bank" data-condition-bank role="group" aria-label="Bound observation" hidden></div>
-                <div class="choice-label" data-cutoff-label hidden>PROMPT · CUTOFF CLOCK</div>
+                <div class="choice-label" data-cutoff-label hidden>ENGINE CLOCK</div>
                 <div class="value-bank compact-bank" data-cutoff-bank role="group" aria-label="Cutoff clock" hidden></div>
-              </div>
+              </details>
               <div class="packet-meta">
                 <span data-stage-label>NOT STAGED</span>
                 <span data-acceptance-label>UNACCEPTED</span>
@@ -168,8 +217,8 @@
 
           <section class="receipt-section" data-governed-only aria-labelledby="receipt-title">
             <div class="section-heading">
-              <h3 id="receipt-title">CHECK RECEIPTS</h3>
-              <span data-check-summary>MISSION CHECK</span>
+              <h3 id="receipt-title">CHECK</h3>
+              <span data-check-summary>NO RECEIPT</span>
             </div>
             <div class="receipt-rack" data-receipt-rack>
               <div class="empty-state">NO RECEIPT</div>
@@ -178,8 +227,8 @@
 
           <section class="handoff-section" data-governed-only aria-labelledby="handoff-title">
             <div class="section-heading">
-              <h3 id="handoff-title">OUTGOING RECORD</h3>
-              <span>SELECTED RECEIPT → PROJECTION</span>
+              <h3 id="handoff-title">WHAT GOES IN THE RECORD?</h3>
+              <span>RECEIPT → FINDING → RECORD</span>
             </div>
             <div class="evidence-path" data-evidence-path>
               <div class="evidence-node">
@@ -202,8 +251,8 @@
               </div>
             </div>
             <div class="custody-controls" role="group" aria-label="Finding custody">
-              <button type="button" data-finding="carry" aria-pressed="false">CARRY FINDING</button>
-              <button type="button" data-finding="omit" aria-pressed="false">OMIT FINDING</button>
+              <button type="button" data-finding="carry" aria-pressed="false">CARRY THE FINDING</button>
+              <button type="button" data-finding="omit" aria-pressed="false">LEAVE IT OUT</button>
             </div>
           </section>
 
@@ -221,83 +270,38 @@
           </div>
         </section>
 
-        <aside class="rocket-console" aria-labelledby="rocket-title">
-          <header class="panel-header">
-            <div>
-              <span class="eyebrow">VEHICLE MONITOR</span>
-              <h2 id="rocket-title">ZARINER 1</h2>
-            </div>
-            <span class="state-chip" data-vehicle-state>THRUSTERS COLD</span>
-          </header>
-
-          <div class="flight-monitor" data-flight-monitor data-flight-state="pad">
-            <div class="monitor-grid"></div>
-            <div class="corridor left"><span>−500</span></div>
-            <div class="corridor right"><span>+500</span></div>
-            <svg class="trajectory" viewBox="0 0 400 500" preserveAspectRatio="none" aria-hidden="true">
-              <polyline data-flight-path points="200,465"></polyline>
-            </svg>
-            <div class="rocket" data-rocket aria-label="Rocket on pad">
-              <i class="rocket-nose"></i><b>DW</b><i class="rocket-flame"></i>
-            </div>
-            <div class="launch-pad"><span>PAD</span></div>
-            <div class="monitor-event" data-monitor-event>THRUSTERS COLD</div>
-          </div>
-
-          <div class="cause-rail" aria-label="Frozen launch cause rail">
-            <div><span>PACKET</span><strong data-cause-packet>—</strong></div>
-            <div><span>CORRECTION</span><strong data-cause-correction>—</strong></div>
-            <div><span>RESIDUAL</span><strong data-cause-residual>—</strong></div>
-            <div><span>RECORD</span><strong data-cause-record>—</strong></div>
-            <div><span>AUTHORITY</span><strong data-cause-authority>—</strong></div>
-          </div>
-
-          <section class="hardware-status" aria-label="Vehicle preparation state">
-            <div><span>CONDITION</span><strong data-condition-state>COLD</strong></div>
-            <div><span>ARM</span><strong data-arm-state>SAFE</strong></div>
-            <div><span>IGNITION</span><strong data-ignition-state>INHIBITED</strong></div>
-          </section>
-
-          <section class="result-card" data-result hidden aria-labelledby="result-title">
-            <span class="eyebrow" id="result-title">RUN RESULT</span>
-            <div class="result-axis"><span>RECORD</span><strong data-result-record>—</strong></div>
-            <div class="result-axis"><span>FLIGHT</span><strong data-result-flight>—</strong></div>
-            <ol data-causal-chain></ol>
-            <div class="result-actions">
-              <button type="button" data-retry>RETRY THIS PACKET</button>
-              <button type="button" data-compare-mode>RUN OTHER MODE</button>
-              <button type="button" data-change-difficulty>CHANGE DIFFICULTY</button>
-            </div>
-          </section>
-        </aside>
       </div>
 
       <section class="action-deck" data-action-deck aria-label="Launch control actions">
-        <div class="action-bank" data-governed-only>
+        <div class="action-bank" data-action-bank="packet" data-governed-only>
           <span class="bank-label">PACKET</span>
+          <details class="check-menu">
+            <summary>REQUEST MISSION CHECK</summary>
           <span class="check-actions" data-check-actions></span>
-          <button type="button" data-action="stage">STAGE ACTIVE COPY</button>
-          <button type="button" data-action="send">SEND RECORD</button>
+          </details>
+          <button type="button" data-action="stage">STAGE COPY IN DOBEWORKS</button>
+          <button type="button" data-action="send">SEND OUTGOING RECORD TO DEGS</button>
         </div>
-        <div class="action-bank authority-bank">
+        <div class="action-bank authority-bank" data-action-bank="authority">
           <span class="bank-label">AUTHORITY</span>
-          <button type="button" data-action="accept">ACCEPT CURRENT</button>
-          <button type="button" class="guarded" data-action="override" data-governed-only>OVERRIDE CURRENT</button>
+          <button type="button" data-action="accept">ACCEPT CURRENT COPY FOR VEHICLE</button>
+          <button type="button" class="guarded" data-action="override" data-governed-only>OVERRIDE THE STOP</button>
         </div>
-        <div class="action-bank hardware-bank">
-          <span class="bank-label">VEHICLE</span>
+        <details class="action-bank hardware-bank" data-action-bank="vehicle">
+          <summary class="bank-label">PAD CONTROLS</summary>
           <button type="button" data-action="condition">CONDITION</button>
           <button type="button" data-action="arm">ARM</button>
           <button type="button" class="ignite" data-action="ignite">IGNITE</button>
-        </div>
+        </details>
       </section>
 
-      <section class="machine-terminal" aria-labelledby="terminal-title">
-        <header>
-          <span class="eyebrow" id="terminal-title">ELIZA · COLOSSUS · GUARDIAN TERMINAL</span>
-          <strong data-terminal-speaker>CONTROL</strong>
+      <details class="machine-terminal" data-agent-terminal>
+        <summary><span id="terminal-title">AGENT TRANSCRIPT</span><strong data-terminal-speaker>CONTROL</strong></summary>
+        <header class="terminal-context">
+          <span class="eyebrow">MISSION AGENT TERMINAL</span>
+          <span>QUESTIONS DO NOT CHANGE THE ARTIFACT</span>
         </header>
-        <div class="terminal-output" data-terminal-output role="log" aria-live="polite">
+        <div class="terminal-output" data-terminal-output role="log">
           <p><span>CONTROL</span> THRUSTERS COLD. A PACKET IS PRESENT.</p>
         </div>
         <form data-terminal-form>
@@ -305,11 +309,11 @@
           <input id="terminal-question" name="question" maxlength="120" autocomplete="off" placeholder="ASK WHAT IS OPEN OR WHY THE MISSION STOPPED">
           <button type="submit">ENTER</button>
         </form>
-      </section>
+      </details>
 
       <section class="retained-record" aria-labelledby="retained-title">
         <details>
-          <summary id="retained-title">RETAINED CANDIDATES + RUNS <span data-retained-count>0</span></summary>
+          <summary id="retained-title">RUN RECORD <span data-retained-count>0</span></summary>
           <div class="retained-grid">
             <div>
               <h3>CANDIDATES</h3>
@@ -319,13 +323,18 @@
               <h3>RUNS</h3>
               <ul data-run-history><li>NONE</li></ul>
             </div>
+            <div>
+              <h3>RECEIPTS</h3>
+              <ul data-receipt-history><li>NONE</li></ul>
+            </div>
           </div>
         </details>
       </section>
 
       <footer class="prototype-footer">
-        FICTIONAL VEHICLE · ORIGINAL TEACHING MODEL · NO OPERATIONAL AUTHORITY
+        FICTIONAL VEHICLE · TEACHING SIMULATION · NO FLIGHT AUTHORITY
       </footer>
+      <div class="sr-only" data-live-announcer aria-live="polite" aria-atomic="true"></div>
     </section>
 
     <noscript>

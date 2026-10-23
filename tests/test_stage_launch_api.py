@@ -39,11 +39,13 @@ def act(client, csrf, run, action, **choices):
 def test_front_door_is_the_sparse_launch_game_and_classic_evidence_remains_available():
     with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
         page, _ = open_game(client)
-        assert "CARRY THE STOP" in page.text
-        assert "ELIZA · COLOSSUS · GUARDIAN TERMINAL" in page.text
-        assert "INCOMING AGENT TRANSMISSION" in page.text
-        assert "CHOOSE THE CONTROL SYSTEM" in page.text
-        assert "DOBEWORKS + DEGS" in page.text and "AGENT → HUMAN → VEHICLE" in page.text
+        assert "LAUNCH TEST" in page.text
+        assert "AGENT TRANSCRIPT" in page.text
+        assert "NEW AGENT COPY" in page.text
+        assert "PICK A MISSION" in page.text
+        assert "DOBEWORKS + DEGS" in page.text
+        assert "DIRECT TO VEHICLE" in page.text
+        assert '<meta name="stage-has-run" content="0">' in page.text
         assert "HOW IT WORKS" not in page.text
         assert 'src="/launch-game.js"' in page.text
         assert client.get("/launch.css").status_code == 200
@@ -66,13 +68,22 @@ def test_server_creates_each_fixed_packet_and_rejects_invented_difficulty(diffic
                    for prompt in response.json()["packet"]["prompts"])
         if difficulty == "easy":
             assert [prompt["label"] for prompt in response.json()["packet"]["prompts"]] == [
-                "RETAIN 0.00", "OPPOSE WIND · −0.20", "FOLLOW WIND · +0.20",
+                "KEEP 0.00", "SET −0.20", "SET +0.20",
             ]
         assert "choices" not in response.json()["packet"] and "correction" not in response.json()["packet"]
         bad = post(client, "/api/launch/new", csrf, difficulty="invented", mode="governed")
         assert bad.status_code == 422
         bad_mode = post(client, "/api/launch/new", csrf, difficulty="easy", mode="invented")
         assert bad_mode.status_code == 422
+
+
+def test_front_door_marks_an_existing_server_run_for_safe_client_hydration():
+    with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
+        _, csrf = open_game(client)
+        created = post(client, "/api/launch/new", csrf, difficulty="easy", mode="governed")
+        assert created.status_code == 200
+        resumed = client.get("/")
+        assert '<meta name="stage-has-run" content="1">' in resumed.text
 
 
 def test_real_worker_and_gate_block_a_carried_finding_without_client_gate_input():
@@ -148,7 +159,7 @@ def test_corrected_exact_record_reaches_server_countdown_and_liftoff():
         run = post(client, "/api/launch/new", csrf, difficulty="easy", mode="governed").json()["run"]
         run = act(client, csrf, run, "prompt", prompt_id="E-C2")
         candidate = run["candidates"][run["candidate_id"]]
-        assert candidate["generated_by"] == "ELIZA · COLOSSUS · GUARDIAN"
+        assert candidate["generated_by"] == "ELIZA"
         assert candidate["prompt_history"][-1] == "E-C2"
         run = act(client, csrf, run, "check", name="WIND_BALANCE")
         receipt = next(reversed(run["receipts"].values()))
@@ -211,7 +222,7 @@ def test_terminal_reports_the_open_condition_without_mutating_the_run():
         assert client.get("/api/launch/state").json()["run"]["version"] == before
 
 
-def test_easy_terminal_teaches_the_single_correction_in_both_modes():
+def test_easy_terminal_reports_governed_evidence_without_solving_the_direct_route():
     with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
         _, csrf = open_game(client)
         run = post(client, "/api/launch/new", csrf, difficulty="easy", mode="governed").json()["run"]
@@ -221,14 +232,62 @@ def test_easy_terminal_teaches_the_single_correction_in_both_modes():
         )
         assert response.json()["terminal"] == {
             "speaker": "ELIZA",
-            "text": "THE CHECK FOUND +20 cm/s OF DRIFT. CHOOSE OPPOSE WIND · −0.20.",
+            "text": "THE EXECUTED CHECK FOUND A +20 cm/s RESIDUAL. ITS FINDING REMAINS BOUND TO THIS CANDIDATE.",
         }
 
         direct = post(client, "/api/launch/new", csrf, difficulty="easy", mode="direct").json()
         assert direct["terminal"] == {
             "speaker": "ELIZA",
-            "text": "WIND IS +0.20 m/s. CHOOSE AN EQUAL AND OPPOSITE STEERING COMMAND.",
+            "text": "MISSION CONDITION W2 AND THE ACTIVE CORRECTION ARE OPEN FOR HUMAN INSPECTION. COMPARE THEIR SIGN AND MAGNITUDE.",
         }
+        assert "−0.20" not in direct["terminal"]["text"]
+
+
+@pytest.mark.parametrize("difficulty,author", [
+    ("easy", "ELIZA"),
+    ("medium", "COLOSSUS"),
+    ("hard", "GUARDIAN"),
+])
+@pytest.mark.parametrize("mode", ["governed", "direct"])
+def test_preview_is_read_only_and_matches_both_route_candidates(difficulty, author, mode):
+    with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
+        _, csrf = open_game(client)
+        preview_response = post(client, "/api/launch/preview", csrf, difficulty=difficulty)
+        assert preview_response.status_code == 200
+        preview = preview_response.json()
+        assert set(preview) == {"difficulty", "candidate", "packet"}
+        assert preview["difficulty"] == difficulty
+        assert preview["candidate"]["generated_by"] == author
+        assert client.get("/api/launch/state").json()["run"] is None
+
+        created = post(
+            client,
+            "/api/launch/new",
+            csrf,
+            difficulty=difficulty,
+            mode=mode,
+            expected_candidate_sha256=preview["candidate"]["sha256"],
+        )
+        assert created.status_code == 200
+        run = created.json()["run"]
+        assert run["candidates"][run["candidate_id"]]["sha256"] == preview["candidate"]["sha256"]
+
+
+def test_wrong_preview_hash_cannot_replace_the_current_run():
+    with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
+        _, csrf = open_game(client)
+        current = post(client, "/api/launch/new", csrf, difficulty="easy", mode="governed").json()["run"]
+        rejected = post(
+            client,
+            "/api/launch/new",
+            csrf,
+            difficulty="hard",
+            mode="direct",
+            expected_candidate_sha256="0" * 64,
+        )
+        assert rejected.status_code == 409
+        retained = client.get("/api/launch/state").json()["run"]
+        assert (retained["run_id"], retained["version"]) == (current["run_id"], current["version"])
 
 
 def test_pad_hold_is_recoverable_and_terminal_reports_the_open_condition():

@@ -38,25 +38,25 @@ PACKETS = MappingProxyType({
                    cutoff="ONBOARD"),
 })
 
-AGENT_NAME = "ELIZA · COLOSSUS · GUARDIAN"
+AGENT_NAMES = MappingProxyType({"easy": "ELIZA", "medium": "COLOSSUS", "hard": "GUARDIAN"})
 PROMPTS = MappingProxyType({
     "easy": (
-        {"id": "E-C1", "group": "correction", "label": "RETAIN 0.00", "patch": {"correction_cm_s": 0}},
-        {"id": "E-C2", "group": "correction", "label": "OPPOSE WIND · −0.20", "patch": {"correction_cm_s": -20}},
-        {"id": "E-C3", "group": "correction", "label": "FOLLOW WIND · +0.20", "patch": {"correction_cm_s": 20}},
+        {"id": "E-C1", "group": "correction", "label": "KEEP 0.00", "patch": {"correction_cm_s": 0}},
+        {"id": "E-C2", "group": "correction", "label": "SET −0.20", "patch": {"correction_cm_s": -20}},
+        {"id": "E-C3", "group": "correction", "label": "SET +0.20", "patch": {"correction_cm_s": 20}},
     ),
     "medium": (
-        {"id": "M-C1", "group": "correction", "label": "RETAIN THE RECEIVED STEERING", "patch": {"correction_cm_s": -2000}},
-        {"id": "M-C2", "group": "correction", "label": "APPLY STEERING PLAN ALPHA", "patch": {"correction_cm_s": -20}},
-        {"id": "M-C3", "group": "correction", "label": "APPLY STEERING PLAN BETA", "patch": {"correction_cm_s": 20}},
+        {"id": "M-C1", "group": "correction", "label": "KEEP −20.00", "patch": {"correction_cm_s": -2000}},
+        {"id": "M-C2", "group": "correction", "label": "SET −0.20", "patch": {"correction_cm_s": -20}},
+        {"id": "M-C3", "group": "correction", "label": "SET +0.20", "patch": {"correction_cm_s": 20}},
     ),
     "hard": (
-        {"id": "H-C1", "group": "correction", "label": "APPLY STEERING PLAN ALPHA", "patch": {"correction_cm_s": -20}},
-        {"id": "H-C2", "group": "correction", "label": "APPLY STEERING PLAN BETA", "patch": {"correction_cm_s": 20}},
-        {"id": "H-O1", "group": "observation", "label": "BIND OBSERVATION W1", "patch": {"condition_id": "W1"}},
-        {"id": "H-O2", "group": "observation", "label": "BIND OBSERVATION W2", "patch": {"condition_id": "W2"}},
-        {"id": "H-T1", "group": "cutoff", "label": "BIND CUTOFF CLOCK C1", "patch": {"cutoff_clock": "FLIGHT"}},
-        {"id": "H-T2", "group": "cutoff", "label": "BIND CUTOFF CLOCK C2", "patch": {"cutoff_clock": "ONBOARD"}},
+        {"id": "H-C1", "group": "correction", "label": "SET −0.20", "patch": {"correction_cm_s": -20}},
+        {"id": "H-C2", "group": "correction", "label": "SET +0.20", "patch": {"correction_cm_s": 20}},
+        {"id": "H-O1", "group": "observation", "label": "USE WIND W1", "patch": {"condition_id": "W1"}},
+        {"id": "H-O2", "group": "observation", "label": "USE WIND W2", "patch": {"condition_id": "W2"}},
+        {"id": "H-T1", "group": "cutoff", "label": "USE FLIGHT CLOCK", "patch": {"cutoff_clock": "FLIGHT"}},
+        {"id": "H-T2", "group": "cutoff", "label": "USE ONBOARD CLOCK", "patch": {"cutoff_clock": "ONBOARD"}},
     ),
 })
 
@@ -69,7 +69,7 @@ def _candidate(difficulty, revision, correction, condition="W2", cutoff="FLIGHT"
     result = {"id": f"{difficulty}-A{revision}", "revision": revision,
               "config_id": config or PACKETS[difficulty].config, "condition_id": condition,
               "correction_cm_s": correction, "cutoff_clock": cutoff,
-              "generated_by": AGENT_NAME, "prompt_history": list(prompts)}
+              "generated_by": AGENT_NAMES[difficulty], "prompt_history": list(prompts)}
     return {**result, "sha256": _digest(result)}
 
 
