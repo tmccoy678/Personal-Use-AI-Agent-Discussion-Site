@@ -836,6 +836,17 @@
     } catch (_) { /* next pulse retries */ }
   }
 
+  window.addEventListener('resize', () => {
+    if (!snapshot?.run || missionScreen.hidden) return;
+    const rocket = $('[data-rocket]');
+    const transition = rocket.style.transition;
+    rocket.style.transition = 'none';
+    renderFlight(snapshot.run);
+    // Settle the resized position before restoring flight motion.
+    rocket.getBoundingClientRect();
+    rocket.style.transition = transition;
+  });
+
   if (hasInitialRun) window.setTimeout(poll, 100);
   window.setInterval(poll, 750);
 })();
