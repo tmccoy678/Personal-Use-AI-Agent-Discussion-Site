@@ -1,4 +1,5 @@
 """Real fixed scenarios, mission handoffs, and public/private host separation."""
+import hashlib
 import json
 from html import escape
 import re
@@ -142,6 +143,21 @@ def test_stage_host_cannot_reach_lab_routes(env):
         health = client.get("/healthz")
         assert health.status_code == 200 and health.json() == {"ok": True}
         assert "set-cookie" not in health.headers
+
+
+def test_stage_uses_the_original_logo_for_tab_rocket_and_footer():
+    logo_url = "/dobeworks-logo-7cfd562d0370.jpg"
+    with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
+        logo = client.get(logo_url)
+        assert logo.status_code == 200
+        assert logo.headers["content-type"] == "image/jpeg"
+        assert hashlib.sha256(logo.content).hexdigest() == "7cfd562d0370701fad86c0bfea32515e7becc7ce682fe4db51a666ba9b0dded3"
+        assert "immutable" in logo.headers["cache-control"]
+        assert "set-cookie" not in logo.headers
+        page = client.get("/")
+        assert page.text.count(logo_url) == 3
+        assert "img-src 'self'" in page.headers["content-security-policy"]
+        assert page.headers["cache-control"] == "no-store"
 
 
 def test_complete_workflow_and_invalidation(real_cores, monkeypatch):
