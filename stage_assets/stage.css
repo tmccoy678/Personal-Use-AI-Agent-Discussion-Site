@@ -96,7 +96,7 @@ input::placeholder{color:#a8bbcb;opacity:1}
 @media(prefers-reduced-motion:reduce){.signal-packet,.handoff-signal,.launch-plume{animation:none!important}}
 @media(forced-colors:active){.signal-diagram{color:CanvasText}.signal-paper{fill:Canvas}.signal-route,.signal-receiver,.signal-pivot{stroke:CanvasText}.handoff-signal{border-color:CanvasText}}
 
-/* The supplied JPG is displayed unchanged, with its original proportions. */
+/* The traced logo keeps the original proportions on a transparent field. */
 .rocket{position:relative}
 .rocket-logo{position:absolute;left:8ch;top:6em;width:4ch;height:4ch;object-fit:contain;border-radius:50%}
 .footer-logo{display:block;width:80px;height:80px;object-fit:contain;border-radius:50%;margin:0 0 12px}

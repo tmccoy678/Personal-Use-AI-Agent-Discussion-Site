@@ -196,7 +196,8 @@ def render(state, voice, reply, question, extra=""):
             f'<p class="question">{escape(question)}</p><p class="reply" role="status" aria-live="polite">{escape(reply)}</p></div>')
 
     return ('''<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'''
-        f'<title>{document_title}</title><link rel="icon" type="image/jpeg" href="/dobeworks-logo-7cfd562d0370.jpg"><link rel="stylesheet" href="/stage.css"></head><body><main>'
+        f'<title>{document_title}</title><link rel="icon" type="image/png" sizes="16x16" href="/dobeworks-favicon-015c1a2f70b6-16.png">'
+        '<link rel="icon" type="image/png" sizes="32x32" href="/dobeworks-favicon-45fd62c64976-32.png"><link rel="stylesheet" href="/stage.css"></head><body><main>'
         '<header><div class="wordmark">D O B E W O R K S</div>'
         f'<div class="voice">“{escape(voice["text"])}”</div><div class="attribution">{escape(voice["attribution"])}</div></header>'
         '<p class="station">MARINER 1 TEACHING RECONSTRUCTION · ONE MARK · FOUR MOVES · TWO ENDINGS</p>'
@@ -207,7 +208,7 @@ def render(state, voice, reply, question, extra=""):
         f'<div class="lesson-actions">{actions}</div></div><div class="arcade-vehicle">'
         '<pre class="lesson-rocket" aria-label="Text rocket carrying the DobeWorks logo">'
         '       /\\\n      /  \\\n     /    \\\n     | DW |\n     |----|\n     |    |\n    /|    |\\\n   /_|____|_\\\n      /__\\\n'
-        '<img class="lesson-rocket-logo" src="/dobeworks-logo-7cfd562d0370.jpg" alt="DobeWorks logo" width="40" height="40"></pre>'
+        '<img class="lesson-rocket-logo" src="/dobeworks-logo-a56f5aab2111.svg" alt="DobeWorks logo" width="40" height="40"></pre>'
         f'<p class="arcade-pad">────────────<br>{escape(rocket_label)}</p></div></section>{historical}{successor}{reveal}{contrast}'
         f'{mechanism}{unlocked}{applications}{guide}'
         '<details class="lesson-info"><summary>SOURCES, LIMITS &amp; EVIDENCE</summary>'
@@ -217,7 +218,7 @@ def render(state, voice, reply, question, extra=""):
         'DEGS evaluates the adapted read-only warning record. The comparison never executes or promotes work.</p>'
         '<p><a href="/evidence">RECORDED INPUTS &amp; OUTPUTS</a> · <a href="/package">INSPECT THE NOTE AND CONTEXT</a> · '
         '<a href="/sources">FROZEN SOURCE IDENTITIES</a></p></details>' + extra +
-        '<footer><img class="footer-logo" src="/dobeworks-logo-7cfd562d0370.jpg" alt="DobeWorks logo — Marie surrounded by hearts" width="80" height="80" loading="lazy">'
+        '<footer><img class="footer-logo" src="/dobeworks-logo-a56f5aab2111.svg" alt="DobeWorks logo — Marie surrounded by hearts" width="80" height="80" loading="lazy">'
         'REAL FROZEN COMPONENTS · FICTIONAL MISSION · NO MODEL CALLS<br>'
         '<a href="https://doi.org/10.1145/365153.365168">ELIZA, WEIZENBAUM 1966</a> · '
         '<a href="https://catalog.afi.com/Film/23505-THE-FORBIN-PROJECT">COLOSSUS: THE FORBIN PROJECT, 1970</a><br>'

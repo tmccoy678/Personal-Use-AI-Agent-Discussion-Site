@@ -151,17 +151,32 @@ def test_stage_host_cannot_reach_lab_routes(env):
         assert "set-cookie" not in health.headers
 
 
-def test_stage_uses_the_original_logo_for_tab_rocket_and_footer():
-    logo_url = "/dobeworks-logo-7cfd562d0370.jpg"
+def test_stage_uses_content_addressed_transparent_logo_and_favicons():
+    logo_url = "/dobeworks-logo-a56f5aab2111.svg"
+    favicon_16_url = "/dobeworks-favicon-015c1a2f70b6-16.png"
+    favicon_32_url = "/dobeworks-favicon-45fd62c64976-32.png"
     with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
         logo = client.get(logo_url)
         assert logo.status_code == 200
-        assert logo.headers["content-type"] == "image/jpeg"
-        assert hashlib.sha256(logo.content).hexdigest() == "7cfd562d0370701fad86c0bfea32515e7becc7ce682fe4db51a666ba9b0dded3"
+        assert logo.headers["content-type"] == "image/svg+xml"
+        assert hashlib.sha256(logo.content).hexdigest() == "a56f5aab211143a64a5360f4b2fd99232ec41c6807a41c57746e23f762f8ed15"
+        assert b"<script" not in logo.content.lower()
+        assert not re.search(rb'(?:href|src)=["\'](?:https?:|//)', logo.content, re.I)
         assert "immutable" in logo.headers["cache-control"]
         assert "set-cookie" not in logo.headers
+
+        favicon_16 = client.get(favicon_16_url)
+        favicon_32 = client.get(favicon_32_url)
+        assert favicon_16.headers["content-type"] == "image/png"
+        assert favicon_32.headers["content-type"] == "image/png"
+        assert hashlib.sha256(favicon_16.content).hexdigest() == "015c1a2f70b68d6ae2a2d23b5e92120cba5d3c3654e27756b6a900af455d99a9"
+        assert hashlib.sha256(favicon_32.content).hexdigest() == "45fd62c64976486cd7a741b6a4d936a1a791d2290ad673d4e5af70e2d711fa6d"
+        assert "immutable" in favicon_16.headers["cache-control"]
+        assert "immutable" in favicon_32.headers["cache-control"]
         page = client.get("/")
-        assert page.text.count(logo_url) == 3
+        assert page.text.count(logo_url) == 2
+        assert page.text.count(favicon_16_url) == 1
+        assert page.text.count(favicon_32_url) == 1
         assert "img-src 'self'" in page.headers["content-security-policy"]
         assert page.headers["cache-control"] == "no-store"
 

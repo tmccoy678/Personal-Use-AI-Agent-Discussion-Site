@@ -19,6 +19,12 @@ from stage_mission import check_sources, digest, encode, mission_package
 from stage_lesson import render as render_lesson
 
 ROOT = Path(__file__).resolve().parent
+LOGO_URL = "/dobeworks-logo-a56f5aab2111.svg"
+FAVICON_16_URL = "/dobeworks-favicon-015c1a2f70b6-16.png"
+FAVICON_32_URL = "/dobeworks-favicon-45fd62c64976-32.png"
+IMMUTABLE_ASSET_PATHS = {
+    "/dobeworks-logo-7cfd562d0370.jpg", LOGO_URL, FAVICON_16_URL, FAVICON_32_URL,
+}
 SCENARIOS = {"altered": "TRANSCRIPTION EXERCISE", "clean": "INTACT BASELINE", "stale": "STALE TELEMETRY",
              "missing": "MISSING EVIDENCE", "unresolved": "OPEN REVIEW ITEM", "rbar": "R-BAR HANDOFF", "rbar-fixed": "R-BAR CORRECTED"}
 VISIBLE_SCENARIOS = {"rbar": "MISSING R-BAR · PRIMARY CASE", "altered": "0 → 1 SOURCE TRANSCRIPTION · SECOND CASE",
@@ -747,7 +753,7 @@ async def program(state, command):
 @app.middleware("http")
 async def headers(request, call_next):
     response = await call_next(request)
-    response.headers.update({"Cache-Control": "public, max-age=31536000, immutable" if request.url.path == "/dobeworks-logo-7cfd562d0370.jpg" else "no-store", "X-Content-Type-Options": "nosniff",
+    response.headers.update({"Cache-Control": "public, max-age=31536000, immutable" if request.url.path in IMMUTABLE_ASSET_PATHS else "no-store", "X-Content-Type-Options": "nosniff",
         "Referrer-Policy": "same-origin", "X-Frame-Options": "DENY",
         "Content-Security-Policy": "default-src 'none'; style-src 'self'; img-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"})
     return response
@@ -770,6 +776,21 @@ async def css():
 @app.get("/dobeworks-logo-7cfd562d0370.jpg")
 async def logo():
     return Response((ROOT / "stage_assets/dobeworks-logo.jpg").read_bytes(), media_type="image/jpeg")
+
+
+@app.get(LOGO_URL)
+async def vector_logo():
+    return Response((ROOT / "stage_assets/dobeworks-logo.svg").read_bytes(), media_type="image/svg+xml")
+
+
+@app.get(FAVICON_16_URL)
+async def favicon_16():
+    return Response((ROOT / "stage_assets/dobeworks-favicon-16.png").read_bytes(), media_type="image/png")
+
+
+@app.get(FAVICON_32_URL)
+async def favicon_32():
+    return Response((ROOT / "stage_assets/dobeworks-favicon-32.png").read_bytes(), media_type="image/png")
 
 
 @app.post("/")
