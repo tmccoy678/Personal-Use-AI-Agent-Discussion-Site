@@ -1097,7 +1097,7 @@ async def launch_preview(request: Request):
     if not _valid_csrf(body["csrf"], state):
         return _launch_error("Session expired", 403)
     difficulty = body["difficulty"]
-    if difficulty not in launch_model.PACKETS:
+    if not isinstance(difficulty, str) or difficulty not in launch_model.PACKETS:
         return _launch_error("Choose one supplied packet")
     preview = launch_model.new_run(difficulty, f"preview-{difficulty}", "governed")
     candidate = deepcopy(preview["candidates"][preview["candidate_id"]])
