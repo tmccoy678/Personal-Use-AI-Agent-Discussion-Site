@@ -104,7 +104,7 @@ input::placeholder{color:#a8bbcb;opacity:1}
 /* Public mission arcade: one short loop before the full evidence station. */
 .plain-mechanism{margin:18px 0 24px;padding:18px;border:3px double var(--stage-rule);background:#0d1c2d}
 .eyebrow{margin:0 0 7px;color:var(--stage-signal);font-size:10px;letter-spacing:.12em}
-.plain-mechanism h2,.applications h2,.history-alert h2,.successor-archive h2,.flow-title,.lesson-side h2{font:inherit;color:#f0f4f7;font-size:16px;line-height:1.55;margin:0}
+.plain-mechanism h2,.applications h2,.history-alert h2,.successor-archive h2{font:inherit;color:#f0f4f7;font-size:16px;line-height:1.55;margin:0}
 .plain-mechanism ol{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;list-style:none;padding:0;margin:16px 0 0}
 .plain-mechanism li{border:1px solid var(--stage-divider);padding:10px;min-width:0}
 .plain-mechanism b,.plain-mechanism span{display:block}

@@ -211,6 +211,12 @@ def test_public_mission_cannot_unlock_the_engineering_station_early():
         assert "THE TASK SAYS FINISHED. ONE WARNING IS STILL OPEN." in direct_unlock.text
         assert "SOFTWARE / TELEMETRY DESK" not in direct_unlock.text
 
+        csrf = re.search(r'name="csrf" value="([^"]+)"', direct_unlock.text)[1]
+        forged = client.post("/", data={"command": "01", "scenario": "clean", "csrf": csrf})
+        assert "THE TASK SAYS FINISHED. ONE WARNING IS STILL OPEN." in forged.text
+        assert "SOFTWARE / TELEMETRY DESK" not in forged.text
+        assert client.get("/api/evidence").json()["fixed_engine_run"] is None
+
 
 def test_public_mission_bypass_reveals_history_without_overriding_the_gate():
     with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:

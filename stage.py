@@ -832,6 +832,8 @@ async def interact(request: Request):
         return page(request, key, state, reply="THIS MISSION RECORD IS FULL. USE 00 FOR A NEW MISSION.")
     state["busy"] = True
     try:
+        if scenario != state["scenario"] and state["lesson_mode"]:
+            return page(request, key, state, reply="COMPLETE THE FOUR-MOVE MISSION BEFORE CHOOSING AN ENGINEERING PACKET.")
         if scenario != state["scenario"]:
             state.update(scenario=scenario, completed=[], poll={}, report=None, cores=None, launched=False,
                          tested_package=None, weather_clear=False, counterfactual=False, lesson_mode=False, comparison=False)
