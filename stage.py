@@ -879,7 +879,7 @@ def _advance_launch(state):
     started = state.get("launch_started_monotonic")
     if current is None or started is None:
         return None
-    elapsed = min(7200, max(current["elapsed_s"], int(time.monotonic() - started)))
+    elapsed = max(current["elapsed_s"], int(time.monotonic() - started))
     state["launch_model"] = launch_model.advance(current, elapsed)
     return state["launch_model"]
 

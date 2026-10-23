@@ -112,7 +112,9 @@ def _guard(state, run_id, version):
 def _commit(state, action, choices):
     state["version"] += 1
     state["history"].append({"version": state["version"], "elapsed_s": state["elapsed_s"],
-                             "action": action, "choices": deepcopy(choices)})
+                             "action": action, "choices": deepcopy(choices),
+                             "after": {key: deepcopy(state[key]) for key in
+                                       ("phase", "candidate_id", "record_id", "authority", "outcome")}})
     return state
 
 
@@ -181,10 +183,12 @@ def _support(state):
 
 
 def receive_gate(state, record_id, output, *, run_id, version):
-    """TRUSTED adapter seam: retain actual DEGS output for this exact projection.
+    """TRUSTED adapter seam: retain the evaluated receipt for this exact projection.
 
     The caller must execute/validate DEGS and bind its input to this record. The
-    model cannot authenticate a caller; never expose this function as a form action.
+    top-level decision is the enforced result. If the adapter rejects binding,
+    retain stock DEGS's unmodified output separately under ``degs`` in the receipt.
+    The model cannot authenticate a caller; never expose this as a form action.
     """
     _guard(state, run_id, version)
     if (state["mode"] != "governed" or state["phase"] not in {"PAD", "COUNTDOWN"}
@@ -278,8 +282,8 @@ def _liftoff(state):
 
 def advance(state, elapsed_s):
     """Advance absolute SERVER attempt time; no I/O or wall-clock access here."""
-    if type(elapsed_s) is not int or not state["elapsed_s"] <= elapsed_s <= 7200:
-        raise InvalidCommand("Server time must be a monotonic integer within session lifetime")
+    if type(elapsed_s) is not int or elapsed_s < state["elapsed_s"]:
+        raise InvalidCommand("Server time must be a monotonic integer")
     result = deepcopy(state)
     result["elapsed_s"] = elapsed_s
     until = result["vehicle"]["conditioning_until"]
@@ -390,6 +394,9 @@ def act(state, action, *, run_id, version, **choices):
     elif action == "check" and set(choices) == {"name"}:
         receipt = _check(state, choices["name"])
         result["receipts"][receipt["id"]] = receipt
+        result["authority"] = None
+        result["record_id"] = None
+        _cancel_countdown(result)
     elif action == "select" and set(choices) == {"candidate_id"}:
         key = choices["candidate_id"]
         if not isinstance(key, str) or key not in state["candidates"]:

@@ -11,6 +11,7 @@ from pathlib import Path
 import sys
 import tempfile
 
+from stage_launch_model import PACKETS
 from stage_mission import VENDOR, check_sources, digest, encode, load_module, stage_inventory
 
 
@@ -89,7 +90,7 @@ def stage_candidate(state):
     }
 
 
-def _classification(candidate, record):
+def _classification(state, candidate, record):
     receipts = record.get("receipts", [])
     mismatched = any(
         receipt.get("candidate_sha256") != candidate.get("sha256")
@@ -97,13 +98,23 @@ def _classification(candidate, record):
         or receipt.get("condition_id") != candidate.get("condition_id")
         for receipt in receipts
     )
+    current_receipts = [
+        receipt for receipt in state.get("receipts", {}).values()
+        if receipt.get("candidate_sha256") == candidate.get("sha256")
+        and receipt.get("config_id") == candidate.get("config_id")
+        and receipt.get("condition_id") == candidate.get("condition_id")
+    ]
+    required_checks = set(PACKETS[state["difficulty"]].checks)
+    projected_checks = {receipt.get("name") for receipt in receipts}
     known_findings = {
-        finding for receipt in receipts if receipt.get("result") == "FAIL"
+        finding for receipt in current_receipts if receipt.get("result") == "FAIL"
         for finding in receipt.get("finding_ids", [])
     }
     carried = set(record.get("finding_ids", []))
     if mismatched:
         return "RECEIPT_MISBOUND"
+    if required_checks - projected_checks:
+        return "RECEIPT_OMITTED"
     if known_findings - carried:
         return "FINDING_OMITTED"
     if carried:
@@ -179,7 +190,7 @@ def evaluate_projection(state, staged):
     ):
         raise AdapterError("The DobeWorks receipt does not bind the projected candidate")
 
-    classification = _classification(candidate, record)
+    classification = _classification(state, candidate, record)
     task = _task(record, classification)
     binding = {
         "run_id": state["run_id"],
@@ -212,7 +223,9 @@ def evaluate_projection(state, staged):
     raw_decision = gate["evaluate_decision"]
     if raw_decision not in {"PASS", "BLOCKED", "FAIL", "INVALID"}:
         raise AdapterError("DEGS returned an unsupported decision")
-    decision = "INVALID" if classification in {"FINDING_OMITTED", "RECEIPT_MISBOUND"} else raw_decision
+    decision = "INVALID" if classification in {
+        "FINDING_OMITTED", "RECEIPT_MISBOUND", "RECEIPT_OMITTED",
+    } else raw_decision
     return {
         "schema": "dobeworks.stage.launch-gate-receipt.v1",
         "decision": decision,

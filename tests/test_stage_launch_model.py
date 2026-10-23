@@ -311,7 +311,7 @@ def test_gate_arrival_must_be_current_and_finite_and_cannot_reuse_acceptance():
     state = project(state)
     with pytest.raises(model.InvalidCommand):
         model.receive_gate(state, record_id, {"decision": "PASS"}, run_id=state["run_id"], version=state["version"])
-    for elapsed in [True, -1, 7201, 1.5]:
+    for elapsed in [True, -1, 1.5]:
         with pytest.raises(model.InvalidCommand):
             model.advance(state, elapsed)
     for difficulty in [None, [], "HARD"]:
@@ -337,7 +337,7 @@ def test_hold_freezes_countdown_and_resume_has_a_new_generation_and_liftoff_orig
     assert state["launch"]["started_s"] == 57 and state["flight"]["t"] == 0
 
 
-@pytest.mark.parametrize("operation", ["edit", "select", "project", "gate"])
+@pytest.mark.parametrize("operation", ["edit", "select", "project", "gate", "check"])
 def test_changed_candidate_record_or_gate_cancels_the_pending_launch(operation):
     state = model.new_run("easy", "cancel-clock")
     state = act(state, "check", name="WIND_BALANCE")
@@ -350,6 +350,8 @@ def test_changed_candidate_record_or_gate_cancels_the_pending_launch(operation):
         state = act(state, "select", candidate_id=state["candidate_id"])
     elif operation == "project":
         state = act(state, "project", receipt_ids=["check-1"], finding_ids=[])
+    elif operation == "check":
+        state = act(state, "check", name="WIND_BALANCE")
     else:
         state = gate(state, "BLOCKED")
     assert state["countdown"] is None and state["phase"] == "PAD"
@@ -425,3 +427,27 @@ def test_corrected_candidate_has_the_same_full_flight_trace_in_both_modes():
     assert governed["phase"] == direct["phase"] == "COMPLETE"
     assert governed["flight"] == direct["flight"]
     assert governed["outcome"]["flight"] == direct["outcome"]["flight"] == "NOMINAL"
+
+
+@pytest.mark.parametrize("mode,authority", [("governed", "override"), ("direct", "accept")])
+def test_long_preparation_keeps_the_full_flight_in_both_modes(mode, authority):
+    state = model.new_run("easy", "long-preparation", mode=mode)
+    state = act(state, "prompt", prompt_id="E-C2")
+    state = hardware(act(state, authority))
+    state = model.advance(state, 7190)
+    state = act(state, "ignite")
+    state = model.advance(state, 7200)
+    assert state["flight"]["t"] == 0
+    state = model.advance(state, 7300)
+    assert state["outcome"]["flight"] == "NOMINAL" and state["flight"]["t"] == 100
+
+
+def test_denied_ignition_remains_in_history_after_the_current_outcome_changes():
+    state = hardware(model.new_run("easy", "attempt-record"))
+    state = act(state, "ignite")
+    state = liftoff(act(state, "override"))
+    state = model.advance(state, state["elapsed_s"] + 100)
+    attempts = [entry for entry in state["history"] if entry["action"] == "ignite"]
+    assert attempts[0]["after"]["outcome"]["flight"] == "PAD_HOLD"
+    assert attempts[0]["after"]["outcome"]["reasons"] == ["LAUNCH AUTHORITY ABSENT"]
+    assert state["outcome"]["flight"] == "RANGE_ABORT"

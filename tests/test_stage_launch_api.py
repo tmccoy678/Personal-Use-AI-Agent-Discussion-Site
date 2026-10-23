@@ -128,6 +128,20 @@ def test_omitted_finding_is_visible_and_cannot_receive_ordinary_acceptance():
         assert overridden["authority"]["action"] == "OVERRIDE"
 
 
+def test_omitted_required_receipt_is_invalid_even_when_raw_degs_passes():
+    with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
+        _, csrf = open_game(client)
+        run = post(client, "/api/launch/new", csrf, difficulty="easy", mode="governed").json()["run"]
+        run = act(client, csrf, run, "check", name="WIND_BALANCE")
+        run = act(client, csrf, run, "stage")
+        run = act(client, csrf, run, "project", receipt_ids=[], finding_ids=[])
+        assert run["gate"]["decision"] == "INVALID"
+        assert run["gate"]["raw_degs_decision"] == "PASS"
+        assert run["gate"]["adapter_classification"] == "RECEIPT_OMITTED"
+        held = act(client, csrf, run, "accept")
+        assert held["authority"]["action"] == "HOLD"
+
+
 def test_corrected_exact_record_reaches_server_countdown_and_liftoff():
     with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
         _, csrf = open_game(client)
@@ -153,6 +167,24 @@ def test_corrected_exact_record_reaches_server_countdown_and_liftoff():
         session["launch_started_monotonic"] -= 10
         run = client.get("/api/launch/state").json()["run"]
         assert run["phase"] == "FLIGHT" and run["flight"]["t"] == 0
+
+
+def test_server_time_does_not_freeze_a_flight_after_a_long_preparation():
+    with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
+        _, csrf = open_game(client)
+        run = post(client, "/api/launch/new", csrf, difficulty="easy", mode="direct").json()["run"]
+        run = act(client, csrf, run, "prompt", prompt_id="E-C2")
+        run = act(client, csrf, run, "accept")
+        run = act(client, csrf, run, "condition")
+        session = stage.SESSIONS[client.cookies.get(stage.COOKIE)]
+        session["launch_started_monotonic"] -= 7190
+        run = client.get("/api/launch/state").json()["run"]
+        run = act(client, csrf, run, "arm")
+        run = act(client, csrf, run, "ignite")
+        session["launch_started_monotonic"] -= 110
+        run = client.get("/api/launch/state").json()["run"]
+        assert run["elapsed_s"] >= 7300
+        assert run["phase"] == "COMPLETE" and run["outcome"]["flight"] == "NOMINAL"
 
 
 def test_browser_can_prompt_the_agent_but_cannot_write_candidate_values_directly():

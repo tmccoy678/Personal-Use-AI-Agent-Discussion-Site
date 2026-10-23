@@ -97,3 +97,12 @@ def test_omission_and_misbinding_are_adapter_defects_not_claimed_degs_detection(
     assert misbound_result["raw_degs_decision"] == "PASS"
     assert misbound_result["adapter_classification"] == "RECEIPT_MISBOUND"
     assert misbound_result["degs"]["decision"] == "PASS"
+
+    receipt_omitted = sample_state(result="FAIL", carry=False)
+    receipt_omitted["records"]["record-1"]["receipts"] = []
+    receipt_omitted_result = adapter.evaluate_projection(
+        receipt_omitted, adapter.stage_candidate(receipt_omitted)
+    )
+    assert receipt_omitted_result["decision"] == "INVALID"
+    assert receipt_omitted_result["raw_degs_decision"] == "PASS"
+    assert receipt_omitted_result["adapter_classification"] == "RECEIPT_OMITTED"
