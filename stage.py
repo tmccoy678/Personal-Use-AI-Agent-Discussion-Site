@@ -836,15 +836,14 @@ async def interact(request: Request):
             state.update(scenario=scenario, completed=[], poll={}, report=None, cores=None, launched=False,
                          tested_package=None, weather_clear=False, counterfactual=False, lesson_mode=False, comparison=False)
             record(state, "CONFIGURATION ENGINEER", "PACKAGE REPLACED — ALL RECEIPTS INVALIDATED", "NEW BASELINE REQUIRED")
-        if question in LESSON_ACTIONS:
+        if state["lesson_mode"] and question in LESSON_ACTIONS:
             result = await lesson_program(state, question)
         elif question == "inspect" and state["report"]:
             result = {"title": "PACKAGE INSPECTION", "lines": baseline_lines(state["report"]),
                       "show_package": True, "package_query": query, "focus_package": True,
                       "reply": "INSPECT THE PACKAGE. SEARCH DOES NOT ADVANCE A HANDOFF."}
         elif state["lesson_mode"] and question in PROGRAMS:
-            state["lesson_mode"] = False
-            result = await program(state, question)
+            result = {"reply": "COMPLETE THE FOUR-MOVE MISSION TO UNLOCK THE FULL ENGINEERING STATION."}
         elif question in PROGRAMS or question in POLL or question in CASE_ACTIONS:
             result = await program(state, question)
         else:
@@ -864,6 +863,8 @@ async def lesson_program(state, command):
             await program(state, step)
         return {"reply": "THE TASK COMPLETED. THE OPEN FINDING STILL BLOCKS THE HANDOFF."}
     if command == "lesson-mission":
+        if not state["launched"]:
+            return {"reply": "COMPLETE THE FOUR-MOVE MISSION BEFORE OPENING THE FULL ENGINEERING STATION."}
         state.update(new_state())
         state.update(lesson_mode=False, scenario="rbar")
         return {"reply": "FULL ENGINEERING STATION OPEN. BEGIN WITH 01."}

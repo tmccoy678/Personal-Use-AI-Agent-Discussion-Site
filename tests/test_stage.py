@@ -32,7 +32,10 @@ def real_cores():
 
 
 def command(client, number, scenario="clean", **kwargs):
-    csrf = re.search(r'name="csrf" value="([^"]+)"', client.get("/evidence").text)[1]
+    page = client.get("/evidence")
+    session_key = client.cookies.get(stage.COOKIE)
+    stage.SESSIONS[session_key]["lesson_mode"] = False
+    csrf = re.search(r'name="csrf" value="([^"]+)"', page.text)[1]
     return client.post("/", data={"command": number, "scenario": scenario, "csrf": csrf}, **kwargs)
 
 
@@ -196,6 +199,19 @@ def test_public_front_door_starts_with_a_plain_language_play_loop():
         assert "<script" not in page.text
 
 
+def test_public_mission_cannot_unlock_the_engineering_station_early():
+    with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
+        opening = client.get("/")
+        direct_program = lesson_command(client, opening, "01")
+        assert "THE TASK SAYS FINISHED. ONE WARNING IS STILL OPEN." in direct_program.text
+        assert "SOFTWARE / TELEMETRY DESK" not in direct_program.text
+        assert client.get("/api/evidence").json()["fixed_engine_run"] is None
+
+        direct_unlock = lesson_command(client, direct_program, "lesson-mission")
+        assert "THE TASK SAYS FINISHED. ONE WARNING IS STILL OPEN." in direct_unlock.text
+        assert "SOFTWARE / TELEMETRY DESK" not in direct_unlock.text
+
+
 def test_public_mission_bypass_reveals_history_without_overriding_the_gate():
     with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
         opening = client.get("/")
@@ -214,6 +230,7 @@ def test_public_mission_bypass_reveals_history_without_overriding_the_gate():
         assert before["completed_handoffs"] == ["01", "02"]
 
         bypass = lesson_command(client, held, "lesson-bypass")
+        assert "Range Safety Officer" in bypass.text
         assert "T+294.5 seconds" in bypass.text
         assert "guidance-antenna fault" in bypass.text
         assert "omitted overbar" in bypass.text
@@ -249,12 +266,16 @@ def test_public_mission_requires_fix_then_acceptance_before_successful_flight():
         assert "DOI RESOLVER" in launched.text
         assert "CONTEXT CHECK" in launched.text
         assert "TEST OR REVIEW" in launched.text
+        assert launched.text.count("DobeWorks") >= 4
+        assert launched.text.count("DEGS") >= 4
         assert "THE REAL MARINER 2 FOLLOW-ON" in launched.text
         assert "first successful planetary science mission" in launched.text
         assert "does not call the entire spacecraft flawless" in launched.text
         final = client.get("/api/evidence").json()
         assert final["completed_handoffs"] == ["01", "02", "03", "04", "05"]
         assert final["simulated_flight_completed"] is True
+        station = lesson_command(client, launched, "lesson-mission")
+        assert "SOFTWARE / TELEMETRY DESK" in station.text
 
 
 def test_complete_workflow_and_invalidation(real_cores, monkeypatch):
@@ -271,6 +292,8 @@ def test_complete_workflow_and_invalidation(real_cores, monkeypatch):
         assert client.get("/api/evidence").json()["completed_handoffs"] == ["01", "02", "03", "04"]
         command(client, "accept")
         assert client.get("/api/evidence").json()["completed_handoffs"] == ["01", "02", "03", "04", "05"]
+        command(client, "lesson-launch")
+        assert client.get("/api/evidence").json()["simulated_flight_completed"] is False
         command(client, "director")
         assert not client.get("/api/evidence").json()["fictional_role_poll"]
         weather = command(client, "weather")

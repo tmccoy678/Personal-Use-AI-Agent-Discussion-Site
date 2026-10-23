@@ -63,7 +63,7 @@ def render(state, voice, reply, question, extra=""):
         phase = "bypassed"
         historical = ('<section class="history-alert" aria-labelledby="mariner-one-title">'
             '<p class="eyebrow">THE REAL MARINER 1 OUTCOME</p>'
-            '<h2 id="mariner-one-title">The rocket veered off course and was destroyed for safety at T+294.5 seconds.</h2>'
+            '<h2 id="mariner-one-title">The rocket veered off course, and the Range Safety Officer destroyed it at T+294.5 seconds.</h2>'
             '<p>NASA identifies two problems: a guidance-antenna fault and a software error involving an omitted overbar on R. '
             'It was not a missing hyphen. The real team did not use this demo and did not make the choice shown above. '
             'DobeWorks and DEGS did not exist in 1962.</p><p><a href="https://science.nasa.gov/mission/mariner-1/">READ NASA\'S MARINER 1 ACCOUNT</a></p></section>')
@@ -177,11 +177,11 @@ def render(state, voice, reply, question, extra=""):
         applications = ('<section class="applications" aria-labelledby="applications-title"><p class="eyebrow">THE SAME RULE ANYWHERE WORK MOVES</p>'
             '<h2 id="applications-title">The named check finds the problem. DobeWorks and DEGS keep it from disappearing.</h2><div>'
             '<article><small>DOI RESOLVER</small><h3>Faulty citation</h3><p>A resolver flags a DOI that does not lead to the claimed paper. '
-            'The finding travels with the draft until the source is verified.</p></article>'
+            'DobeWorks carries that finding with the draft; DEGS keeps the next stage blocked until the source is verified.</p></article>'
             '<article><small>CONTEXT CHECK</small><h3>New AI window</h3><p>A comparison flags a required instruction missing from a handoff. '
-            'The next agent receives the missing requirement, not just the finished output.</p></article>'
+            'DobeWorks carries the missing requirement forward; DEGS keeps the next agent blocked until it is restored.</p></article>'
             '<article><small>TEST OR REVIEW</small><h3>Safety-critical code</h3><p>A test, hazard review, or person finds a defect. '
-            'Readiness stays blocked while that finding remains open.</p></article>'
+            'DobeWorks keeps the finding attached; DEGS keeps readiness blocked while it remains open.</p></article>'
             '</div><p class="application-limit">This exhibit demonstrates preservation and enforcement with one fixed notation check. '
             'It is not a universal DOI validator, context oracle, or flight-certification system.</p></section>')
         unlocked = ('<section class="mission-unlocked"><p class="eyebrow">NEW LEVEL UNLOCKED</p>'
