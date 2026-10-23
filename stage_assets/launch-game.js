@@ -7,6 +7,11 @@
   const selectScreen = $('[data-screen="select"]');
   const intakeScreen = $('[data-screen="intake"]');
   const missionScreen = $('[data-screen="mission"]');
+  const missionStory = $('[data-mission-story]');
+  const actionDeck = $('[data-action-deck]');
+  const actionDeckHome = document.createComment('action-deck-home');
+  const compactLayout = window.matchMedia('(max-width: 760px)');
+  actionDeck.before(actionDeckHome);
   const hasInitialRun = $('meta[name="stage-has-run"]').content === '1';
   let snapshot = null;
   let busy = false;
@@ -30,6 +35,11 @@
       label: 'STATE',
     },
   };
+
+  function placeActionDeck() {
+    if (compactLayout.matches) missionStory.after(actionDeck);
+    else actionDeckHome.after(actionDeck);
+  }
 
   function element(tag, className, text) {
     const node = document.createElement(tag);
@@ -568,7 +578,7 @@
     const vehicleBank = $('[data-action-bank="vehicle"]');
     packetBank.hidden = run.mode === 'direct' || !['investigation', 'handoff'].includes(scene);
     authorityBank.hidden = scene !== 'authority' && !(run.mode === 'direct' && scene === 'handoff');
-    vehicleBank.hidden = ended;
+    vehicleBank.hidden = ended || scene !== 'flight';
     if (scene === 'flight') vehicleBank.open = true;
     map.condition.hidden = false;
     map.arm.hidden = false;
@@ -835,6 +845,9 @@
       if (!busy) acceptSnapshot(next);
     } catch (_) { /* next pulse retries */ }
   }
+
+  compactLayout.addEventListener('change', placeActionDeck);
+  placeActionDeck();
 
   window.addEventListener('resize', () => {
     if (!snapshot?.run || missionScreen.hidden) return;

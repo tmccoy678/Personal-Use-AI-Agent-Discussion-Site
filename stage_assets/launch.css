@@ -312,9 +312,9 @@ body[data-scene="flight"] .control-grid, body[data-scene="record"] .control-grid
   .candidate-bindings { grid-template-columns: repeat(3, 1fr); }
   .candidate-bindings span { font-size: 7px; }
   .candidate-bindings output { font-size: 9px; }
-  .action-bank { grid-template-columns: 1fr; }
+  .action-bank { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .action-bank.authority-bank { grid-template-columns: 1fr 1fr; }
-  .check-actions, .hardware-bank[open] { grid-template-columns: 1fr; }
+  .check-actions { grid-template-columns: 1fr; }
   .result-actions { grid-template-columns: 1fr; }
   .cause-rail { grid-template-columns: repeat(5, minmax(58px, 1fr)); overflow-x: auto; }
 }
