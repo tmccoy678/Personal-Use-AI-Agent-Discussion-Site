@@ -40,7 +40,7 @@ PROGRAMS = {"01": ("CONFIGURATION ENGINEER", "ESTABLISH PACKAGE BASELINE"),
             "08": ("EVIDENCE", "OPEN THE HANDOFF RECORD")}
 POLL = {"weather": "WEATHER OFFICER", "director": "LAUNCH DIRECTOR"}
 CASE_ACTIONS = {"restore", "keep", "hold", "accept", "what-if", "clear-weather"} | {"go-" + key for key in POLL}
-LESSON_ACTIONS = {"lesson-start", "lesson-bypass", "lesson-recover", "lesson-fix", "lesson-compare",
+LESSON_ACTIONS = {"lesson-start", "lesson-carry", "lesson-bypass", "lesson-recover", "lesson-fix", "lesson-compare",
                   "lesson-flight", "lesson-launch", "lesson-win", "lesson-reflight", "lesson-mission"}
 CACHE = {}
 SESSIONS = OrderedDict()
@@ -873,9 +873,8 @@ async def lesson_program(state, command):
     if command == "lesson-start":
         state.update(new_state())
         state.update(lesson_mode=True, scenario="rbar")
-        for step in ("01", "02", "03"):
-            await program(state, step)
-        return {"reply": "THE TASK COMPLETED. THE OPEN FINDING STILL BLOCKS THE HANDOFF."}
+        await program(state, "01")
+        return {"reply": "THE SMALL DEFECT IS RECORDED. KEEP ITS WARNING ATTACHED THROUGH EVERY HANDOFF."}
     if command == "lesson-mission":
         if not state["launched"]:
             return {"reply": "COMPLETE THE FOUR-MOVE MISSION BEFORE OPENING THE FULL ENGINEERING STATION."}
@@ -884,11 +883,19 @@ async def lesson_program(state, command):
         return {"reply": "FULL ENGINEERING STATION OPEN. BEGIN WITH 01."}
     if not state["report"] or "notation_check" not in state["report"]:
         return {"reply": "HAND OFF THE WORK FIRST TO SEE THE RECORDED STOP CONDITION."}
+    if command == "lesson-carry":
+        if state["scenario"] != "rbar" or state["report"]["notation_check"]["result"] != "FAIL":
+            return {"reply": "THE ORIGINAL WARNING-BEARING PACKET IS REQUIRED FOR THIS HANDOFF."}
+        for step in ("02", "03"):
+            await program(state, step)
+        return {"reply": "THE WARNING SURVIVED THE HANDOFF. THE RECORDED GATE REMAINS BLOCKED."}
     if command == "lesson-bypass":
         if state["report"]["notation_check"]["result"] != "FAIL":
             return {"reply": "THE OPEN FINDING IS ALREADY CLOSED. ACCEPTANCE IS THE NEXT DECISION."}
         state["counterfactual"] = True
-        return {"reply": "THE HISTORICAL CONSEQUENCE IS SHOWN. THE REAL DEMO RECORD REMAINS BLOCKED."}
+        if state["tested_package"] is not None:
+            return {"reply": "THE HUMAN-OVERRIDE CONSEQUENCE IS SHOWN. THE REAL DEGS RECORD REMAINS BLOCKED AND UNACCEPTED."}
+        return {"reply": "THE LOST-WARNING CONSEQUENCE IS SHOWN. THE REAL DEMO RECORD REMAINS BLOCKED."}
     if command == "lesson-recover":
         state["counterfactual"] = False
         state["flight_active"] = False
@@ -915,6 +922,8 @@ async def lesson_program(state, command):
         state["launched"] = False
         state["flight_active"] = True
         return {"reply": "THE ACCEPTED EVIDENCE IS RETAINED. REPLAYING ONLY THE FICTIONAL FLIGHT."}
+    if command == "lesson-fix" and state["tested_package"] is None:
+        return {"reply": "THE WARNING MUST FIRST SURVIVE THE COMPLETION HANDOFFS AND REACH THE GATE."}
     if state["scenario"] != "rbar":
         return {"reply": "THE NOTE IS ALREADY CORRECTED. ACCEPTANCE IS A SEPARATE STEP."}
     corrected = await mission("rbar-fixed")

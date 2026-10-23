@@ -1,6 +1,5 @@
 (() => {
   'use strict';
-  document.documentElement.classList.add('js');
 
   const scoreKey = 'dobeworks-save-the-signal-score';
   const readScore = () => Number.parseInt(sessionStorage.getItem(scoreKey) || '0', 10) || 0;
@@ -136,6 +135,42 @@
     });
   }
 
+  function setupCarry() {
+    const game = document.querySelector('[data-carry-game]');
+    if (!game) return;
+    const prompt = game.querySelector('[data-carry-prompt]');
+    const correct = game.querySelector('[data-carry-correct]');
+    const drop = game.querySelector('#carry-drop button');
+    const complete = game.querySelector('[data-carry-complete]');
+    const checkpoints = [...game.querySelectorAll('.carry-checkpoints i')];
+    const prompts = ['BUILD SAYS DONE', 'WORKER SAYS COMPLETE', 'NEXT TEAM SEES PASS'];
+    const keeps = ['CARRY WARNING', 'KEEP UNACCEPTED', 'KEEP GATE CLOSED'];
+    const drops = ['TRUST DONE', 'MARK ACCEPTED', 'CLEAR GATE'];
+    let step = 0;
+
+    function update() {
+      game.dataset.carryStep = String(step);
+      checkpoints.forEach((checkpoint, index) => checkpoint.classList.toggle('done', index < step));
+      if (step === 3) {
+        prompt.textContent = 'WARNING SURVIVED';
+        correct.disabled = true;
+        drop.disabled = true;
+        writeScore(readScore() + 500);
+        setTimeout(() => complete.submit(), 320);
+        return;
+      }
+      prompt.textContent = prompts[step];
+      correct.textContent = keeps[step];
+      drop.textContent = drops[step];
+    }
+    correct.addEventListener('click', () => {
+      step += 1;
+      update();
+    });
+    game.classList.add('carry-ready');
+    update();
+  }
+
   function setupFlight() {
     const game = document.querySelector('[data-flight-game]');
     if (!game) return;
@@ -155,6 +190,8 @@
     let lastTime = 0;
     let strikes = 0;
     let reducedGate = 0;
+    let pausedAt = 0;
+    let generation = 0;
 
     function setPressed(value) {
       pressed = value;
@@ -162,12 +199,14 @@
     }
     function finish() {
       active = false;
+      generation += 1;
       status.textContent = 'VENUS REACHED';
       writeScore(readScore() + 1500 - strikes * 100);
       setTimeout(() => complete.submit(), 350);
     }
     function collide() {
       active = false;
+      generation += 1;
       strikes += 1;
       writeScore(readScore() - 100);
       status.textContent = 'RANGE SAFETY';
@@ -183,9 +222,15 @@
       status.textContent = 'READY';
       control.textContent = reduced ? 'CLEAR GATE 1' : 'START FLIGHT';
       reducedGate = 0;
+      pausedAt = 0;
+      setPressed(false);
     }
-    function frame(now) {
-      if (!active) return;
+    function schedule() {
+      const current = generation;
+      requestAnimationFrame((now) => frame(now, current));
+    }
+    function frame(now, current) {
+      if (!active || current !== generation || pausedAt) return;
       const elapsed = (now - startTime) / 1000;
       const dt = Math.min((now - lastTime) / 1000, 0.05);
       lastTime = now;
@@ -202,7 +247,7 @@
       if (!active) return;
       if (y < 4 || y > 96) return collide();
       if (elapsed >= duration) return finish();
-      requestAnimationFrame(frame);
+      schedule();
     }
     function start() {
       if (reduced) {
@@ -220,7 +265,8 @@
       control.textContent = 'HOLD TO CLIMB';
       startTime = performance.now();
       lastTime = startTime;
-      requestAnimationFrame(frame);
+      generation += 1;
+      schedule();
     }
     control.addEventListener('click', () => {
       if (!active) start();
@@ -243,7 +289,25 @@
     window.addEventListener('keyup', (event) => {
       if (event.key === ' ' || event.key === 'Enter') setPressed(false);
     });
+    document.addEventListener('visibilitychange', () => {
+      if (!active || reduced) return;
+      if (document.hidden) {
+        pausedAt = performance.now();
+        generation += 1;
+        status.textContent = 'PAUSED';
+        return;
+      }
+      if (!pausedAt) return;
+      const now = performance.now();
+      startTime += now - pausedAt;
+      lastTime = now;
+      pausedAt = 0;
+      status.textContent = 'FLY';
+      generation += 1;
+      schedule();
+    });
     reset();
+    game.classList.add('flight-ready');
   }
 
   function setupWin() {
@@ -252,6 +316,7 @@
   }
 
   setupScan();
+  setupCarry();
   setupRepair();
   setupFlight();
   setupWin();

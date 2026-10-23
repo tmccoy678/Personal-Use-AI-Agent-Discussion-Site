@@ -237,39 +237,62 @@ def test_public_mission_cannot_unlock_the_engineering_station_early():
 def test_public_mission_bypass_reveals_history_without_overriding_the_gate():
     with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
         opening = client.get("/")
-        held = lesson_command(client, opening, "lesson-start")
-        assert "GATE BLOCKED" in held.text
-        assert "WARNING FOUND" in held.text
-        assert "WORK STAGED" in held.text
-        assert "FAILED PACKET · RETAINED" in held.text
-        assert "APPLY BAR" in held.text
-        assert "DROP WARNING" in held.text
+        carry = lesson_command(client, opening, "lesson-start")
+        assert "EVERYONE SAYS DONE" in carry.text
+        assert "KEEP WARNING ATTACHED" in carry.text
+        assert "CARRY WARNING" in carry.text
+        assert "TRUST DONE" in carry.text
+        too_early = lesson_command(client, carry, "lesson-fix")
+        assert "KEEP WARNING ATTACHED" in too_early.text
         before = client.get("/api/evidence").json()
         assert before["fixed_engine_run"]["degs"]["decision"] == "BLOCKED"
-        assert before["completed_handoffs"] == ["01", "02"]
+        assert before["completed_handoffs"] == ["01"]
 
-        bypass = lesson_command(client, held, "lesson-bypass")
+        bypass = lesson_command(client, too_early, "lesson-bypass")
         assert "MISSION LOST" in bypass.text
+        assert "WARNING DROPPED" in bypass.text
+        assert "FAILURE LEFT THE RECORD" in bypass.text
+        assert "HANDOFF · WARNING ABSENT" in bypass.text
+        assert "GATE · FALSE PASS" in bypass.text
         assert "Range Safety Officer" in bypass.text
         assert "T+294.5 seconds" in bypass.text
         assert "guidance-antenna fault" in bypass.text
         assert "omitted overbar" in bypass.text
         after = client.get("/api/evidence").json()
         assert after["fixed_engine_run"] == before["fixed_engine_run"]
-        assert after["completed_handoffs"] == ["01", "02"]
+        assert after["completed_handoffs"] == ["01"]
         assert after["counterfactual_flight_with_errors"] is True
         assert after["simulated_flight_completed"] is False
         recovered = lesson_command(client, bypass, "lesson-recover")
-        assert "GATE BLOCKED" in recovered.text
+        assert "KEEP WARNING ATTACHED" in recovered.text
         restored = client.get("/api/evidence").json()
         assert restored["fixed_engine_run"] == before["fixed_engine_run"]
         assert restored["counterfactual_flight_with_errors"] is False
+        held = lesson_command(client, recovered, "lesson-carry")
+        assert "GATE BLOCKED" in held.text
+        assert "WARNING FOUND" in held.text
+        assert "WORK STAGED" in held.text
+        assert "FAILED PACKET · RETAINED" in held.text
+        assert "APPLY BAR" in held.text
+        assert "WHAT IF: APPROVE FAILED" in held.text
+        assert client.get("/api/evidence").json()["completed_handoffs"] == ["01", "02"]
+        before_override = client.get("/api/evidence").json()
+        override = lesson_command(client, held, "lesson-bypass")
+        assert "HUMAN OVERRIDE" in override.text
+        assert "FAILED PACKAGE APPROVED" in override.text
+        assert "DEGS · BLOCKED" in override.text
+        assert "HUMAN · OVERRIDE" in override.text
+        after_override = client.get("/api/evidence").json()
+        assert after_override["fixed_engine_run"] == before_override["fixed_engine_run"]
+        assert after_override["completed_handoffs"] == before_override["completed_handoffs"]
+        assert after_override["counterfactual_flight_with_errors"] is True
 
 
 def test_public_mission_requires_fix_then_acceptance_before_successful_flight():
     with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
         opening = client.get("/")
-        held = lesson_command(client, opening, "lesson-start")
+        carry = lesson_command(client, opening, "lesson-start")
+        held = lesson_command(client, carry, "lesson-carry")
         fixed = lesson_command(client, held, "lesson-fix")
         assert "FAULT REPAIRED" in fixed.text
         assert "REVIEW THE FIX" in fixed.text
@@ -290,6 +313,10 @@ def test_public_mission_requires_fix_then_acceptance_before_successful_flight():
         flight = lesson_command(client, accepted, "lesson-flight")
         assert "ZARINER 2 · VENUS RUN" in flight.text
         assert "HOLD TO CLIMB" in flight.text
+        assert 'style="--gap:' not in flight.text
+        stage_css = client.get("/stage.css").text
+        for gate in ("1", "2", "3"):
+            assert f'.telemetry-gate[data-gate="{gate}"]' in stage_css
         assert client.get("/api/evidence").json()["simulated_flight_completed"] is False
         launched = lesson_command(client, flight, "lesson-win")
         assert "VENUS REACHED" in launched.text

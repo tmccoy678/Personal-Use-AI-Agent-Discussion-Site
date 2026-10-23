@@ -19,6 +19,7 @@ def render(state, voice, reply, question, extra=""):
     launched = state["launched"]
     flight_active = state.get("flight_active", False)
     bypassed = state["counterfactual"] and not fixed
+    carried = state.get("tested_package") is not None
 
     def form(command, label, css="game-button", form_id=""):
         identifier = f' id="{form_id}"' if form_id else ""
@@ -33,7 +34,14 @@ def render(state, voice, reply, question, extra=""):
     if check and not fixed:
         phase = "lost" if bypassed else "blocked"
         step = 1
-        game = loss_game(form) if bypassed else blocked_game(state, form)
+        if bypassed:
+            game = loss_game(form, carried)
+        elif carried:
+            step = 2
+            game = blocked_game(state, form)
+        else:
+            phase = "carry"
+            game = carry_game(state, form)
     if fixed:
         phase = "review"
         step = 2
@@ -117,22 +125,43 @@ def blocked_game(state, form):
     return (
         '<div class="game-panel"><div class="game-kicker">WARNING FOUND</div><h1>GATE BLOCKED</h1>'
         '<div class="handoff-run" aria-label="Warning-bearing work enters the DobeWorks staging dock and stops at the DEGS gate">'
-        '<div class="conveyor"><div class="work-packet">WORK<span class="warning-tag">WARNING</span></div></div>'
+        '<div class="conveyor"><div class="work-packet">WORK<small>COMPLETED</small><em>UNACCEPTED</em>'
+        '<span class="warning-tag">WARNING</span></div></div>'
         '<div class="dock"><small>DOBEWORKS</small><strong>WORK STAGED</strong></div>'
         '<div class="degs-gate"><small>DEGS</small><i></i><strong>BLOCKED</strong></div></div>'
         '<div class="micro-sequence" aria-live="polite"><span>WARNING FOUND</span><span>WORK STAGED</span><span>GATE BLOCKED</span></div>'
-        f'{repair}<div class="danger-choice">{form("lesson-bypass", "DROP WARNING", "quiet-button danger")}</div>'
+        f'{repair}<div class="danger-choice">{form("lesson-bypass", "WHAT IF: APPROVE FAILED", "quiet-button danger")}</div>'
         '</div>'
     )
 
 
-def loss_game(form):
+def carry_game(state, form):
     return (
-        '<div class="game-panel loss-panel"><div class="game-kicker">WARNING DROPPED</div><h1>MISSION LOST</h1>'
+        '<div class="game-panel carry-panel" data-carry-game data-carry-step="0">'
+        '<div class="game-kicker">EVERYONE SAYS DONE</div><h1>KEEP WARNING ATTACHED</h1>'
+        '<div class="carry-run" aria-label="A warning-bearing work packet crossing three handoff checkpoints">'
+        '<div class="completion-cloud" aria-hidden="true">'
+        '<span>BUILT</span><span>CHECKED</span><span>DONE</span><span>COPIED</span><span>READY</span><span>COMPLETE</span></div>'
+        '<div class="carry-line"></div>'
+        '<div class="carry-checkpoints"><i>1</i><i>2</i><i>3</i></div>'
+        '<div class="carry-packet"><strong>WORK</strong><span>DONE</span><b>WARNING · R̅→R</b></div></div>'
+        '<div class="carry-choice">'
+        '<output data-carry-prompt aria-live="polite">BUILD SAYS DONE</output>'
+        '<button type="button" class="game-button" data-carry-correct>CARRY WARNING</button>'
+        f'{form("lesson-bypass", "TRUST DONE", "quiet-button danger", "carry-drop")}</div>'
+        f'<form action="/" method="post" class="carry-complete" data-carry-complete>{hidden(state, "lesson-carry")}'
+        '<button class="game-button no-script-carry">CARRY ALL WARNINGS</button></form></div>'
+    )
+def loss_game(form, carried):
+    kicker = "HUMAN OVERRIDE" if carried else "WARNING DROPPED"
+    cause = "FAILED PACKAGE APPROVED" if carried else "FAILURE LEFT THE RECORD"
+    boundary = "DEGS · BLOCKED<br>HUMAN · OVERRIDE" if carried else "HANDOFF · WARNING ABSENT<br>GATE · FALSE PASS"
+    return (
+        f'<div class="game-panel loss-panel"><div class="game-kicker">{kicker}</div><h1>MISSION LOST</h1>'
         '<div class="loss-sky" aria-label="Fictional trajectory veers and Range Safety closes the run">'
         '<div class="lost-packet">WORK</div><div class="veer-line"></div><div class="lost-rocket">▲</div>'
         '<div class="range-line">RANGE SAFETY</div></div>'
-        '<div class="loss-code">RANGE SAFETY · RUN CLOSED</div>'
+        f'<div class="loss-code">{cause}<br>{boundary}<br>RANGE SAFETY · RUN CLOSED</div>'
         f'{form("lesson-recover", "RETRY", "game-button")}'
         '<details class="history-mini"><summary>HISTORICAL INSPIRATION</summary><p>The Range Safety Officer destroyed '
         'Mariner 1 at T+294.5 seconds after its trajectory became unsafe. NASA identifies both a guidance-antenna '
@@ -167,9 +196,9 @@ def flight_game(state):
         '<output data-flight-time>12.0</output></div>'
         '<div class="flight-field" data-flight-field tabindex="0" aria-label="One-input flight field">'
         '<div class="stars"></div><div class="flight-rocket" data-flight-rocket>▲</div>'
-        '<div class="telemetry-gate" data-gate="1" style="--gap:32;--top:14%;--bottom:50%;--gate-index:1"><i></i><b></b><span>1</span></div>'
-        '<div class="telemetry-gate" data-gate="2" style="--gap:67;--top:49%;--bottom:15%;--gate-index:2"><i></i><b></b><span>2</span></div>'
-        '<div class="telemetry-gate" data-gate="3" style="--gap:43;--top:25%;--bottom:39%;--gate-index:3"><i></i><b></b><span>3</span></div>'
+        '<div class="telemetry-gate" data-gate="1"><i></i><b></b><span>1</span></div>'
+        '<div class="telemetry-gate" data-gate="2"><i></i><b></b><span>2</span></div>'
+        '<div class="telemetry-gate" data-gate="3"><i></i><b></b><span>3</span></div>'
         '<div class="venus">VENUS</div></div>'
         '<button type="button" class="game-button thrust-button" data-flight-control>START FLIGHT</button>'
         f'<form action="/" method="post" class="flight-complete" data-flight-complete>{hidden(state, "lesson-win")}'
