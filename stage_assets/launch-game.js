@@ -610,7 +610,12 @@
     const monitor = $('[data-flight-monitor]');
     const rocket = $('[data-rocket]');
     const flight = run.flight;
+    const monitorWidth = monitor.clientWidth || 400;
     const monitorHeight = monitor.clientHeight || 500;
+    const abortAngle = 55 * Math.PI / 180;
+    const abortHalfWidth = Math.abs(Math.cos(abortAngle)) * rocket.offsetWidth / 2
+      + Math.abs(Math.sin(abortAngle)) * rocket.offsetHeight / 2;
+    const horizontalTravel = Math.min(130, Math.max(0, monitorWidth / 2 - abortHalfWidth - 8));
     const bottom = Number.parseFloat(getComputedStyle(rocket).bottom) || 0;
     const label = $('[data-monitor-event]');
     const headroom = label.offsetTop + label.offsetHeight + 8;
@@ -624,7 +629,7 @@
       event = run.countdown.holding ? 'COUNTDOWN HOLD' : run.countdown.engine_start ? `ENGINE START · T−${String(run.countdown.remaining_s).padStart(3, '0')}` : `COUNTDOWN · T−${String(run.countdown.remaining_s).padStart(3, '0')}`;
     } else if (flight) {
       state = run.phase === 'RANGE_ABORT' ? 'abort' : run.phase === 'COMPLETE' ? 'complete' : 'flight';
-      x = Math.max(-145, Math.min(145, flight.x_cm / 500 * 130));
+      x = Math.max(-horizontalTravel, Math.min(horizontalTravel, flight.x_cm / 500 * horizontalTravel));
       y = Math.min(1, flight.t / 100) * verticalTravel;
       const latest = flight.events.at(-1);
       event = flight.t === 70 ? 'MAX Q · AUTHORED PROFILE CALL' : latest ? `${latest.event} · T+${String(latest.t).padStart(3, '0')}` : `ASCENT · T+${String(flight.t).padStart(3, '0')}`;
@@ -635,14 +640,17 @@
     monitor.dataset.flightState = state;
     rocket.style.setProperty('--rocket-x', `${x}px`);
     rocket.style.setProperty('--rocket-y', `${y}px`);
+    rocket.style.setProperty('--rocket-rotation', state === 'abort' && x < 0 ? '-55deg' : state === 'abort' ? '55deg' : '0deg');
     rocket.setAttribute('aria-label', flight ? `Rocket at T plus ${flight.t} seconds` : 'Rocket on pad');
     $('[data-monitor-event]').textContent = event;
 
     const points = [[200, 465]];
     if (flight && run.launch) {
       const residual = launchResidual(run);
+      const pathTravel = horizontalTravel / monitorWidth * 400;
       for (let t = 5; t <= flight.t; t += 5) {
-        const pathX = Math.max(55, Math.min(345, 200 + residual * Math.min(40, Math.max(0, t - 20)) / 500 * 130));
+        const pathX = Math.max(200 - pathTravel, Math.min(200 + pathTravel,
+          200 + residual * Math.min(40, Math.max(0, t - 20)) / 500 * pathTravel));
         points.push([pathX, Math.max(70, 465 - t / 100 * verticalTravel / monitorHeight * 500)]);
       }
     }

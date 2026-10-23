@@ -120,13 +120,12 @@ button:focus-visible, summary:focus-visible, input:focus-visible { outline: 3px 
 .corridor span { position: absolute; top: 0; transform: translateX(-50%); }
 .trajectory { position: absolute; inset: 0; width: 100%; height: 100%; }
 .trajectory polyline { fill: none; stroke: var(--blue); stroke-width: 2; stroke-dasharray: 5 5; }
-.rocket { --rocket-x: 0px; --rocket-y: 0px; position: absolute; z-index: 2; left: 50%; bottom: 12%; width: 42px; height: 78px; display: grid; place-items: center; transform: translate(calc(-50% + var(--rocket-x)), calc(-1 * var(--rocket-y))); transition: transform .8s linear; }
+.rocket { --rocket-x: 0px; --rocket-y: 0px; --rocket-rotation: 0deg; position: absolute; z-index: 2; left: 50%; bottom: 12%; width: 42px; height: 78px; display: grid; place-items: center; transform: translate(calc(-50% + var(--rocket-x)), calc(-1 * var(--rocket-y))) rotate(var(--rocket-rotation)); transition: transform .8s linear; }
 .rocket::before { content: ""; position: absolute; inset: 14px 6px 10px; border: 3px solid var(--ink); background: var(--panel-2); }
 .rocket-nose { position: absolute; top: 0; width: 30px; height: 22px; border: 3px solid var(--ink); border-bottom: 0; background: var(--panel-2); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
 .rocket b { position: relative; z-index: 3; font-size: 10px; }
 .rocket-flame { position: absolute; bottom: -13px; width: 16px; height: 24px; opacity: 0; background: var(--amber); clip-path: polygon(50% 100%, 100% 0, 0 0); }
 .flight-monitor[data-flight-state="ignition"] .rocket-flame, .flight-monitor[data-flight-state="flight"] .rocket-flame { opacity: 1; }
-.flight-monitor[data-flight-state="abort"] .rocket { rotate: 55deg; }
 .flight-monitor[data-flight-state="abort"] .rocket-flame, .flight-monitor[data-flight-state="complete"] .rocket-flame { opacity: 0; }
 .launch-pad { position: absolute; left: 31%; right: 31%; bottom: 8%; border-top: 4px solid var(--blue); text-align: center; color: var(--blue); font-size: 10px; }
 .monitor-event { position: absolute; left: 8px; right: 8px; top: 8px; border: 1px solid var(--dim); padding: 5px; color: var(--blue-2); background: #050c15; font-size: 11px; text-align: center; }
