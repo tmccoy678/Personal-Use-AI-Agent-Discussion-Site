@@ -41,22 +41,22 @@ PACKETS = MappingProxyType({
 AGENT_NAME = "ELIZA · COLOSSUS · GUARDIAN"
 PROMPTS = MappingProxyType({
     "easy": (
-        {"id": "E-HOLD-ZERO", "group": "correction", "label": "KEEP THE RECEIVED ZERO", "patch": {"correction_cm_s": 0}},
-        {"id": "E-OPPOSE-WIND", "group": "correction", "label": "OPPOSE W2 IN THE WORLD FRAME", "patch": {"correction_cm_s": -20}},
-        {"id": "E-FOLLOW-WIND", "group": "correction", "label": "FOLLOW W2 IN THE WORLD FRAME", "patch": {"correction_cm_s": 20}},
+        {"id": "E-C1", "group": "correction", "label": "RETAIN THE RECEIVED STEERING", "patch": {"correction_cm_s": 0}},
+        {"id": "E-C2", "group": "correction", "label": "APPLY STEERING PLAN ALPHA", "patch": {"correction_cm_s": -20}},
+        {"id": "E-C3", "group": "correction", "label": "APPLY STEERING PLAN BETA", "patch": {"correction_cm_s": 20}},
     ),
     "medium": (
-        {"id": "M-COPY-DIGITS", "group": "correction", "label": "COPY THE DIGITS WITHOUT CONVERSION", "patch": {"correction_cm_s": -2000}},
-        {"id": "M-CONVERT-OPPOSE", "group": "correction", "label": "CONVERT W2 TO m/s AND OPPOSE", "patch": {"correction_cm_s": -20}},
-        {"id": "M-FOLLOW-WIND", "group": "correction", "label": "FOLLOW W2 IN THE WORLD FRAME", "patch": {"correction_cm_s": 20}},
+        {"id": "M-C1", "group": "correction", "label": "RETAIN THE RECEIVED STEERING", "patch": {"correction_cm_s": -2000}},
+        {"id": "M-C2", "group": "correction", "label": "APPLY STEERING PLAN ALPHA", "patch": {"correction_cm_s": -20}},
+        {"id": "M-C3", "group": "correction", "label": "APPLY STEERING PLAN BETA", "patch": {"correction_cm_s": 20}},
     ),
     "hard": (
-        {"id": "H-NEGATE-WIND", "group": "correction", "label": "NEGATE THE W2 NUMBER", "patch": {"correction_cm_s": -20}},
-        {"id": "H-R2-FRAME", "group": "correction", "label": "TRANSFORM W2 THROUGH THE R2 FRAME", "patch": {"correction_cm_s": 20}},
-        {"id": "H-BIND-W1", "group": "observation", "label": "BIND THE ARCHIVED W1 OBSERVATION", "patch": {"condition_id": "W1"}},
-        {"id": "H-BIND-W2", "group": "observation", "label": "BIND THE CURRENT W2 OBSERVATION", "patch": {"condition_id": "W2"}},
-        {"id": "H-FLIGHT-CLOCK", "group": "cutoff", "label": "SEED CUTOFF FROM THE FLIGHT CLOCK", "patch": {"cutoff_clock": "FLIGHT"}},
-        {"id": "H-ONBOARD-CLOCK", "group": "cutoff", "label": "SEED CUTOFF FROM THE ONBOARD CLOCK", "patch": {"cutoff_clock": "ONBOARD"}},
+        {"id": "H-C1", "group": "correction", "label": "APPLY STEERING PLAN ALPHA", "patch": {"correction_cm_s": -20}},
+        {"id": "H-C2", "group": "correction", "label": "APPLY STEERING PLAN BETA", "patch": {"correction_cm_s": 20}},
+        {"id": "H-O1", "group": "observation", "label": "BIND OBSERVATION W1", "patch": {"condition_id": "W1"}},
+        {"id": "H-O2", "group": "observation", "label": "BIND OBSERVATION W2", "patch": {"condition_id": "W2"}},
+        {"id": "H-T1", "group": "cutoff", "label": "BIND CUTOFF CLOCK C1", "patch": {"cutoff_clock": "FLIGHT"}},
+        {"id": "H-T2", "group": "cutoff", "label": "BIND CUTOFF CLOCK C2", "patch": {"cutoff_clock": "ONBOARD"}},
     ),
 })
 
@@ -73,15 +73,16 @@ def _candidate(difficulty, revision, correction, condition="W2", cutoff="FLIGHT"
     return {**result, "sha256": _digest(result)}
 
 
-def new_run(difficulty, run_id):
+def new_run(difficulty, run_id, mode="governed"):
     if (not isinstance(difficulty, str) or difficulty not in PACKETS
+            or mode not in {"governed", "direct"}
             or not isinstance(run_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", run_id)):
-        raise InvalidCommand("Unknown difficulty or invalid server run identity")
+        raise InvalidCommand("Unknown mode, difficulty, or invalid server run identity")
     packet = PACKETS[difficulty]
     candidate = _candidate(difficulty, 1, packet.correction, cutoff=packet.cutoff,
                            prompts=("RECEIVED-AUTONOMOUS-DRAFT",))
     result = {"schema": "dobeworks.stage.launch.v1", "run_id": run_id, "version": 0,
-            "difficulty": difficulty, "phase": "PAD", "elapsed_s": 0,
+            "difficulty": difficulty, "mode": mode, "phase": "PAD", "elapsed_s": 0,
             "vehicle": {"conditioned": False, "armed": False, "conditioning_until": None},
             "candidate_id": candidate["id"], "candidates": {candidate["id"]: candidate},
             "receipts": {}, "staged_ids": [], "records": {}, "record_id": None,
@@ -90,13 +91,14 @@ def new_run(difficulty, run_id):
     if difficulty == "hard":
         old = _candidate(difficulty, 0, 20, "W1", "FLIGHT", "R1", prompts=("ARCHIVED-AUTONOMOUS-DRAFT",))
         result["candidates"][old["id"]] = old
-        result["candidate_id"] = old["id"]
-        receipt = _check(result, "WIND_BALANCE")
-        receipt["provenance"] = "RECORDED_MISSION_CHECK"
-        receipt.pop("sha256")
-        receipt["sha256"] = _digest(receipt)
-        result["receipts"][receipt["id"]] = receipt
-        result["candidate_id"] = candidate["id"]
+        if mode == "governed":
+            result["candidate_id"] = old["id"]
+            receipt = _check(result, "WIND_BALANCE")
+            receipt["provenance"] = "RECORDED_MISSION_CHECK"
+            receipt.pop("sha256")
+            receipt["sha256"] = _digest(receipt)
+            result["receipts"][receipt["id"]] = receipt
+            result["candidate_id"] = candidate["id"]
     return result
 
 
@@ -160,6 +162,8 @@ def _binding(state):
 
 
 def _support(state):
+    if state["mode"] == "direct":
+        return "DIRECT_UNCHECKED"
     record = state["records"].get(state["record_id"])
     if not record or not record["staged"] or record["candidate_id"] != state["candidate_id"]:
         return "UNSUPPORTED"
@@ -183,7 +187,8 @@ def receive_gate(state, record_id, output, *, run_id, version):
     model cannot authenticate a caller; never expose this function as a form action.
     """
     _guard(state, run_id, version)
-    if (state["phase"] not in {"PAD", "COUNTDOWN"} or record_id != state["record_id"] or record_id not in state["records"]
+    if (state["mode"] != "governed" or state["phase"] not in {"PAD", "COUNTDOWN"}
+            or record_id != state["record_id"] or record_id not in state["records"]
             or not isinstance(output, dict) or not isinstance(output.get("decision"), str) or output["decision"] not in
             {"PASS", "PASS_WITH_WARNINGS", "BLOCKED", "FAIL", "INVALID"}):
         raise InvalidCommand("Gate output does not bind the current projection")
@@ -206,9 +211,10 @@ def _denials(state):
     exact = authority is not None and authority["binding"] == _binding(state)
     overridden = exact and authority["action"] == "OVERRIDE"
     reasons = []
-    if decision in {"BLOCKED", "FAIL", "INVALID"} and not overridden:
+    if state["mode"] == "governed" and decision in {"BLOCKED", "FAIL", "INVALID"} and not overridden:
         reasons.append("GATE BLOCKED")
-    if not exact or authority["action"] not in {"ACCEPT", "OVERRIDE"}:
+    allowed_authority = {"MANUAL_ACCEPT"} if state["mode"] == "direct" else {"ACCEPT", "OVERRIDE"}
+    if not exact or authority["action"] not in allowed_authority:
         reasons.append("LAUNCH AUTHORITY ABSENT")
     if not state["vehicle"]["conditioned"]:
         reasons.append("NOT CONDITIONED")
@@ -328,7 +334,7 @@ def retry(state, new_run_id, *, run_id, version):
         raise InvalidCommand("Stale retry")
     if new_run_id == run_id or any(item["run_id"] == new_run_id for item in state["prior_runs"]):
         raise InvalidCommand("Retry requires a new server run identity")
-    result = new_run(state["difficulty"], new_run_id)
+    result = new_run(state["difficulty"], new_run_id, state["mode"])
     retained = deepcopy(state)
     retained.pop("prior_runs")
     result["prior_runs"] = deepcopy(state["prior_runs"][-7:]) + [retained]
@@ -344,6 +350,8 @@ def act(state, action, *, run_id, version, **choices):
         raise InvalidCommand("Preparation has ended")
     result = deepcopy(state)
     packet = PACKETS[state["difficulty"]]
+    if state["mode"] == "direct" and action in {"check", "stage", "project", "override"}:
+        raise InvalidCommand("That governed control is not present in direct mode")
     if action == "prompt" and set(choices) == {"prompt_id"}:
         prompt_id = choices["prompt_id"]
         prompt = next((item for item in PROMPTS[state["difficulty"]] if item["id"] == prompt_id), None)
@@ -411,8 +419,10 @@ def act(state, action, *, run_id, version, **choices):
         _cancel_countdown(result)
     elif action == "accept" and not choices:
         gate = state["gates"].get(state["record_id"])
-        accepted = gate is not None and gate["output"]["decision"] == "PASS"
-        result["authority"] = {"action": "ACCEPT" if accepted else "HOLD", "binding": _binding(state)}
+        accepted = (state["mode"] == "direct"
+                    or (gate is not None and gate["output"]["decision"] == "PASS" and _support(state) == "SUPPORTED"))
+        action_name = "MANUAL_ACCEPT" if state["mode"] == "direct" else "ACCEPT"
+        result["authority"] = {"action": action_name if accepted else "HOLD", "binding": _binding(state)}
     elif action in {"hold", "override"} and not choices:
         result["authority"] = {"action": action.upper(), "binding": _binding(state)}
     elif action == "condition" and not choices:

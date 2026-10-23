@@ -23,31 +23,43 @@
     <section class="difficulty-screen" data-screen="select" aria-labelledby="select-title">
       <div class="select-copy">
         <span class="eyebrow">THRUSTERS COLD</span>
-        <h1 id="select-title">CHOOSE THE PACKET.</h1>
-        <p>Prompt the agent. Inspect its work. The vehicle flies what survives every handoff.</p>
+        <h1 id="select-title" data-select-title>CHOOSE THE CONTROL SYSTEM.</h1>
+        <p data-select-copy>The same agent. The same packet. A different path to ignition.</p>
+      </div>
+      <div class="mode-grid" role="group" aria-label="Control system">
+        <button class="mode-card" type="button" data-mode-option="governed" aria-pressed="false">
+          <span class="difficulty-name">GOVERNED</span>
+          <strong>DOBEWORKS + DEGS</strong>
+          <small>CHECK · STAGE · CARRY · GATE</small>
+        </button>
+        <button class="mode-card direct" type="button" data-mode-option="direct" aria-pressed="false">
+          <span class="difficulty-name">DIRECT</span>
+          <strong>AGENT → HUMAN → VEHICLE</strong>
+          <small>INSPECT THE OUTPUT BY EYE</small>
+        </button>
       </div>
       <div class="difficulty-grid" role="group" aria-label="Mission difficulty">
-        <button class="difficulty-card available" type="button" data-start="easy">
+        <button class="difficulty-card available" type="button" data-start="easy" disabled>
           <span class="difficulty-name">EASY</span>
           <strong>1 CANDIDATE</strong>
-          <span>1 CONDITION · 1 CHECK</span>
-          <small>ONE CHECK · FULL ASCENT</small>
+          <span data-difficulty-detail>1 CONDITION · 1 CHECK</span>
+          <small data-difficulty-note>ONE CHECK · FULL ASCENT</small>
         </button>
-        <button class="difficulty-card available" type="button" data-start="medium">
+        <button class="difficulty-card available" type="button" data-start="medium" disabled>
           <span class="difficulty-name">MEDIUM</span>
           <strong>1 CANDIDATE</strong>
-          <span>UNIT + CONDITION · 1 CHECK</span>
-          <small>UNIT CONVERSION</small>
+          <span data-difficulty-detail>UNIT + CONDITION · 1 CHECK</span>
+          <small data-difficulty-note>UNIT CONVERSION</small>
         </button>
-        <button class="difficulty-card available" type="button" data-start="hard">
+        <button class="difficulty-card available" type="button" data-start="hard" disabled>
           <span class="difficulty-name">HARD</span>
           <strong>2 OBSERVATIONS</strong>
-          <span>2 CLOCKS · 3 CHECKS</span>
-          <small>STATE + CLOCK BINDING</small>
+          <span data-difficulty-detail>2 CLOCKS · 3 CHECKS</span>
+          <small data-difficulty-note>STATE + CLOCK BINDING</small>
         </button>
       </div>
       <div class="selection-footer">
-        <span>NO SOUND</span><span>FULL T+000–100</span><span>DETERMINISTIC PACKET</span>
+        <span>NO SOUND</span><span>FULL T+000–100</span><span>IDENTICAL DETERMINISTIC PACKETS</span>
       </div>
     </section>
 
@@ -66,7 +78,11 @@
           <span>RUN</span>
           <output data-run-id>001</output>
         </div>
-        <div class="clock-cell compact">
+        <div class="clock-cell compact mode-cell">
+          <span>MODE</span>
+          <output data-mode>—</output>
+        </div>
+        <div class="clock-cell compact level-cell">
           <span>LEVEL</span>
           <output data-level>—</output>
         </div>
@@ -106,6 +122,11 @@
                 <span>agent_output.correction_ms</span>
                 <output data-correction-output>0.00</output>
               </div>
+              <div class="candidate-bindings" aria-label="Exact agent output bindings">
+                <div><span>config_id</span><output data-candidate-config>—</output></div>
+                <div><span>observation_id</span><output data-candidate-observation>—</output></div>
+                <div><span>cutoff_clock</span><output data-candidate-cutoff>—</output></div>
+              </div>
               <div class="choice-stack">
                 <div class="choice-label">PROMPT ELIZA · COLOSSUS · GUARDIAN</div>
                 <div class="value-bank" data-value-bank role="group" aria-label="Programmed body correction"></div>
@@ -121,7 +142,7 @@
             </article>
           </div>
 
-          <section class="receipt-section" aria-labelledby="receipt-title">
+          <section class="receipt-section" data-governed-only aria-labelledby="receipt-title">
             <div class="section-heading">
               <h3 id="receipt-title">CHECK RECEIPTS</h3>
               <span data-check-summary>MISSION CHECK</span>
@@ -131,7 +152,7 @@
             </div>
           </section>
 
-          <section class="handoff-section" aria-labelledby="handoff-title">
+          <section class="handoff-section" data-governed-only aria-labelledby="handoff-title">
             <div class="section-heading">
               <h3 id="handoff-title">OUTGOING RECORD</h3>
               <span>SELECTED RECEIPT → PROJECTION</span>
@@ -169,7 +190,7 @@
               <span data-dobeworks-detail>—</span>
             </article>
             <article class="system-card gate-card">
-              <header><span>DEGS</span><small>ACTUAL GATE DECISION</small></header>
+              <header><span>DEGS</span><small data-degs-label>GOVERNED DECISION</small></header>
               <strong data-degs-state>NO DECISION</strong>
               <span data-degs-detail>—</span>
             </article>
@@ -220,14 +241,15 @@
             <ol data-causal-chain></ol>
             <div class="result-actions">
               <button type="button" data-retry>RETRY THIS PACKET</button>
+              <button type="button" data-compare-mode>RUN OTHER MODE</button>
               <button type="button" data-change-difficulty>CHANGE DIFFICULTY</button>
             </div>
           </section>
         </aside>
       </div>
 
-      <section class="action-deck" aria-label="Launch control actions">
-        <div class="action-bank">
+      <section class="action-deck" data-action-deck aria-label="Launch control actions">
+        <div class="action-bank" data-governed-only>
           <span class="bank-label">PACKET</span>
           <span class="check-actions" data-check-actions></span>
           <button type="button" data-action="stage">STAGE ACTIVE COPY</button>
@@ -236,7 +258,7 @@
         <div class="action-bank authority-bank">
           <span class="bank-label">AUTHORITY</span>
           <button type="button" data-action="accept">ACCEPT CURRENT</button>
-          <button type="button" class="guarded" data-action="override">OVERRIDE CURRENT</button>
+          <button type="button" class="guarded" data-action="override" data-governed-only>OVERRIDE CURRENT</button>
         </div>
         <div class="action-bank hardware-bank">
           <span class="bank-label">VEHICLE</span>

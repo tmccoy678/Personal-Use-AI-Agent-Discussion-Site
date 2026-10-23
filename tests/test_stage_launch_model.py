@@ -68,12 +68,12 @@ def test_correction_retains_the_failed_candidate_and_creates_a_fresh_bound_recei
 def test_prompted_agent_generation_retains_prompt_provenance_and_candidate_history():
     state = model.new_run("hard", "prompted")
     original = state["candidate_id"]
-    state = act(state, "prompt", prompt_id="H-R2-FRAME")
+    state = act(state, "prompt", prompt_id="H-C2")
     generated = state["candidates"][state["candidate_id"]]
     assert state["candidate_id"] != original
     assert generated["correction_cm_s"] == 20
     assert generated["generated_by"] == "ELIZA · COLOSSUS · GUARDIAN"
-    assert generated["prompt_history"][-1] == "H-R2-FRAME"
+    assert generated["prompt_history"][-1] == "H-C2"
     assert original in state["candidates"]
 
 
@@ -134,7 +134,7 @@ def test_authorized_cold_ignition_reports_both_physical_reasons_without_liftoff(
 
 
 @pytest.mark.parametrize("correction,outcome", [(0, "RANGE_ABORT"), (-20, "NOMINAL")])
-def test_omitted_or_wrong_copy_evidence_never_invents_a_physical_failure(correction, outcome):
+def test_omitted_or_wrong_copy_evidence_requires_override_and_never_invents_a_physical_failure(correction, outcome):
     state = model.new_run("easy", "projection")
     state = act(state, "check", name="WIND_BALANCE")
     original = state["receipts"]["check-1"]
@@ -145,9 +145,11 @@ def test_omitted_or_wrong_copy_evidence_never_invents_a_physical_failure(correct
     sent = state["records"][state["record_id"]]
     assert sent["finding_ids"] == []
     assert state["receipts"]["check-1"] == original
-    state = liftoff(hardware(act(state, "accept")))
+    state = act(state, "accept")
+    assert state["authority"]["action"] == "HOLD"
+    state = liftoff(hardware(act(state, "override")))
     state = model.advance(state, state["elapsed_s"] + 100)
-    assert state["outcome"] == {"flight": outcome, "record": "UNSUPPORTED", "human": "ACCEPT"}
+    assert state["outcome"] == {"flight": outcome, "record": "UNSUPPORTED", "human": "OVERRIDE"}
     assert state["launch"]["gate"]["output"]["decision"] == "PASS"
 
 
@@ -167,7 +169,9 @@ def test_current_semantic_wrong_copy_is_allowed_but_stale_commands_and_authority
     state = act(state, "select", candidate_id=a)
     assert state["authority"] is None and state["record_id"] is None
     state = gate(project(state, receipts=["check-1"]), "PASS")
-    state = liftoff(hardware(act(state, "accept")))
+    state = act(state, "accept")
+    assert state["authority"]["action"] == "HOLD"
+    state = liftoff(hardware(act(state, "override")))
     state = model.advance(state, state["elapsed_s"] + 100)
     assert state["launch"]["candidate"]["id"] == a
     assert state["outcome"]["record"] == "UNSUPPORTED"
@@ -375,3 +379,49 @@ def test_mission_receipt_retains_its_exact_input_and_its_own_identity():
     assert len(receipt["sha256"]) == len(receipt["input_sha256"]) == 64
     updated = act(state, "edit", correction_cm_s=-20)
     assert updated["receipts"]["check-1"] == receipt
+
+
+def test_direct_mode_keeps_the_same_agent_output_but_removes_the_governed_path():
+    governed = model.new_run("easy", "governed-copy", mode="governed")
+    direct = model.new_run("easy", "direct-copy", mode="direct")
+    assert direct["candidates"][direct["candidate_id"]] == governed["candidates"][governed["candidate_id"]]
+    assert direct["mode"] == "direct"
+    assert not direct["receipts"] and not direct["records"] and not direct["gates"]
+    assert not model.new_run("hard", "direct-hard", mode="direct")["receipts"]
+
+    for action, choices in (
+        ("check", {"name": "WIND_BALANCE"}),
+        ("stage", {}),
+        ("project", {"receipt_ids": [], "finding_ids": []}),
+        ("override", {}),
+    ):
+        with pytest.raises(model.InvalidCommand, match="governed control"):
+            act(direct, action, **choices)
+
+    direct = act(direct, "accept")
+    assert direct["authority"]["action"] == "MANUAL_ACCEPT"
+    direct = liftoff(hardware(direct))
+    direct = model.advance(direct, direct["elapsed_s"] + 46)
+    assert direct["phase"] == "RANGE_ABORT"
+    assert direct["outcome"] == {
+        "flight": "RANGE_ABORT", "record": "DIRECT_UNCHECKED", "human": "MANUAL_ACCEPT"
+    }
+
+
+def test_corrected_candidate_has_the_same_full_flight_trace_in_both_modes():
+    governed = act(model.new_run("easy", "trace-governed", mode="governed"),
+                   "prompt", prompt_id="E-C2")
+    governed = act(governed, "check", name="WIND_BALANCE")
+    governed = gate(project(governed), "PASS")
+    governed = liftoff(hardware(act(governed, "accept")))
+    governed = model.advance(governed, governed["elapsed_s"] + 100)
+
+    direct = act(model.new_run("easy", "trace-direct", mode="direct"),
+                 "prompt", prompt_id="E-C2")
+    direct = liftoff(hardware(act(direct, "accept")))
+    direct = model.advance(direct, direct["elapsed_s"] + 100)
+
+    assert governed["candidates"][governed["candidate_id"]] == direct["candidates"][direct["candidate_id"]]
+    assert governed["phase"] == direct["phase"] == "COMPLETE"
+    assert governed["flight"] == direct["flight"]
+    assert governed["outcome"]["flight"] == direct["outcome"]["flight"] == "NOMINAL"

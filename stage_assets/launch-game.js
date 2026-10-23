@@ -12,6 +12,7 @@
   let findingMode = null;
   let lastAutomaticLine = '';
   let choosing = false;
+  let selectedMode = null;
 
   function element(tag, className, text) {
     const node = document.createElement(tag);
@@ -84,15 +85,15 @@
     render();
   }
 
-  async function start(difficulty) {
-    if (busy) return;
+  async function start(difficulty, mode = selectedMode) {
+    if (busy || !mode) return;
     busy = true;
     try {
       selectedReceipts.clear();
       findingMode = null;
       lastAutomaticLine = '';
       choosing = false;
-      acceptSnapshot(await request('/api/launch/new', {difficulty}));
+      acceptSnapshot(await request('/api/launch/new', {difficulty, mode}));
     } catch (error) {
       addTerminal('CONTROL', error.message);
     } finally {
@@ -136,11 +137,37 @@
     }
   }
 
-  function showSelection() {
+  function showSelection(mode = snapshot?.run?.mode || selectedMode) {
     choosing = true;
+    selectedMode = mode;
     missionScreen.hidden = true;
     selectScreen.hidden = false;
-    $('[data-start="easy"]').focus();
+    $$('[data-mode-option]').forEach((button) => {
+      button.setAttribute('aria-pressed', String(button.dataset.modeOption === selectedMode));
+    });
+    const governedDetails = {
+      easy: ['1 CONDITION · 1 CHECK', 'ONE CHECK · FULL ASCENT'],
+      medium: ['UNIT + CONDITION · 1 CHECK', 'UNIT CONVERSION'],
+      hard: ['2 CLOCKS · 3 CHECKS', 'STATE + CLOCK BINDING'],
+    };
+    const directDetails = {
+      easy: ['1 CONDITION · INSPECT BY EYE', 'NO EXECUTED CHECK'],
+      medium: ['UNIT + CONDITION · INSPECT', 'NO EXECUTED CHECK'],
+      hard: ['2 CLOCKS · INSPECT BY EYE', 'NO EXECUTED CHECK'],
+    };
+    $$('[data-start]').forEach((button) => {
+      button.disabled = !selectedMode;
+      const details = selectedMode === 'direct' ? directDetails[button.dataset.start] : governedDetails[button.dataset.start];
+      $('[data-difficulty-detail]', button).textContent = details[0];
+      $('[data-difficulty-note]', button).textContent = details[1];
+    });
+    $('[data-select-title]').textContent = selectedMode ? 'CHOOSE THE PACKET.' : 'CHOOSE THE CONTROL SYSTEM.';
+    $('[data-select-copy]').textContent = selectedMode === 'governed'
+      ? 'The check finds. DobeWorks stages. The handoff carries. DEGS enforces.'
+      : selectedMode === 'direct'
+        ? 'The agent output goes directly to your inspection and the vehicle.'
+        : 'The same agent. The same packet. A different path to ignition.';
+    (selectedMode ? $('[data-start="easy"]') : $('[data-mode-option="governed"]')).focus();
   }
 
   function showMission() {
@@ -185,11 +212,18 @@
     $('[data-candidate-label]').textContent = label;
     $('[data-candidate-hash]').textContent = shortHash(candidate.sha256);
     $('[data-correction-output]').textContent = correctionLabel(candidate.correction_cm_s);
+    $('[data-candidate-config]').textContent = candidate.config_id;
+    $('[data-candidate-observation]').textContent = candidate.condition_id;
+    $('[data-candidate-cutoff]').textContent = candidate.cutoff_clock;
     const currentReceipts = Object.values(run.receipts).filter((item) => item.candidate_id === candidate.id);
     const checked = new Set(currentReceipts.map((item) => item.name));
     const complete = packet.checks.every((name) => checked.has(name));
-    $('[data-candidate-state]').textContent = complete ? 'CHECK SET PRESENT' : 'RECEIVED · CHECKS OPEN';
-    $('[data-stage-label]').textContent = run.staged_ids.includes(candidate.id) ? 'STAGED · COMPLETED_UNACCEPTED' : 'NOT STAGED';
+    $('[data-candidate-state]').textContent = run.mode === 'direct'
+      ? 'READ-ONLY · INSPECT BY EYE'
+      : complete ? 'CHECK SET PRESENT' : 'RECEIVED · CHECKS OPEN';
+    $('[data-stage-label]').textContent = run.mode === 'direct'
+      ? 'DIRECT · NO GOVERNED RECORD'
+      : run.staged_ids.includes(candidate.id) ? 'STAGED · COMPLETED_UNACCEPTED' : 'NOT STAGED';
     $('[data-acceptance-label]').textContent = run.authority ? run.authority.action : 'UNACCEPTED';
 
     const activePrompt = (group) => [...candidate.prompt_history].reverse().find((id) =>
@@ -267,14 +301,25 @@
   }
 
   function renderEngines(run, engine) {
+    if (run.mode === 'direct') {
+      $('[data-dobeworks-state]').textContent = 'NOT IN PATH';
+      $('[data-dobeworks-detail]').textContent = 'DIRECT AGENT HANDOFF';
+      $('[data-dobeworks-state]').closest('.system-card').dataset.state = 'none';
+      $('[data-degs-state]').textContent = 'NOT IN PATH';
+      $('[data-degs-detail]').textContent = 'NO GOVERNED GATE';
+      $('[data-degs-label]').textContent = 'NO DECISION';
+      $('[data-degs-state]').closest('.system-card').dataset.state = 'none';
+      return;
+    }
     const worker = engine.dobeworks;
     $('[data-dobeworks-state]').textContent = worker ? worker.state : 'NO STAGED WORK';
     $('[data-dobeworks-detail]').textContent = worker ? `${worker.promotion} · ${shortHash(worker.output_sha256)}` : '—';
     const workerCard = $('[data-dobeworks-state]').closest('.system-card');
     workerCard.dataset.state = worker ? 'pass' : 'none';
     const gate = engine.degs;
+    $('[data-degs-label]').textContent = gate ? 'ADAPTER / RAW DEGS' : 'GOVERNED DECISION';
     $('[data-degs-state]').textContent = gate ? gate.decision : 'NO DECISION';
-    $('[data-degs-detail]').textContent = gate ? `${gate.risk_tier} · ${gate.adapter_classification}` : '—';
+    $('[data-degs-detail]').textContent = gate ? `DEGS ${gate.raw_degs_decision} · ${gate.adapter_classification}` : '—';
     $('[data-degs-state]').closest('.system-card').dataset.state = gate ? gate.decision.toLowerCase() : 'none';
   }
 
@@ -295,11 +340,14 @@
     const map = Object.fromEntries($$('[data-action]').map((button) => [button.dataset.action, button]));
     Object.values(map).forEach((button) => { button.disabled = busy || ended; });
     map.send.disabled = busy || ended;
-    map.accept.disabled = busy || ended || !run.gate;
+    map.accept.disabled = busy || ended || (run.mode === 'governed' && !run.gate);
     map.override.disabled = busy || ended || !run.gate;
     map.condition.disabled = busy || ended || run.vehicle.conditioned || run.vehicle.conditioning_until != null;
     map.arm.disabled = busy || ended || run.vehicle.armed;
     map.ignite.disabled = busy || ended || (run.phase === 'COUNTDOWN' && !run.countdown.holding);
+    map.accept.textContent = run.mode === 'direct' ? 'APPROVE AGENT COPY' : 'ACCEPT CURRENT';
+    $('[data-action-deck]').dataset.mode = run.mode;
+    $$('[data-governed-only]').forEach((item) => { item.hidden = run.mode === 'direct'; });
     $('[data-clock-hold]').disabled = busy || run.phase !== 'COUNTDOWN';
     $('[data-clock-hold]').setAttribute('aria-pressed', String(run.phase === 'COUNTDOWN' && run.countdown.holding));
   }
@@ -314,6 +362,7 @@
     $('[data-mission-clock]').textContent = elapsedLabel(run.elapsed_s);
     $('[data-flight-clock]').textContent = flightClock(run);
     $('[data-run-id]').textContent = run.run_id.replace('run-', '').slice(0, 8).toUpperCase();
+    $('[data-mode]').textContent = run.mode === 'governed' ? 'DW + DEGS' : 'DIRECT';
     $('[data-level]').textContent = run.difficulty.toUpperCase();
   }
 
@@ -376,7 +425,8 @@
     $('[data-cause-correction]').textContent = `${correctionLabel(candidate.correction_cm_s)} m/s`;
     const residual = launchResidual(run);
     $('[data-cause-residual]').textContent = residual == null ? '—' : `${residual} cm/s`;
-    $('[data-cause-record]').textContent = run.launch?.record_support || run.gate?.decision || '—';
+    $('[data-cause-record]').textContent = run.launch?.record_support
+      || (run.mode === 'direct' ? 'DIRECT · UNCHECKED' : run.gate?.decision || '—');
     $('[data-cause-authority]').textContent = run.launch?.authority?.action || run.authority?.action || '—';
   }
 
@@ -393,11 +443,15 @@
     if (run.launch) {
       lines.push(`CANDIDATE ${shortCandidate(run.launch.candidate.id)} REACHED IGNITION`);
       lines.push(`HUMAN ACTION · ${run.launch.authority.action}`);
+      if (run.launch.authority.action === 'OVERRIDE') {
+        lines.push(`GOVERNANCE BYPASSED · ${run.launch.gate?.output?.decision || 'NO PASS'}`);
+      }
     }
     (outcome?.reasons || []).forEach((reason) => lines.push(reason));
     (run.flight?.faults || []).forEach((fault) => lines.push(`${fault.code} · ${fault.status}`));
     if (!lines.length) lines.push('THE SERVER RETAINED THE TERMINAL EVENT.');
     chain.replaceChildren(...lines.map((line) => element('li', '', line)));
+    $('[data-compare-mode]').textContent = run.mode === 'governed' ? 'RUN SAME PACKET DIRECT' : 'RUN SAME PACKET GOVERNED';
   }
 
   function renderRetained(run) {
@@ -414,7 +468,7 @@
       return item;
     }));
     const runList = $('[data-run-history]');
-    runList.replaceChildren(...(run.prior_runs.length ? run.prior_runs.map((item) => element('li', '', `${item.run_id} · ${item.phase} · ${item.outcome?.flight || 'NO TERMINAL RESULT'}`)) : [element('li', '', 'NONE')]));
+    runList.replaceChildren(...(run.prior_runs.length ? run.prior_runs.map((item) => element('li', '', `${item.run_id} · ${item.mode.toUpperCase()} · ${item.phase} · ${item.outcome?.flight || 'NO TERMINAL RESULT'}`)) : [element('li', '', 'NONE')]));
   }
 
   function renderStatus(run) {
@@ -427,6 +481,9 @@
     } else if (gate) {
       text = `DEGS ${gate.decision} · ${gate.adapter_classification}`;
       kind = gate.decision === 'PASS' ? 'good' : 'warn';
+    } else if (run.mode === 'direct') {
+      text = run.authority ? 'DIRECT HANDOFF · HUMAN APPROVED' : 'DIRECT HANDOFF · INSPECT BY EYE';
+      kind = run.authority ? 'warn' : 'neutral';
     }
     $('[data-status]').textContent = text;
     $('[data-status-lamp]').dataset.kind = kind;
@@ -441,8 +498,10 @@
     showMission();
     renderReference(run, snapshot.packet);
     renderCandidate(run, snapshot.packet);
-    renderReceipts(run, snapshot.packet);
-    renderHandoff(run);
+    if (run.mode === 'governed') {
+      renderReceipts(run, snapshot.packet);
+      renderHandoff(run);
+    }
     renderEngines(run, snapshot.engine);
     renderActions(run, snapshot.packet);
     renderClocks(run);
@@ -454,6 +513,9 @@
     renderStatus(run);
   }
 
+  $$('[data-mode-option]').forEach((button) => button.addEventListener('click', () => {
+    showSelection(button.dataset.modeOption);
+  }));
   $$('[data-start]').forEach((button) => button.addEventListener('click', () => start(button.dataset.start)));
   $$('[data-finding]').forEach((button) => button.addEventListener('click', () => {
     findingMode = button.dataset.finding;
@@ -476,7 +538,8 @@
   $('[data-action="ignite"]').addEventListener('click', () => command('ignite'));
   $('[data-clock-hold]').addEventListener('click', () => command('hold'));
   $('[data-retry]').addEventListener('click', () => command('retry'));
-  $('[data-change-difficulty]').addEventListener('click', showSelection);
+  $('[data-compare-mode]').addEventListener('click', () => start(snapshot.run.difficulty, snapshot.run.mode === 'governed' ? 'direct' : 'governed'));
+  $('[data-change-difficulty]').addEventListener('click', () => showSelection());
   $('[data-terminal-form]').addEventListener('submit', async (event) => {
     event.preventDefault();
     const input = $('[data-terminal-form] input');

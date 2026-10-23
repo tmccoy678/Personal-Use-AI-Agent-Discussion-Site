@@ -188,14 +188,16 @@ def evaluate_projection(state, staged):
         gate = ui.run_degs_task(task, directory, "launch-record")
     if gate["validate_exit"] != 0 or gate["validate_decision"] != "PASS":
         raise AdapterError("The exact projected task did not pass the DEGS schema")
-    decision = gate["evaluate_decision"]
-    if decision not in {"PASS", "BLOCKED", "FAIL", "INVALID"}:
+    raw_decision = gate["evaluate_decision"]
+    if raw_decision not in {"PASS", "BLOCKED", "FAIL", "INVALID"}:
         raise AdapterError("DEGS returned an unsupported decision")
+    decision = "INVALID" if classification in {"FINDING_OMITTED", "RECEIPT_MISBOUND"} else raw_decision
     return {
         "schema": "dobeworks.stage.launch-gate-receipt.v1",
         "decision": decision,
         "validate_decision": gate["validate_decision"],
         "adapter_classification": classification,
+        "raw_degs_decision": raw_decision,
         "binding": binding,
         "degs": gate["evaluate"],
         "degs_exit": gate["evaluate_exit"],

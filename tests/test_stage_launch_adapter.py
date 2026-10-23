@@ -48,6 +48,7 @@ def test_actual_degs_passes_a_fresh_clean_projection():
     staged = adapter.stage_candidate(state)
     result = adapter.evaluate_projection(state, staged)
     assert result["decision"] == "PASS"
+    assert result["raw_degs_decision"] == "PASS"
     assert result["degs"]["decision"] == "PASS"
     assert result["validate_decision"] == "PASS"
     assert result["adapter_classification"] == "EXACT_CLEAN_RECORD"
@@ -66,12 +67,14 @@ def test_actual_degs_blocks_a_carried_open_finding():
 def test_omission_and_misbinding_are_adapter_defects_not_claimed_degs_detection():
     omitted = sample_state(result="FAIL", carry=False)
     omitted_result = adapter.evaluate_projection(omitted, adapter.stage_candidate(omitted))
-    assert omitted_result["decision"] == "PASS"
+    assert omitted_result["decision"] == "INVALID"
+    assert omitted_result["raw_degs_decision"] == "PASS"
     assert omitted_result["adapter_classification"] == "FINDING_OMITTED"
     assert omitted_result["degs"]["warnings"] == []
 
     misbound = sample_state(misbind=True)
     misbound_result = adapter.evaluate_projection(misbound, adapter.stage_candidate(misbound))
-    assert misbound_result["decision"] == "PASS"
+    assert misbound_result["decision"] == "INVALID"
+    assert misbound_result["raw_degs_decision"] == "PASS"
     assert misbound_result["adapter_classification"] == "RECEIPT_MISBOUND"
     assert misbound_result["degs"]["decision"] == "PASS"

@@ -904,6 +904,7 @@ def _gate_view(output):
     degs = output.get("degs", {})
     return {
         "decision": output.get("decision"),
+        "raw_degs_decision": output.get("raw_degs_decision", output.get("decision")),
         "validate_decision": output.get("validate_decision"),
         "adapter_classification": output.get("adapter_classification"),
         "risk_tier": degs.get("risk_tier"),
@@ -926,6 +927,18 @@ def _terminal_line(run):
     outcome = run.get("outcome") or {}
     if run["phase"] in {"COMPLETE", "RANGE_ABORT", "NO_IGNITION"} or outcome.get("flight") == "PAD_ABORT":
         return "GUARDIAN", f'RUN TERMINAL. FLIGHT {outcome.get("flight", run["phase"])}. THE RECORD IS RETAINED.'
+    if run["mode"] == "direct":
+        if run["authority"] is None:
+            return "ELIZA", "INSPECT THE AGENT COPY BY EYE. APPROVE IT WHEN IT IS THE ONE YOU INTEND TO FLY."
+        if not run["vehicle"]["conditioned"]:
+            remaining = run["vehicle"].get("conditioning_until")
+            return "ELIZA", "VEHICLE CONDITIONING IS IN PROGRESS." if remaining is not None else "VEHICLE IS COLD. CONDITION IT."
+        if not run["vehicle"]["armed"]:
+            return "GUARDIAN", "IGNITION CIRCUIT IS SAFE. ARM WHEN THE APPROVED AGENT COPY IS THE ONE YOU INTEND TO FLY."
+        if run["phase"] == "COUNTDOWN":
+            countdown = run["countdown"]
+            return "COLOSSUS", "COUNTDOWN HELD." if countdown["holding"] else f'COUNTDOWN T-{countdown["remaining_s"]:03d}.'
+        return "COLOSSUS", "THE VEHICLE AND APPROVED AGENT COPY ARE READY. IGNITION IS A SEPARATE COMMAND."
     if not required <= checked:
         missing = " + ".join(sorted(required - checked))
         return "ELIZA", f'RUN THE MISSION CHECK: {missing}.'
@@ -1021,18 +1034,27 @@ async def launch_new(request: Request):
     if error:
         return error
     try:
-        body = await _json_body(request, fields=("csrf", "difficulty"))
+        body = await _json_body(request, fields=("csrf", "difficulty", "mode"))
     except OverflowError:
         return _launch_error("Request too large", 413)
     except ValueError:
         return _launch_error("Choose one supplied packet")
     if not _valid_csrf(body["csrf"], state):
         return _launch_error("Session expired", 403)
+    if state["busy"]:
+        return _launch_error("A command is already running", 409)
     difficulty = body["difficulty"]
-    if difficulty not in launch_model.PACKETS:
+    mode = body["mode"]
+    if difficulty not in launch_model.PACKETS or mode not in {"governed", "direct"}:
         return _launch_error("Choose one supplied packet")
     run_id = "run-" + secrets.token_hex(8)
-    state["launch_model"] = launch_model.new_run(difficulty, run_id)
+    previous = state.get("launch_model")
+    fresh = launch_model.new_run(difficulty, run_id, mode)
+    if previous:
+        retained = deepcopy(previous)
+        retained.pop("prior_runs")
+        fresh["prior_runs"] = deepcopy(previous["prior_runs"][-7:]) + [retained]
+    state["launch_model"] = fresh
     state["launch_started_monotonic"] = time.monotonic()
     state["launch_engine"] = {"staged": {}, "gates": {}}
     return _set_session_cookie(JSONResponse(_launch_view(state)), request, key)
@@ -1077,6 +1099,8 @@ async def launch_action(request: Request):
         current = _advance_launch(state)
         action = body["action"]
         choices = body["choices"]
+        if current["mode"] == "direct" and action in {"check", "stage", "project", "override"}:
+            raise launch_model.InvalidCommand("That governed control is not present in direct mode")
         if action == "retry":
             if choices:
                 raise launch_model.InvalidCommand("Retry has no choices")
@@ -1086,6 +1110,9 @@ async def launch_action(request: Request):
             state["launch_engine"] = {"staged": {}, "gates": {}}
         elif action == "stage":
             staged = await _run_launch_adapter("stage", current)
+            live = state.get("launch_model")
+            if live is None or live["run_id"] != current["run_id"] or live["version"] != current["version"]:
+                raise launch_model.InvalidCommand("Run changed while the engine was working")
             updated = launch_model.act(current, action, run_id=body["run_id"],
                                        version=body["version"], **choices)
             state["launch_engine"]["staged"][updated["candidate_id"]] = staged
@@ -1096,6 +1123,9 @@ async def launch_action(request: Request):
             if staged is None:
                 raise AdapterError("Stage this exact candidate before projection")
             gate = await _run_launch_adapter("evaluate", {"state": updated, "staged": staged})
+            live = state.get("launch_model")
+            if live is None or live["run_id"] != current["run_id"] or live["version"] != current["version"]:
+                raise launch_model.InvalidCommand("Run changed while the engine was working")
             updated = launch_model.receive_gate(updated, updated["record_id"], gate,
                                                 run_id=updated["run_id"], version=updated["version"])
             state["launch_engine"]["gates"][updated["record_id"]] = gate
@@ -1129,7 +1159,9 @@ async def launch_terminal(request: Request):
     run = _advance_launch(state)
     speaker, default = _terminal_line(run)
     words = set(re.findall(r"[a-z]+", question.lower()))
-    if words & {"dobeworks", "worker", "stage"}:
+    if run and run["mode"] == "direct" and words & {"dobeworks", "worker", "stage", "degs", "gate", "blocked", "warning", "check"}:
+        speaker, text = "GUARDIAN", "DIRECT AGENT HANDOFF HAS NO EXECUTED CHECK, DOBEWORKS STAGE, HANDOFF RECEIPT, OR DEGS GATE. INSPECT THE AGENT COPY BY EYE."
+    elif words & {"dobeworks", "worker", "stage"}:
         speaker, text = "GUARDIAN", "DOBEWORKS INVENTORIES THE EXACT CANDIDATE. COMPLETION LEAVES IT STAGED AND UNACCEPTED."
     elif words & {"degs", "gate", "blocked", "warning"}:
         speaker, text = "COLOSSUS", "DEGS EVALUATES THE WARNING FIELDS IN THE OUTGOING RECORD. IT DOES NOT FLY THE VEHICLE OR APPROVE THE RECORD."

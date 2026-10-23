@@ -1,5 +1,7 @@
 """Same-origin live launch API: server time, real engines, and no client gate authority."""
+import asyncio
 import re
+import threading
 
 from fastapi.testclient import TestClient
 import pytest
@@ -39,7 +41,8 @@ def test_front_door_is_the_sparse_launch_game_and_classic_evidence_remains_avail
         page, _ = open_game(client)
         assert "CARRY THE STOP" in page.text
         assert "ELIZA · COLOSSUS · GUARDIAN TERMINAL" in page.text
-        assert "CHOOSE THE PACKET" in page.text
+        assert "CHOOSE THE CONTROL SYSTEM" in page.text
+        assert "DOBEWORKS + DEGS" in page.text and "AGENT → HUMAN → VEHICLE" in page.text
         assert "HOW IT WORKS" not in page.text
         assert 'src="/launch-game.js"' in page.text
         assert client.get("/launch.css").status_code == 200
@@ -52,21 +55,25 @@ def test_front_door_is_the_sparse_launch_game_and_classic_evidence_remains_avail
 def test_server_creates_each_fixed_packet_and_rejects_invented_difficulty(difficulty):
     with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
         _, csrf = open_game(client)
-        response = post(client, "/api/launch/new", csrf, difficulty=difficulty)
+        response = post(client, "/api/launch/new", csrf, difficulty=difficulty, mode="governed")
         assert response.status_code == 200
         run = response.json()["run"]
         assert run["difficulty"] == difficulty and run["phase"] == "PAD"
         assert response.json()["packet"]["difficulty"] == difficulty
         assert all(set(prompt) == {"id", "group", "label"} for prompt in response.json()["packet"]["prompts"])
+        assert all(re.fullmatch(rf"{difficulty[0].upper()}-[COT]\d", prompt["id"])
+                   for prompt in response.json()["packet"]["prompts"])
         assert "choices" not in response.json()["packet"] and "correction" not in response.json()["packet"]
-        bad = post(client, "/api/launch/new", csrf, difficulty="invented")
+        bad = post(client, "/api/launch/new", csrf, difficulty="invented", mode="governed")
         assert bad.status_code == 422
+        bad_mode = post(client, "/api/launch/new", csrf, difficulty="easy", mode="invented")
+        assert bad_mode.status_code == 422
 
 
 def test_real_worker_and_gate_block_a_carried_finding_without_client_gate_input():
     with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
         _, csrf = open_game(client)
-        run = post(client, "/api/launch/new", csrf, difficulty="easy").json()["run"]
+        run = post(client, "/api/launch/new", csrf, difficulty="easy", mode="governed").json()["run"]
         run = act(client, csrf, run, "check", name="WIND_BALANCE")
         receipt = next(iter(run["receipts"].values()))
         assert receipt["result"] == "FAIL"
@@ -85,14 +92,45 @@ def test_real_worker_and_gate_block_a_carried_finding_without_client_gate_input(
         assert forged.status_code == 422
 
 
+def test_omitted_finding_is_visible_and_cannot_receive_ordinary_acceptance():
+    with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
+        _, csrf = open_game(client)
+        run = post(client, "/api/launch/new", csrf, difficulty="easy", mode="governed").json()["run"]
+        run = act(client, csrf, run, "check", name="WIND_BALANCE")
+        receipt = next(iter(run["receipts"].values()))
+        assert receipt["result"] == "FAIL" and receipt["finding_ids"]
+        run = act(client, csrf, run, "stage")
+        response = post(
+            client,
+            "/api/launch/action",
+            csrf,
+            run_id=run["run_id"],
+            version=run["version"],
+            action="project",
+            choices={"receipt_ids": [receipt["id"]], "finding_ids": []},
+        )
+        assert response.status_code == 200
+        body = response.json()
+        run = body["run"]
+        assert run["gate"]["decision"] == "INVALID"
+        assert run["gate"]["raw_degs_decision"] == "PASS"
+        assert run["gate"]["adapter_classification"] == "FINDING_OMITTED"
+        assert body["engine"]["degs"] == run["gate"]
+
+        held = act(client, csrf, run, "accept")
+        assert held["authority"]["action"] == "HOLD"
+        overridden = act(client, csrf, held, "override")
+        assert overridden["authority"]["action"] == "OVERRIDE"
+
+
 def test_corrected_exact_record_reaches_server_countdown_and_liftoff():
     with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
         _, csrf = open_game(client)
-        run = post(client, "/api/launch/new", csrf, difficulty="easy").json()["run"]
-        run = act(client, csrf, run, "prompt", prompt_id="E-OPPOSE-WIND")
+        run = post(client, "/api/launch/new", csrf, difficulty="easy", mode="governed").json()["run"]
+        run = act(client, csrf, run, "prompt", prompt_id="E-C2")
         candidate = run["candidates"][run["candidate_id"]]
         assert candidate["generated_by"] == "ELIZA · COLOSSUS · GUARDIAN"
-        assert candidate["prompt_history"][-1] == "E-OPPOSE-WIND"
+        assert candidate["prompt_history"][-1] == "E-C2"
         run = act(client, csrf, run, "check", name="WIND_BALANCE")
         receipt = next(reversed(run["receipts"].values()))
         run = act(client, csrf, run, "stage")
@@ -115,18 +153,18 @@ def test_corrected_exact_record_reaches_server_countdown_and_liftoff():
 def test_browser_can_prompt_the_agent_but_cannot_write_candidate_values_directly():
     with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
         _, csrf = open_game(client)
-        run = post(client, "/api/launch/new", csrf, difficulty="easy").json()["run"]
+        run = post(client, "/api/launch/new", csrf, difficulty="easy", mode="governed").json()["run"]
         rejected = post(client, "/api/launch/action", csrf, run_id=run["run_id"],
                         version=run["version"], action="edit", choices={"correction_cm_s": -20})
         assert rejected.status_code == 422
-        generated = act(client, csrf, run, "prompt", prompt_id="E-OPPOSE-WIND")
+        generated = act(client, csrf, run, "prompt", prompt_id="E-C2")
         assert generated["candidates"][generated["candidate_id"]]["correction_cm_s"] == -20
 
 
 def test_terminal_reports_the_open_condition_without_mutating_the_run():
     with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
         _, csrf = open_game(client)
-        run = post(client, "/api/launch/new", csrf, difficulty="easy").json()["run"]
+        run = post(client, "/api/launch/new", csrf, difficulty="easy", mode="governed").json()["run"]
         before = run["version"]
         answer = post(client, "/api/launch/terminal", csrf, question="what do i need to do next?")
         assert answer.status_code == 200
@@ -139,8 +177,76 @@ def test_terminal_reports_the_open_condition_without_mutating_the_run():
 def test_pad_hold_is_recoverable_and_terminal_reports_the_open_condition():
     with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
         _, csrf = open_game(client)
-        run = post(client, "/api/launch/new", csrf, difficulty="easy").json()["run"]
+        run = post(client, "/api/launch/new", csrf, difficulty="easy", mode="governed").json()["run"]
         run = act(client, csrf, run, "ignite")
         assert run["phase"] == "PAD" and run["outcome"]["flight"] == "PAD_HOLD"
         answer = post(client, "/api/launch/terminal", csrf, question="what next?").json()
         assert answer == {"speaker": "ELIZA", "text": "RUN THE MISSION CHECK: WIND_BALANCE."}
+
+
+def test_direct_mode_uses_the_identical_candidate_without_governed_controls(monkeypatch):
+    async def forbidden_adapter(*_args, **_kwargs):
+        raise AssertionError("direct mode must not call the Worker or DEGS adapter")
+
+    monkeypatch.setattr(stage, "_run_launch_adapter", forbidden_adapter)
+    with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
+        _, csrf = open_game(client)
+        governed = post(client, "/api/launch/new", csrf, difficulty="easy", mode="governed").json()["run"]
+        governed_candidate = governed["candidates"][governed["candidate_id"]]
+        direct_body = post(client, "/api/launch/new", csrf, difficulty="easy", mode="direct").json()
+        run = direct_body["run"]
+        direct_candidate = run["candidates"][run["candidate_id"]]
+        assert run["mode"] == "direct"
+        assert direct_candidate == governed_candidate
+        assert not run["receipts"] and not run["records"] and not run["gates"]
+        assert direct_body["engine"] == {"dobeworks": None, "degs": None}
+        assert run["prior_runs"][-1]["mode"] == "governed"
+
+        for action in ("check", "stage", "project", "override"):
+            rejected = post(client, "/api/launch/action", csrf, run_id=run["run_id"],
+                            version=run["version"], action=action, choices={})
+            assert rejected.status_code == 422
+
+        run = act(client, csrf, run, "accept")
+        assert run["authority"]["action"] == "MANUAL_ACCEPT"
+        assert run["record_id"] is None and run["gate"] is None
+        answer = post(client, "/api/launch/terminal", csrf, question="where is the dobeworks check?").json()
+        assert "NO EXECUTED CHECK" in answer["text"] and "INSPECT" in answer["text"]
+
+
+def test_new_run_cannot_replace_a_run_while_an_engine_action_is_awaiting(monkeypatch):
+    entered = threading.Event()
+    release = threading.Event()
+
+    async def delayed_stage(command, payload):
+        assert command == "stage"
+        entered.set()
+        await asyncio.to_thread(release.wait, 3)
+        candidate = payload["candidates"][payload["candidate_id"]]
+        return {
+            "candidate_id": candidate["id"],
+            "worker": {"state": "COMPLETED_UNACCEPTED", "promotion": "NOT_PERFORMED", "output_sha256": "a" * 64},
+        }
+
+    monkeypatch.setattr(stage, "_run_launch_adapter", delayed_stage)
+    with TestClient(stage.app, base_url="https://stage.dobeworks.com") as client:
+        _, csrf = open_game(client)
+        run = post(client, "/api/launch/new", csrf, difficulty="easy", mode="governed").json()["run"]
+        result = {}
+
+        def stage_in_thread():
+            result["response"] = post(
+                client, "/api/launch/action", csrf, run_id=run["run_id"], version=run["version"],
+                action="stage", choices={},
+            )
+
+        thread = threading.Thread(target=stage_in_thread)
+        thread.start()
+        assert entered.wait(2)
+        replacement = post(client, "/api/launch/new", csrf, difficulty="hard", mode="direct")
+        assert replacement.status_code == 409
+        release.set()
+        thread.join(3)
+        assert result["response"].status_code == 200
+        current = client.get("/api/launch/state").json()["run"]
+        assert current["run_id"] == run["run_id"] and current["difficulty"] == "easy"
