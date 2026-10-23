@@ -1,5 +1,8 @@
 """The live adapter executes frozen DobeWorks/DEGS paths without inventing their scope."""
+from copy import deepcopy
 import json
+
+import pytest
 
 import stage_launch_adapter as adapter
 
@@ -41,6 +44,22 @@ def test_worker_receipt_is_completed_unaccepted_and_package_distinct():
     assert first["worker"]["job_id"].startswith("stage-launch-")
     assert first["worker"]["job_id"] != second["worker"]["job_id"]
     assert first["package_manifest_sha256"] != second["package_manifest_sha256"]
+
+
+def test_worker_receipt_is_run_bound_and_rejected_across_runs():
+    first_state = sample_state()
+    first = adapter.stage_candidate(first_state)
+    second_state = deepcopy(first_state)
+    second_state["run_id"] = "run-two"
+    second = adapter.stage_candidate(second_state)
+
+    assert first["candidate_payload_sha256"] == second["candidate_payload_sha256"]
+    assert first["context_payload_sha256"] != second["context_payload_sha256"]
+    assert first["package_manifest_sha256"] != second["package_manifest_sha256"]
+    assert first["worker"]["job_id"] != second["worker"]["job_id"]
+    assert first["worker"]["output_sha256"] != second["worker"]["output_sha256"]
+    with pytest.raises(adapter.AdapterError, match="does not bind"):
+        adapter.evaluate_projection(second_state, first)
 
 
 def test_actual_degs_passes_a_fresh_clean_projection():

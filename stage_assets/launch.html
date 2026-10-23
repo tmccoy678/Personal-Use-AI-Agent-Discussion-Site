@@ -63,6 +63,30 @@
       </div>
     </section>
 
+    <section class="intake-screen" data-screen="intake" hidden aria-labelledby="intake-title">
+      <div class="intake-orbit" aria-hidden="true"><span></span><i></i><span></span></div>
+      <article class="intake-card">
+        <header>
+          <span class="eyebrow" data-intake-speaker>MISSION CONTROL</span>
+          <span class="intake-route-tag" data-intake-route-tag>GOVERNED ROUTE</span>
+        </header>
+        <div class="intake-copy">
+          <span>INCOMING AGENT TRANSMISSION</span>
+          <h1 id="intake-title">COPY <strong data-intake-candidate>A1</strong></h1>
+          <p data-intake-line>A NEW CANDIDATE IS WAITING AT THE GOVERNED BOUNDARY.</p>
+        </div>
+        <div class="intake-manifest">
+          <div><span>PACKET</span><strong data-intake-level>EASY</strong></div>
+          <div><span>ROUTE</span><strong data-intake-mode>DW + DEGS</strong></div>
+          <div><span>DIGEST</span><strong data-intake-hash>—</strong></div>
+        </div>
+        <div class="intake-path" data-intake-path aria-label="Delivery route">
+          <span>AGENT</span><i></i><span>CHECK BAY</span><i></i><span>HUMAN</span><i></i><span>VEHICLE</span>
+        </div>
+        <button class="intake-receive" type="button" data-intake-receive>RECEIVE AGENT COPY</button>
+      </article>
+    </section>
+
     <section class="control-room" data-screen="mission" hidden aria-label="Fictional launch control simulation">
       <div class="clock-rail">
         <div class="clock-cell">
@@ -112,7 +136,7 @@
               </dl>
             </article>
 
-            <article class="candidate-card" data-candidate-card>
+            <article class="candidate-card" data-candidate-card tabindex="-1">
               <div class="revision-strip">
                 <span>AGENT OUTPUT</span>
                 <strong data-candidate-label>A</strong>

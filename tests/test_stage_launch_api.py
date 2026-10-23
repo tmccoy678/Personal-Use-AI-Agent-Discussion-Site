@@ -41,6 +41,7 @@ def test_front_door_is_the_sparse_launch_game_and_classic_evidence_remains_avail
         page, _ = open_game(client)
         assert "CARRY THE STOP" in page.text
         assert "ELIZA · COLOSSUS · GUARDIAN TERMINAL" in page.text
+        assert "INCOMING AGENT TRANSMISSION" in page.text
         assert "CHOOSE THE CONTROL SYSTEM" in page.text
         assert "DOBEWORKS + DEGS" in page.text and "AGENT → HUMAN → VEHICLE" in page.text
         assert "HOW IT WORKS" not in page.text

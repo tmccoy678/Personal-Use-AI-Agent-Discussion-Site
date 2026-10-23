@@ -5,6 +5,7 @@
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const csrf = $('meta[name="stage-csrf"]').content;
   const selectScreen = $('[data-screen="select"]');
+  const intakeScreen = $('[data-screen="intake"]');
   const missionScreen = $('[data-screen="mission"]');
   let snapshot = null;
   let busy = false;
@@ -13,6 +14,7 @@
   let lastAutomaticLine = '';
   let choosing = false;
   let selectedMode = null;
+  let intakeRunId = null;
 
   function element(tag, className, text) {
     const node = document.createElement(tag);
@@ -93,7 +95,9 @@
       findingMode = null;
       lastAutomaticLine = '';
       choosing = false;
-      acceptSnapshot(await request('/api/launch/new', {difficulty, mode}));
+      const next = await request('/api/launch/new', {difficulty, mode});
+      intakeRunId = next.run.run_id;
+      acceptSnapshot(next);
     } catch (error) {
       addTerminal('CONTROL', error.message);
     } finally {
@@ -140,6 +144,8 @@
   function showSelection(mode = snapshot?.run?.mode || selectedMode) {
     choosing = true;
     selectedMode = mode;
+    document.body.dataset.route = selectedMode || '';
+    intakeScreen.hidden = true;
     missionScreen.hidden = true;
     selectScreen.hidden = false;
     $$('[data-mode-option]').forEach((button) => {
@@ -172,7 +178,30 @@
 
   function showMission() {
     selectScreen.hidden = true;
+    intakeScreen.hidden = true;
     missionScreen.hidden = false;
+  }
+
+  function showIntake(run) {
+    const candidate = run.candidates[run.candidate_id];
+    const direct = run.mode === 'direct';
+    const speakers = {easy: 'ELIZA', medium: 'COLOSSUS', hard: 'GUARDIAN'};
+    document.body.dataset.route = run.mode;
+    selectScreen.hidden = true;
+    missionScreen.hidden = true;
+    intakeScreen.hidden = false;
+    $('[data-intake-speaker]').textContent = speakers[run.difficulty];
+    $('[data-intake-route-tag]').textContent = direct ? 'DIRECT ROUTE' : 'GOVERNED ROUTE';
+    $('[data-intake-candidate]').textContent = shortCandidate(candidate.id);
+    $('[data-intake-line]').textContent = direct
+      ? 'A NEW CANDIDATE IS WAITING FOR HUMAN INSPECTION.'
+      : 'A NEW CANDIDATE IS WAITING AT THE GOVERNED BOUNDARY.';
+    $('[data-intake-level]').textContent = run.difficulty.toUpperCase();
+    $('[data-intake-mode]').textContent = direct ? 'DIRECT' : 'DW + DEGS';
+    $('[data-intake-hash]').textContent = shortHash(candidate.sha256);
+    $('[data-intake-path]').dataset.route = run.mode;
+    $('[data-intake-receive]').textContent = `RECEIVE AGENT COPY ${shortCandidate(candidate.id)}`;
+    $('[data-intake-receive]').focus();
   }
 
   function renderReference(run, packet) {
@@ -495,6 +524,11 @@
       showSelection();
       return;
     }
+    if (intakeRunId === run.run_id) {
+      showIntake(run);
+      return;
+    }
+    document.body.dataset.route = run.mode;
     showMission();
     renderReference(run, snapshot.packet);
     renderCandidate(run, snapshot.packet);
@@ -538,6 +572,11 @@
   $('[data-action="ignite"]').addEventListener('click', () => command('ignite'));
   $('[data-clock-hold]').addEventListener('click', () => command('hold'));
   $('[data-retry]').addEventListener('click', () => command('retry'));
+  $('[data-intake-receive]').addEventListener('click', () => {
+    intakeRunId = null;
+    render();
+    $('[data-candidate-card]').focus({preventScroll: true});
+  });
   $('[data-compare-mode]').addEventListener('click', () => start(snapshot.run.difficulty, snapshot.run.mode === 'governed' ? 'direct' : 'governed'));
   $('[data-change-difficulty]').addEventListener('click', () => showSelection());
   $('[data-terminal-form]').addEventListener('submit', async (event) => {

@@ -41,9 +41,7 @@ def _source_identity():
     return {name: item["commit"] for name, item in engines.items()}
 
 
-def stage_candidate(state):
-    """Run the frozen Worker on a package-distinct inventory for this candidate."""
-    candidate = deepcopy(_candidate(state))
+def _stage_material(state, candidate):
     candidate_payload_sha256 = _payload_digest(candidate)
     context = {
         "schema": "dobeworks.stage.launch-candidate.v1",
@@ -53,22 +51,36 @@ def stage_candidate(state):
         "candidate_payload_sha256": candidate_payload_sha256,
         "scope": "Fictional teaching-model candidate inventory; no vehicle execution or promotion.",
     }
+    context_payload_sha256 = _payload_digest(context)
     artifacts = {
         f"candidate/{candidate_payload_sha256}.json": encode(candidate),
-        f"context/{candidate_payload_sha256}.json": encode(context),
+        f"context/{context_payload_sha256}.json": encode(context),
     }
     package_manifest_sha256 = _payload_digest({name: digest(data) for name, data in artifacts.items()})
+    return candidate_payload_sha256, context_payload_sha256, artifacts, package_manifest_sha256
+
+
+def stage_candidate(state):
+    """Run the frozen Worker on a package-distinct inventory for this candidate."""
+    candidate = deepcopy(_candidate(state))
+    candidate_payload_sha256, context_payload_sha256, artifacts, package_manifest_sha256 = _stage_material(
+        state, candidate
+    )
+    job_id = f"stage-launch-{package_manifest_sha256[:20]}"
     with tempfile.TemporaryDirectory(prefix="stage-launch-worker-") as temporary:
         worker, worker_input, envelope = stage_inventory(
-            Path(temporary), artifacts, job_id=f"stage-launch-{candidate_payload_sha256[:20]}"
+            Path(temporary), artifacts, job_id=job_id
         )
     if worker.get("state") != "COMPLETED_UNACCEPTED" or worker.get("promotion") != "NOT_PERFORMED":
         raise AdapterError("DobeWorks did not return a completed unaccepted inventory")
     return {
         "schema": "dobeworks.stage.launch-worker-receipt.v1",
+        "run_id": state["run_id"],
+        "difficulty": state["difficulty"],
         "candidate_id": candidate["id"],
         "candidate_sha256": candidate.get("sha256"),
         "candidate_payload_sha256": candidate_payload_sha256,
+        "context_payload_sha256": context_payload_sha256,
         "package_manifest_sha256": package_manifest_sha256,
         "worker": worker,
         "worker_input": worker_input,
@@ -148,11 +160,20 @@ def evaluate_projection(state, staged):
     """Run DEGS on the exact current projection and retain an explicit binding."""
     candidate = deepcopy(_candidate(state))
     record = deepcopy(_record(state))
-    candidate_payload_sha256 = _payload_digest(candidate)
+    candidate_payload_sha256, context_payload_sha256, _, package_manifest_sha256 = _stage_material(
+        state, candidate
+    )
+    job_id = f"stage-launch-{package_manifest_sha256[:20]}"
     if (
-        staged.get("candidate_id") != candidate.get("id")
+        staged.get("run_id") != state.get("run_id")
+        or staged.get("difficulty") != state.get("difficulty")
+        or staged.get("candidate_id") != candidate.get("id")
         or staged.get("candidate_sha256") != candidate.get("sha256")
         or staged.get("candidate_payload_sha256") != candidate_payload_sha256
+        or staged.get("context_payload_sha256") != context_payload_sha256
+        or staged.get("package_manifest_sha256") != package_manifest_sha256
+        or staged.get("worker", {}).get("job_id") != job_id
+        or staged.get("worker_envelope", {}).get("job_id") != job_id
         or staged.get("worker", {}).get("state") != "COMPLETED_UNACCEPTED"
         or staged.get("worker", {}).get("promotion") != "NOT_PERFORMED"
     ):
