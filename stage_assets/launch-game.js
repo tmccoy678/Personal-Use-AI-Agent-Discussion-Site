@@ -600,6 +600,11 @@
     const monitor = $('[data-flight-monitor]');
     const rocket = $('[data-rocket]');
     const flight = run.flight;
+    const monitorHeight = monitor.clientHeight || 500;
+    const bottom = Number.parseFloat(getComputedStyle(rocket).bottom) || 0;
+    const label = $('[data-monitor-event]');
+    const headroom = label.offsetTop + label.offsetHeight + 8;
+    const verticalTravel = Math.min(365, Math.max(0, monitorHeight - bottom - rocket.offsetHeight - headroom));
     let state = 'pad';
     let event = 'THRUSTERS COLD';
     let x = 0;
@@ -610,7 +615,7 @@
     } else if (flight) {
       state = run.phase === 'RANGE_ABORT' ? 'abort' : run.phase === 'COMPLETE' ? 'complete' : 'flight';
       x = Math.max(-145, Math.min(145, flight.x_cm / 500 * 130));
-      y = Math.min(365, flight.t * 3.65);
+      y = Math.min(1, flight.t / 100) * verticalTravel;
       const latest = flight.events.at(-1);
       event = flight.t === 70 ? 'MAX Q · AUTHORED PROFILE CALL' : latest ? `${latest.event} · T+${String(latest.t).padStart(3, '0')}` : `ASCENT · T+${String(flight.t).padStart(3, '0')}`;
     } else if (run.outcome) {
@@ -628,7 +633,7 @@
       const residual = launchResidual(run);
       for (let t = 5; t <= flight.t; t += 5) {
         const pathX = Math.max(55, Math.min(345, 200 + residual * Math.min(40, Math.max(0, t - 20)) / 500 * 130));
-        points.push([pathX, Math.max(70, 465 - t * 3.65)]);
+        points.push([pathX, Math.max(70, 465 - t / 100 * verticalTravel / monitorHeight * 500)]);
       }
     }
     $('[data-flight-path]').setAttribute('points', points.map((point) => point.join(',')).join(' '));
