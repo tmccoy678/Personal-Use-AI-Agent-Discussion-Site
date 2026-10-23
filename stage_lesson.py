@@ -80,7 +80,7 @@ def render(state, voice, reply, question, extra=""):
                     + form("lesson-mission", "OPEN THE ADVANCED EVIDENCE WALKTHROUGH", True) + '</div>')
     lesson_step = "3 / 3 · ACCEPTED" if accepted else "2 / 3 · CORRECTED" if fixed else "1 / 3 · HELD" if check else "A SHORT INTERACTIVE DEMO"
     return ('''<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'''
-        f'<title>{document_title}</title><link rel="stylesheet" href="/stage.css"></head><body><main>'
+        f'<title>{document_title}</title><link rel="icon" type="image/jpeg" href="/dobeworks-logo-7cfd562d0370.jpg"><link rel="stylesheet" href="/stage.css"></head><body><main>'
         '<header><div class="wordmark">D O B E W O R K S</div>'
         f'<div class="voice">“{escape(voice["text"])}”</div><div class="attribution">{escape(voice["attribution"])}</div></header>'
         f'<p class="station">MISSION 001 · THE HANDOFF · {lesson_step}</p>'
@@ -107,7 +107,7 @@ def render(state, voice, reply, question, extra=""):
         'The Worker result remains COMPLETED_UNACCEPTED and unpromoted. The final step records visitor acceptance within this public simulation.</p>'
         '<p>The comparison uses the same candidate and the real gate, changing only the warning field in a separate read-only evaluation. It performs no execution or promotion.</p>'
         '<p><a href="/evidence">RECORDED INPUTS &amp; OUTPUTS</a> · <a href="/package">INSPECT THE NOTE AND CONTEXT</a> · <a href="/sources">FROZEN SOURCE IDENTITIES</a></p></details>' + extra +
-        '<footer>REAL FROZEN COMPONENTS · SIMULATED ACCEPTANCE · NO MODEL CALLS<br>'
+        '<footer><img class="footer-logo" src="/dobeworks-logo-7cfd562d0370.jpg" alt="DobeWorks logo — Marie surrounded by hearts" width="80" height="80" loading="lazy">REAL FROZEN COMPONENTS · SIMULATED ACCEPTANCE · NO MODEL CALLS<br>'
         '<a href="https://doi.org/10.1145/365153.365168">ELIZA, WEIZENBAUM 1966</a> · '
         '<a href="https://catalog.afi.com/Film/23505-THE-FORBIN-PROJECT">COLOSSUS: THE FORBIN PROJECT, 1970</a><br>'
         '<a href="https://dobeworks.com">DOBEWORKS</a> · <a href="https://lab.dobeworks.com">LAB</a></footer></main></body></html>')

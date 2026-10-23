@@ -747,9 +747,9 @@ async def program(state, command):
 @app.middleware("http")
 async def headers(request, call_next):
     response = await call_next(request)
-    response.headers.update({"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
+    response.headers.update({"Cache-Control": "public, max-age=31536000, immutable" if request.url.path == "/dobeworks-logo-7cfd562d0370.jpg" else "no-store", "X-Content-Type-Options": "nosniff",
         "Referrer-Policy": "same-origin", "X-Frame-Options": "DENY",
-        "Content-Security-Policy": "default-src 'none'; style-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"})
+        "Content-Security-Policy": "default-src 'none'; style-src 'self'; img-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"})
     return response
 
 
@@ -765,6 +765,11 @@ async def home(request: Request):
 @app.get("/stage.css")
 async def css():
     return Response((ROOT / "stage_assets/stage.css").read_text(), media_type="text/css")
+
+
+@app.get("/dobeworks-logo-7cfd562d0370.jpg")
+async def logo():
+    return Response((ROOT / "stage_assets/dobeworks-logo.jpg").read_bytes(), media_type="image/jpeg")
 
 
 @app.post("/")

@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>DobeWorks · Mission Stage</title><link rel="stylesheet" href="/stage.css"></head>
+<title>DobeWorks · Mission Stage</title><link rel="icon" type="image/jpeg" href="/dobeworks-logo-7cfd562d0370.jpg"><link rel="stylesheet" href="/stage.css"></head>
 <body><main>
 <p class="station">┌─ SOFTWARE / TELEMETRY DESK ─ MISSION 001 ─┐</p>
 <header><div class="wordmark">D O B E W O R K S</div><div class="voice">{{quote}}</div><div class="attribution">{{attribution}}</div></header>
@@ -12,7 +12,7 @@
 <form action="/" method="post"><input type="hidden" name="csrf" value="{{csrf}}"><label class="scenario">MISSION PACKET <select name="scenario">{{options}}</select></label>
 <div class="programs">{{programs}}<button class="reset" name="command" value="00">00  RESET INTERFACE</button></div></form>
 <section class="output" aria-label="Program results"><h2>{{title}}</h2><pre class="result" aria-live="polite">{{result}}</pre>{{details}}</section>
-</section><aside aria-label="Fictional mission"><h1>MISSION 001</h1>{{mission_progress}}<div class="mission-board"><div class="launch-display"><pre class="rocket {{flight_class}}" aria-label="Simple text rocket">
+</section><aside aria-label="Fictional mission"><h1>MISSION 001</h1>{{mission_progress}}<div class="mission-board"><div class="launch-display"><pre class="rocket {{flight_class}}" aria-label="Text rocket carrying the DobeWorks logo">
          /\
         /  \
        /    \
@@ -23,7 +23,7 @@
       /|    |\
      /_|____|_\
         /__\
-</pre><svg class="launch-plume" viewBox="0 0 90 38" aria-hidden="true" focusable="false"><path d="M33 2 27 16 34 12 39 34 45 19 51 34 56 12 63 16 57 2M40 3 45 13 50 3"/></svg><p class="pad">──────────────────<br>{{flight_label}}</p>
+<img class="rocket-logo" src="/dobeworks-logo-7cfd562d0370.jpg" alt="DobeWorks logo" width="40" height="40"></pre><svg class="launch-plume" viewBox="0 0 90 38" aria-hidden="true" focusable="false"><path d="M33 2 27 16 34 12 39 34 45 19 51 34 56 12 63 16 57 2M40 3 45 13 50 3"/></svg><p class="pad">──────────────────<br>{{flight_label}}</p>
 <figure class="handoff-signal signal-{{signal_phase}}">
 <svg class="signal-diagram" viewBox="0 0 240 70" aria-hidden="true" focusable="false">
 <path class="signal-route" d="M40 38H220M213 33l7 5-7 5"/>
@@ -49,7 +49,7 @@
 <pre class="desk" aria-hidden="true">└──────────────────────────┬───────────────────┬──────────────────────────┘
                            │                   │
                            │                   │</pre>
-<footer>FICTIONAL MISSION · REAL PUBLIC CODE · NO LAUNCH AUTHORITY<br>
+<footer><img class="footer-logo" src="/dobeworks-logo-7cfd562d0370.jpg" alt="DobeWorks logo — Marie surrounded by hearts" width="80" height="80" loading="lazy">FICTIONAL MISSION · REAL PUBLIC CODE · NO LAUNCH AUTHORITY<br>
 RULE-BASED DIALOGUE · NO MODEL CALLS · NO CHAT HISTORY STORED<br>
 <a href="https://doi.org/10.1145/365153.365168">ELIZA, WEIZENBAUM 1966</a> · <a href="https://catalog.afi.com/Film/23505-THE-FORBIN-PROJECT">COLOSSUS: THE FORBIN PROJECT, 1970</a><br>
 <a href="/source/nasa-license">NASA/JPL F´ LICENSE</a> · <a href="/source/license">EXHIBIT LICENSE</a> · <a href="https://dobeworks.com">DOBEWORKS</a> · <a href="https://lab.dobeworks.com">LAB</a></footer>
