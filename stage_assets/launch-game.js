@@ -200,6 +200,9 @@
     $('[data-intake-mode]').textContent = direct ? 'DIRECT' : 'DW + DEGS';
     $('[data-intake-hash]').textContent = shortHash(candidate.sha256);
     $('[data-intake-path]').dataset.route = run.mode;
+    $('[data-intake-path]').setAttribute('aria-label', direct
+      ? 'Agent to human to vehicle'
+      : 'Agent to check bay to human to vehicle');
     $('[data-intake-receive]').textContent = `RECEIVE AGENT COPY ${shortCandidate(candidate.id)}`;
     $('[data-intake-receive]').focus();
   }
