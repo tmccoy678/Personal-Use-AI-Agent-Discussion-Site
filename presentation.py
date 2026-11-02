@@ -20,6 +20,9 @@ def page(title, content, *, public=False, refresh_seconds=None, stream=False):
                     f'<span class="terminal-label">{label}</span>')
     footer = '<a href="/references">References &amp; licenses</a>' if stream else (
                   f'{guide} · <a href="/references">References &amp; licenses</a>')
+    public_tabs = ('''<nav class="public-tabs" aria-label="DobeWorks public pages">
+        <a href="/window" aria-current="page">LIVE STREAM</a>
+        <a href="/backspace">BACKSPACE GATE</a></nav>''' if stream else "")
     return HTMLResponse(f'''<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -30,6 +33,6 @@ def page(title, content, *, public=False, refresh_seconds=None, stream=False):
 <div class="terminal{' stream-terminal' if stream else ''}"><header class="masthead">
 <a class="brand" href="{home}"><span class="brand-mark" aria-hidden="true">/</span> DOBEWORKS</a>
 {entrance}</header>
-<main id="main">{heading}{content}</main>
+{public_tabs}<main id="main">{heading}{content}</main>
 <footer class="footer"><p>{footer}</p></footer>
 </div></body></html>''')

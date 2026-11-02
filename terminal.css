@@ -87,6 +87,9 @@ summary { color: var(--blue); cursor: pointer; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .stream-terminal { max-width: 820px; }
 .stream-terminal .masthead { flex-wrap: wrap; gap: 10px 24px; }
+.public-tabs { display: flex; gap: 8px; padding: 16px 0; margin: 0; border-bottom: 1px solid var(--line); }
+.public-tabs a { border: 1px solid var(--line); padding: 5px 10px; margin: 0; font-size: 12px; text-decoration: none; }
+.public-tabs a[aria-current="page"] { border-color: var(--blue); color: var(--bright); background: #142536; }
 .stream-login { font-size: 12px; color: var(--muted); }
 .stream-login a { display: inline-block; padding: 8px 0; }
 .stream-terminal main { padding-top: 0; }

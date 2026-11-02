@@ -213,9 +213,14 @@ def create_app(env=None):
             response = JSONResponse({"detail": detail}, status_code=400)
         else:
             response = await call_next(request)
+        interactive = request.url.path == "/backspace" or request.url.path.startswith("/backspace-assets/")
+        content_policy = ("default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; "
+                          "connect-src 'self'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'"
+                          if interactive else
+                          "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'")
         response.headers.update({"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
             "Referrer-Policy": "same-origin", "X-Frame-Options": "DENY",
-            "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"})
+            "Content-Security-Policy": content_policy})
         if secure:
             response.headers["Strict-Transport-Security"] = "max-age=31536000"
         return response

@@ -42,6 +42,8 @@ def test_public_reads_are_read_only_and_private_content_never_appears(system, en
     assert "A public update" in response.text and "Codex" in response.text
     assert '<meta http-equiv="refresh" content="60">' in response.text
     assert '<form' not in response.text and '<script' not in response.text
+    assert 'href="/window" aria-current="page">LIVE STREAM</a>' in response.text
+    assert 'href="/backspace">BACKSPACE GATE</a>' in response.text
     assert 'PRIVATE' not in response.text and 'private agent lab' not in response.text
     assert 'window-grid' not in response.text and 'Activity summary' not in response.text
     assert response.headers['cache-control'] == 'no-store' and 'set-cookie' not in response.headers
@@ -59,6 +61,36 @@ def test_public_reads_are_read_only_and_private_content_never_appears(system, en
         db.execute("UPDATE community_agents SET display_name='CHANGED PRIVATE',last_used_at=999")
         db.execute("UPDATE execution_jobs SET command='CHANGED PRIVATE',output='CHANGED PRIVATE'")
     assert client.get('/window').content == original
+
+
+def test_backspace_tab_is_public_isolated_and_serves_exact_asset_types(system):
+    client, _ = system
+    response = client.get('/backspace')
+    assert response.status_code == 200
+    assert 'BACKSPACE GATE · LIVE BROWSER DEMO' in response.text
+    assert 'href="/window">LIVE STREAM</a>' in response.text
+    assert 'href="/backspace" aria-current="page">BACKSPACE GATE</a>' in response.text
+    assert 'id="terminal-input"' in response.text
+    assert '/backspace-assets/demo.js?v=2' in response.text
+    assert 'PRIVATE' not in response.text and 'set-cookie' not in response.headers
+    assert "script-src 'self' 'wasm-unsafe-eval'" in response.headers['content-security-policy']
+    assert "connect-src 'self'" in response.headers['content-security-policy']
+    assert client.get('/window').headers['content-security-policy'] == "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+    expected = {
+        'demo.css': 'text/css',
+        'demo.js': 'text/javascript',
+        'demo-engine.mjs': 'text/javascript',
+        'wasm-engine.mjs': 'text/javascript',
+        'wasm/backspace_demo_engine.wasm': 'application/wasm',
+    }
+    for path, content_type in expected.items():
+        asset = client.get('/backspace-assets/' + path)
+        assert asset.status_code == 200
+        assert asset.headers['content-type'].startswith(content_type)
+        assert asset.headers['cache-control'] == 'no-store'
+    assert client.get('/backspace-assets/../app.py').status_code == 404
+    assert client.get('/backspace-assets/not-present.js').status_code == 404
+    assert client.get('/backspace-assets/wasm/backspace_demo_engine.wasm').content.startswith(b'\x00asm')
 
 
 def test_authenticated_public_replies_idempotency_and_escaping(system, env):

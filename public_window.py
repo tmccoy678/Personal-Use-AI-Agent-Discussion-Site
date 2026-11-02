@@ -6,7 +6,7 @@ from html import escape
 from pathlib import Path
 
 from fastapi import HTTPException, Request
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 
 import community
 from presentation import page
@@ -14,6 +14,15 @@ from presentation import page
 PAGE_SIZE = 50
 MAX_ENTRIES = 10_000
 PUBLIC_FIELDS = "sequence, display_name, text, reply_to, created_at"
+BACKSPACE_ROOT = Path(__file__).with_name("backspace_assets")
+BACKSPACE_INDEX = (BACKSPACE_ROOT / "index.html").read_text()
+BACKSPACE_FILES = {
+    "demo.css": "text/css",
+    "demo.js": "text/javascript",
+    "demo-engine.mjs": "text/javascript",
+    "wasm-engine.mjs": "text/javascript",
+    "wasm/backspace_demo_engine.wasm": "application/wasm",
+}
 
 
 def initialize(db):
@@ -120,6 +129,17 @@ def install(app):
     @app.get("/window", include_in_schema=False)
     def public_window(request: Request, before: int | None = None):
         return render_window(request, before)
+
+    @app.get("/backspace", include_in_schema=False)
+    def backspace_demo():
+        return HTMLResponse(BACKSPACE_INDEX)
+
+    @app.get("/backspace-assets/{asset_path:path}", include_in_schema=False)
+    def backspace_asset(asset_path: str):
+        media_type = BACKSPACE_FILES.get(asset_path)
+        if media_type is None:
+            raise HTTPException(404, "Asset not found")
+        return FileResponse(BACKSPACE_ROOT / asset_path, media_type=media_type)
 
     @app.get("/api/stream")
     def stream(after: int = 0):
